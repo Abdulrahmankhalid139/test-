@@ -204,7 +204,7 @@
 
   <div class="btns">
     <button class="btn" id="open">افتح الشنطة</button>
-    <button class="btn" id="spin">إيقاف اللف</button>
+    <button class="btn" id="spin">تشغيل اللف</button>
   </div>
 
   <div class="btns">
@@ -333,14 +333,21 @@ camera.position.set(13.5, 16.5, 54);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 8.6, 0);
 controls.enableDamping = true;
-controls.dampingFactor = 0.06;
+controls.dampingFactor = 0.12;    // بيتحسب كل فريم في tick() — الرقم ده مبدئي بس
 controls.minDistance = 30;
 controls.maxDistance = 110;
 controls.maxPolarAngle = Math.PI * 0.52;
 controls.minPolarAngle = Math.PI * 0.10;
 controls.enablePan = false;
-controls.autoRotate = true;
 controls.autoRotateSpeed = 0.75;
+
+/* اللف التلقائي مقفول من الأول: اللي بيفتح الصفحة عايز يلف الشنطة بإيده،
+   ولفة شغالة في الخلفية بتسحب المشهد بعيد عن الزاوية اللي وقف عندها.
+   ولو شغّلها بنفسه، أول لمسة بتوقفها — من غير كده الاتنين بيتخانقوا. */
+controls.autoRotate = false;
+controls.addEventListener('start', () => {
+  if (controls.autoRotate) stopSpin();
+});
 
 /* الإضاءة: بيئة أوضة استوديو (جوّه three.js نفسها — مفيش أي ملف بيتحمّل)
    + كي لايت بظل ناعم عشان الشنطة تبقى قاعدة على الأرض مش طايرة. */
@@ -1130,12 +1137,13 @@ function updateExplode(dt){
    7. أزرار، حفظ الحالة في اللينك، والحلقة
    =========================================================================== */
 const spinBtn = $('#spin');
-spinBtn.classList.add('on');
-spinBtn.onclick = () => {
-  controls.autoRotate = !controls.autoRotate;
+function paintSpin(){
   spinBtn.classList.toggle('on', controls.autoRotate);
   spinBtn.textContent = controls.autoRotate ? 'إيقاف اللف' : 'تشغيل اللف';
-};
+}
+function stopSpin(){ controls.autoRotate = false; paintSpin(); }
+spinBtn.onclick = () => { controls.autoRotate = !controls.autoRotate; paintSpin(); };
+paintSpin();
 
 const openBtn = $('#open');
 openBtn.onclick = () => {
@@ -1248,6 +1256,11 @@ let idle = 0;
 function tick(){
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), 0.1);   // سقف بيمنع القفزة بعد ما التاب يرجع
+
+  /* OrbitControls بيقلّل العطالة بنسبة ثابتة كل فريم، يعني الانزلاق بعد ما
+     تسيب الماوس بيطول على الأجهزة البطيئة ويقصر على السريعة. بنحوّل النسبة
+     لثابت زمني، فالانزلاق بياخد نفس المدة على أي جهاز. */
+  controls.dampingFactor = 1 - Math.exp(-dt * 12);
   controls.update(dt);
   updateExplode(dt);
   renderer.render(scene, camera);
