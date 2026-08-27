@@ -280,9 +280,11 @@ const SLANT = (B.wBot - B.wTop) / 2 / B.h;
 /** نصف عرض الجسم عند ارتفاع معيّن */
 const halfAt = (y) => B.wBot / 2 - SLANT * y;
 
-const FLAP_DROP  = 6.5;   // الفلاب بينزل قد إيه على الوش
-const FLAP_OVER  = 0.35;  // بيزيد عن الجسم من الجنب
-const FOLD_R     = 1.25;  // نصف قطر الطية اللي فوق
+const FLAP_DROP  = 5.6;   // اللوح الأمامي بينزل قد إيه على الوش
+const FLAP_OVER  = 0.85;  // الفلاب بيزيد عن الجسم من الجنب
+const FLAP_TH    = 0.62;  // سماكة جلد الفلاب
+const LID_ZF     = 7.0/2 + 0.62;   // حرف الغطا الأمامي
+const LID_ZB     = -7.0/2 - 0.12;  // حرف الغطا الخلفي
 
 /* ===========================================================================
    1. المسرح — كاميرا عدسة طويلة زي تصوير المنتجات، وإضاءة استوديو.
@@ -556,33 +558,14 @@ function extrudeCentered(shape, depth, bevel = 0.18, curveSeg = 22){
   return geo;
 }
 
-/**
- * الطية: بيلوي كل نقطة فوق foldY للخلف حوالين محور أفقي.
- * ده اللي بيخلي الفلاب قطعة واحدة متصلة — بينزل على الوش، يلف فوق، ويكمل لورا.
- * من غيره الفلاب بيبقى تلات قطع ملزوقة وباين إنها ملزوقة.
+/*
+ * ملحوظة على طريقة كانت هنا واتشالت: كنت بلوي نقط وش مبثوق عشان الغطا
+ * يبقى قطعة واحدة متصلة مع اللوح الأمامي. المشكلة إن ExtrudeGeometry
+ * بيثلّث الوش من نقط الحد بس — مفيش ولا نقطة جوّه الوش. فلَيّ النقط كان
+ * بيمطّط مثلثات طويلة بتربط حرف الوش بحرف الضهر في الهوا، والنتيجة سطح
+ * شادّ مايل بفتحات مثلثة على الجنبين، مش غطا. الغطا دلوقتي مبني من مقطعه
+ * الجانبي مبثوقاً على العرض: الانحناء جاي من الشكل نفسه، فمفيش لَيّ أصلاً.
  */
-function foldOver(geo, foldY, radius){
-  const pos = geo.attributes.position;
-  const quarter = radius * Math.PI / 2;
-  for (let i = 0; i < pos.count; i++){
-    const y = pos.getY(i);
-    if (y <= foldY) continue;
-    const z = pos.getZ(i);
-    const s = y - foldY;                        // المسافة على سطح الجلد
-    if (s <= quarter){
-      const a = s / radius;                     // زاوية اللف
-      pos.setY(i, foldY + radius * Math.sin(a) - z * Math.sin(a));
-      pos.setZ(i, z * Math.cos(a) - radius * (1 - Math.cos(a)));
-    } else {
-      const extra = s - quarter;                // بعد ربع الدورة بيكمل أفقي
-      pos.setY(i, foldY + radius - z);
-      pos.setZ(i, -radius - extra);
-    }
-  }
-  pos.needsUpdate = true;
-  geo.computeVertexNormals();
-  return geo;
-}
 
 /**
  * إزاحة مضلّع لجوّه بمقدار d — مسار الخياطة.
@@ -616,11 +599,14 @@ function insetPolygon(pts, d){
  * تقويس أفقي: بيرجّع أطراف القطعة لورا بحيث تلف حوالين جنب الشنطة المدوّر.
  * من غيره الفلاب بيبقى لوح مسطّح طايح على وش مقوّس، وبيبان غلط فوراً.
  */
-function barrel(geo, halfWidth, amount){
+function barrel(geo, halfWidth, amount, fadeFrom = 0, fadeSpan = 1e9){
   const pos = geo.attributes.position;
   for (let i=0;i<pos.count;i++){
     const t = Math.min(1, Math.abs(pos.getX(i)) / halfWidth);
-    pos.setZ(i, pos.getZ(i) - amount * t * t);
+    /* التقويس بيلزم الجزء اللي نازل على الوش بس. لو كمّل على الجزء اللي
+       بيتطوي فوق، بيبقى مقعّر وأضيق من فتحة الشنطة وبيسيب خرم على الجنبين. */
+    const fade = Math.min(1, Math.max(0, (fadeFrom - pos.getY(i)) / fadeSpan));
+    pos.setZ(i, pos.getZ(i) - amount * t * t * fade);
   }
   pos.needsUpdate = true;
   return geo;
@@ -739,30 +725,43 @@ const PANEL = 0.62;                 // سماكة اللوح الأمامي/ال
 
 /* ---- 4.2 الفلاب: الحرف المسنّن المميّز، وقطعة واحدة بتلف فوق ---- */
 const flapGroup = definePart('flap','Flap','leather',leatherFlap, new THREE.Vector3(0, 8.5, 4));
+const FLAP_HW = B.wTop/2 + FLAP_OVER;
+const FLAP_BARREL = 0.72;
+const FLAP_TOP_Y = B.h - 0.12;                      // وش الغطا بيقعد على حرف الشنطة
+
+/* حرف اللوح الأمامي المسنّن — العلامة المميزة للشكل ده */
 const FLAP_PTS = (() => {
-  const yTop  = B.d + FOLD_R * 0.9;                 // امتداد بيلف على ضهر الشنطة
-  const hwTop = B.wTop/2 + FLAP_OVER;
-  const hwOut = halfAt(B.h - 5.1) + FLAP_OVER;      // نص العرض عند حرف اللسان الجانبي
+  const hwOut = halfAt(B.h - 5.1) + FLAP_OVER;      // نص العرض عند اللسان الجانبي
   const hwIn  = 7.55;                               // مكان الخطوة (السنّة)
-  const yOut  = -5.1, yIn = -FLAP_DROP;
+  const yTop  = 0.30, yOut = -4.4, yIn = -FLAP_DROP;
   return [
-    V2(-hwTop, yTop), V2(hwTop, yTop),              // فوق (اللي هيتلوى لورا)
+    V2(-FLAP_HW, yTop), V2(FLAP_HW, yTop),          // الحرف العلوي (بيدخل تحت الغطا)
     V2( hwOut, yOut),                               // نازل على الوش من اليمين
     V2( hwIn,  yOut), V2( hwIn,  yIn),              // السنّة اليمين
     V2(-hwIn,  yIn),  V2(-hwIn,  yOut),             // الحرف السفلي ثم سنّة الشمال
     V2(-hwOut, yOut),
   ];
 })();
-const FLAP_HW = halfAt(B.h) + FLAP_OVER;
-const FLAP_BARREL = 0.72;
+
 {
-  const shape = roundedShape(FLAP_PTS, [.5,.5, .55, .30,.42, .42,.30, .55]);
-  const geo = extrudeCentered(shape, 0.62, 0.17, 24);
-  barrel(geo, FLAP_HW, FLAP_BARREL);   // يلف على جنب الشنطة المدوّر
-  foldOver(geo, 0, FOLD_R);            // ثم يطوي فوق — بالترتيب ده بيفضل قطعة واحدة
-  geo.computeVertexNormals();
-  geo.translate(0, B.h - 0.02, B.d/2 + 0.33);
-  add(flapGroup, geo, leatherFlap);
+  /* (أ) الغطا العلوي — مقطعه الجانبي مبثوقاً على العرض.
+     الشكل هنا في مستوى (z, y)، وبعدين بنلفّه ليمتد على المحور X. */
+  const prof = roundedShape([
+    V2(LID_ZB,  FLAP_TH/2), V2(LID_ZF,  FLAP_TH/2),
+    V2(LID_ZF, -FLAP_TH/2), V2(LID_ZB, -FLAP_TH/2),
+  ], [0.14, FLAP_TH*0.46, FLAP_TH*0.46, 0.14]);
+  const lid = extrudeCentered(prof, FLAP_HW * 2, 0.20, 20);
+  lid.rotateY(-Math.PI/2);                          // محور البثق يبقى العرض
+  lid.translate(0, FLAP_TOP_Y - FLAP_TH/2, 0);
+  add(flapGroup, lid, leatherFlap);
+
+  /* (ب) اللوح الأمامي — بيتعلّق من تحت حرف الغطا الأمامي */
+  const front = extrudeCentered(roundedShape(FLAP_PTS, [.5,.5, .55, .30,.42, .42,.30, .55]),
+                                FLAP_TH, 0.17, 24);
+  barrel(front, FLAP_HW, FLAP_BARREL, -0.5, 2.4);   // يلف على جنب الشنطة المدوّر
+  front.computeVertexNormals();
+  front.translate(0, FLAP_TOP_Y - FLAP_TH/2, LID_ZF - FLAP_TH/2);
+  add(flapGroup, front, leatherFlap);
 }
 
 /* ---- 4.3 حرف المظروف: الحرف على شكل V تحت الفلاب ---- */
@@ -816,7 +815,7 @@ const platesGroup = definePart('plates','V-plates','metal',metalMain, new THREE.
 /* ---- 4.5 القفل الدوّار على الفلاب ---- */
 const lockGroup = definePart('lock','Turn lock','metal',metalLock, new THREE.Vector3(13, 9.5, 6));
 {
-  const LY = B.h - 3.30, LZ = B.d/2 + 0.75;   // الوش الخلفي بيلمس الفلاب بالظبط
+  const LY = FLAP_TOP_Y - 3.15, LZ = LID_ZF + 0.13;   // الوش الخلفي بيلمس الفلاب بالظبط
   const plate = roundedShape([V2(-2.35,-.92), V2(2.35,-.92), V2(2.35,.92), V2(-2.35,.92)], .34);
   const pg = extrudeCentered(plate, .26, .075, 14);
   const p = add(lockGroup, pg, metalLock);
@@ -859,8 +858,8 @@ const HANDLE_X = 5.55;
     new THREE.Vector3( HANDLE_X, y0 - 0.55, 0.55),
   ], false, 'catmullrom', 0.35);
 
-  const geo = new THREE.TubeGeometry(curve, 128, 0.37, 14, false);
-  geo.scale(1, 1, 0.60);                 // تبطيط: مقطع بيضاوي زي اليد الحقيقية
+  const geo = new THREE.TubeGeometry(curve, 128, 0.46, 16, false);
+  geo.scale(1, 1, 0.44);                 // تبطيط: مقطع بيضاوي زي اليد الحقيقية
   geo.computeVertexNormals();
   add(handleGroup, geo, leatherHndl);
 }
@@ -868,16 +867,14 @@ const HANDLE_X = 5.55;
 /* ---- 4.7 حلقات اليد الذهب + لسان الجلد ---- */
 const linksGroup = definePart('links','Handle rings','metal',metalLinks, new THREE.Vector3(-13, 9.5, 4));
 {
-  /* حلقة مستطيلة مفرّغة، مش طارة — الطارة كانت بتقرأ كقرص مسطّح */
-  const ringOut = roundedShape([V2(-.80,-.62), V2(.80,-.62), V2(.80,.62), V2(-.80,.62)], .34);
-  const ringIn  = roundedShape([V2(-.50,-.33), V2(.50,-.33), V2(.50,.33), V2(-.50,.33)], .20);
-  ringOut.holes.push(new THREE.Path(ringIn.getPoints(28).reverse()));
-  const ringGeo = extrudeCentered(ringOut, 0.30, 0.09, 18);
+  /* حلقات دايرية كاملة، مستوية في مستوى اليد — دي اللي في الشنطة الحقيقية.
+     جرّبت طارة ناقصة قبل كده فبانت كقرص، والمستطيلة كانت أبعد عن الأصل. */
+  const ringGeo = new THREE.TorusGeometry(0.62, 0.155, 14, 36);
 
   for (const side of [-1, 1]){
     const r = new THREE.Mesh(ringGeo, metalLinks);
-    r.position.set(side * HANDLE_X, B.h + 0.18, 0.50);
-    r.rotation.set(0, Math.PI/2, side * 0.22);
+    r.position.set(side * HANDLE_X, B.h + 0.30, 0.42);
+    r.rotation.set(0, Math.PI/2, 0);      // مستوى الحلقة = مستوى اليد
     r.castShadow = true;
     linksGroup.add(r);
 
@@ -906,12 +903,14 @@ const stitchGroup = definePart('stitch','Stitching','stitch',STITCH_MAT, new THR
        خط مستعرض على وش الفلاب مش موجود في الشنطة الحقيقية.
      - الـ z بيتحسب لكل غرزة على حدة عشان تمشي على التقويس مش تخترقه. */
   const bottom = FLAP_PTS.filter(p => p.y <= 0.01);        // من اليمين للشمال
-  const closed = [ V2(-FLAP_HW, 0.35), V2(FLAP_HW, 0.35), ...bottom ];
+  const closed = [ V2(-FLAP_HW, 0.30), V2(FLAP_HW, 0.30), ...bottom ];
   const inset  = insetPolygon(closed, 0.34).slice(2);      // من غير الحرف العلوي
-  const zFlapFace = B.d/2 + 0.33 + 0.31;
+  const zFlapFace = LID_ZF + 0.04;
+  const fade = y => Math.min(1, Math.max(0, (-0.5 - y) / 2.4));   // نفس تخفيف barrel
   stitchGroup.add(stitchLine(
-    inset.map(p => V2(p.x, p.y + B.h - 0.02)),
-    p => zFlapFace + 0.04 - FLAP_BARREL * Math.min(1, Math.abs(p.x)/FLAP_HW) ** 2,
+    inset.map(p => V2(p.x, p.y + FLAP_TOP_Y - FLAP_TH/2)),
+    p => zFlapFace
+         - FLAP_BARREL * Math.min(1, Math.abs(p.x)/FLAP_HW) ** 2 * fade(p.y),
     { spacing:.50, len:.19, rad:.032, closed:false }
   ));
 }
