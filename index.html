@@ -1157,31 +1157,60 @@ Object.entries(STUDIOS).forEach(([id, S]) => {
   $('#studios').appendChild(b);
 });
 
-/* تنزيل الموديل: GLB بيتولّد في المتصفح من غير أي سيرفر. يتفتح في
-   Blender أو أي عارض ثلاثي الأبعاد. ملحوظة: glTF مالوش خريطة نتوءات،
-   فحبيبات الجلد مش بتتصدّر — الشكل والألوان والخامات بتتصدّر عادي. */
-const glbBtn = $('#glb');
-glbBtn.onclick = () => {
-  const was = glbBtn.textContent;
-  glbBtn.textContent = 'بيتجهّز…'; glbBtn.disabled = true;
-  const done = () => { glbBtn.textContent = was; glbBtn.disabled = false; };
-  new GLTFExporter().parse(bag, (buf) => {
-    const url = URL.createObjectURL(new Blob([buf], { type:'model/gltf-binary' }));
-    const a = document.createElement('a');
-    a.href = url; a.download = 'my-bag.glb'; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    done();
-  }, () => { glbBtn.textContent = 'مقدرش يصدّر'; setTimeout(done, 2200); },
-     { binary:true });
-};
+/* حفظ الملفات.
+   الصفحة بتشتغل في مكانين بقواعد مختلفة: مفتوحة عادي في المتصفح
+   (رابط تنزيل عادي)، أو منشورة كـ Artifact — وهناك التنزيل المباشر
+   ممنوع تماماً وبيعدّي عن طريق إذن العارض بس. */
+let saver = null;
+if (window.claude?.use){
+  window.claude.use('downloads').then(d => { saver = d; }).catch(() => {});
+}
 
-$('#shot').onclick = () => {
-  renderer.render(scene, camera);
+async function saveFile(filename, data){
+  if (saver){ await saver.save({ filename, data }); return; }
+  const blob = data instanceof Blob ? data : new Blob([data]);
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.download = 'my-bag.png';
-  a.href = renderer.domElement.toDataURL('image/png');
-  a.click();
-};
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/** يشغّل زرار حفظ ويوري حالته: بيتجهّز → اتحفظ ✓ / مقدرش. */
+function wireSave(btn, build){
+  const label = btn.textContent;
+  btn.onclick = async () => {
+    btn.disabled = true; btn.textContent = 'بيتجهّز…';
+    try {
+      await build();
+      btn.textContent = 'اتحفظ ✓';
+    } catch (e) {
+      /* declined معناها المستخدم رفض — مش خطأ، فمش محتاج رسالة تحذير */
+      btn.textContent = e?.code === 'declined' ? label : 'مقدرش يحفظ';
+    }
+    setTimeout(() => { btn.textContent = label; btn.disabled = false; }, 1800);
+  };
+}
+
+/* الموديل: يتفتح في Blender أو أي عارض ثلاثي الأبعاد. glTF مالوش خريطة
+   نتوءات فحبيبات الجلد مش بتتصدّر — الشكل والألوان والخامات بتتصدّر عادي.
+   امتداد ‎.glb‎ مش ضمن المسموح في الـ Artifact، فهناك بنصدّر النسخة النصية. */
+wireSave($('#glb'), () => new Promise((ok, fail) => {
+  const text = !!saver;
+  new GLTFExporter().parse(bag,
+    (out) => {
+      const data = text ? JSON.stringify(out)
+                        : new Blob([out], { type:'model/gltf-binary' });
+      saveFile(text ? 'my-bag.gltf.json' : 'my-bag.glb', data).then(ok, fail);
+    },
+    fail, { binary: !text });
+}));
+
+wireSave($('#shot'), () => new Promise((ok, fail) => {
+  renderer.render(scene, camera);          // لقطة طازة، مش الفريم اللي فات
+  renderer.domElement.toBlob(
+    b => b ? saveFile('my-bag.png', b).then(ok, fail) : fail(new Error('no blob')),
+    'image/png');
+}));
 
 /* التصميم كله متشفّر في الـ hash — تبعتي اللينك لحد يفتحه يلاقي نفس الشنطة */
 function saveHash(){
