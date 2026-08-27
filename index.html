@@ -7,7 +7,7 @@
 <meta name="description" content="A 3D bag configurator: recolour every part, change its material, open the bag, or take it apart.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Marcellus&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Marcellus&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#0e1013;
@@ -51,6 +51,18 @@
   }
   #brand h1{margin:0;font-family:'Marcellus',Georgia,serif;font-size:19px;font-weight:400;
            letter-spacing:.30em;text-transform:uppercase;color:var(--overlay-ink)}
+
+  /* الخط بيتبدّل مع اللغة: Cairo للعربي، Jost/Marcellus للاتيني.
+     الترتيب الواسع والحروف الكبيرة مالهمش معنى في العربي فبيتشالوا. */
+  :root[dir="rtl"] body{font-family:'Cairo',system-ui,'Segoe UI',sans-serif}
+  :root[dir="rtl"] #brand h1{font-family:'Cairo',system-ui,sans-serif;font-size:17px;
+                             font-weight:700;letter-spacing:.02em;text-transform:none}
+  :root[dir="rtl"] #brand span{letter-spacing:.04em;text-transform:none;font-size:11px}
+  :root[dir="rtl"] .label{letter-spacing:0}
+
+  /* مبدّل اللغة */
+  #lang{display:flex;gap:4px;align-self:flex-start}
+  #lang .chip{padding:5px 12px;font-size:12px}
   #brand span{display:block;margin-top:5px;font-size:10px;font-weight:400;
             color:var(--overlay-dim);letter-spacing:.20em;text-transform:uppercase}
 
@@ -165,32 +177,34 @@
 </head>
 <body>
 
-<div id="boot"><div class="ring"></div><p>Preparing your bag…</p></div>
+<div id="boot"><div class="ring"></div><p data-t="booting">Preparing your bag…</p></div>
 
 <div id="brand">
   <h1>Atelier</h1>
-  <span>Mini Top Handle &middot; 3D Configurator</span>
+  <span data-t="brandSub">Mini Top Handle &middot; 3D Configurator</span>
 </div>
 
 <div id="labels"></div>
-<div id="hint">Drag to rotate &middot; scroll to zoom</div>
+<div id="hint" data-t="hint">Drag to rotate &middot; scroll to zoom</div>
 
 <aside id="ui" hidden>
 
+  <div class="chips" id="lang"></div>
+
   <div class="block">
-    <div class="label">Part</div>
+    <div class="label" data-t="lPart">Part</div>
     <div class="chips" id="parts"></div>
   </div>
 
   <hr>
 
   <div class="block">
-    <div class="label" id="colorLabel">Colour</div>
+    <div class="label" id="colorLabel" data-t="lColour">Colour</div>
     <div class="swatches" id="colors"></div>
   </div>
 
   <div class="block">
-    <div class="label">Material</div>
+    <div class="label" data-t="lMaterial">Material</div>
     <div class="chips" id="finishes"></div>
   </div>
 
@@ -198,7 +212,7 @@
 
   <div class="block">
     <div class="row">
-      <div class="label" style="margin:0">Exploded view</div>
+      <div class="label" style="margin:0" data-t="lExplode">Exploded view</div>
       <span id="explodeVal" style="font-size:11px;color:var(--ink-dim)">0%</span>
     </div>
     <input type="range" id="explode" min="0" max="100" value="0">
@@ -210,26 +224,26 @@
   </div>
 
   <div class="btns">
-    <button class="btn" id="shot">Snapshot</button>
-    <button class="btn" id="glb">3D model</button>
+    <button class="btn" id="shot" data-t="snapshot">Snapshot</button>
+    <button class="btn" id="glb" data-t="model">3D model</button>
   </div>
 
   <hr>
 
   <div class="block">
-    <div class="label">Backdrop</div>
+    <div class="label" data-t="lBackdrop">Backdrop</div>
     <div class="chips" id="studios"></div>
   </div>
 
   <hr>
 
   <div class="block">
-    <div class="label">Presets</div>
+    <div class="label" data-t="lPresets">Presets</div>
     <div class="chips" id="presets"></div>
   </div>
 
   <div class="price">
-    <span>Estimated price</span>
+    <span data-t="lPrice">Estimated price</span>
     <b id="price">—</b>
   </div>
 
@@ -902,8 +916,74 @@ const stitchGroup = definePart('stitch','Stitching','stitch',STITCH_MAT, new THR
   ));
 }
 
+
 /* ===========================================================================
-   5. حالة التصميم + ربط اللوحة
+   5. اللغة — كل نص المستخدم بيشوفه في مكان واحد.
+   المفتاح هو المعرّف اللي الكود شغال بيه أصلاً (لون، خامة، قطعة)، فمفيش
+   جدول موازي لازم يتحدّث لوحده كل ما نضيف حاجة.
+   =========================================================================== */
+const NAMES = {
+  en: {
+    /* القطع */
+    body:'Body', flap:'Flap', handle:'Handle', trim:'Envelope trim', lining:'Lining',
+    plates:'V-plates', lock:'Turn lock', links:'Handle rings', stitch:'Stitching',
+    /* ألوان الجلد */
+    charcoal:'Charcoal', black:'Black', sand:'Sand', cognac:'Cognac', wine:'Wine',
+    navy:'Navy', olive:'Olive', cream:'Off-white', blush:'Blush', red:'Red',
+    sky:'Sky', forest:'Forest',
+    /* المعادن */
+    gold:'Gold', silver:'Silver', rose:'Rose gold', gun:'Gunmetal', brass:'Brass', steel:'Steel',
+    /* الخامات */
+    grained:'Pebbled', smooth:'Smooth', suede:'Suede', patent:'Patent', canvas:'Canvas',
+    polished:'Polished', brushed:'Brushed', matte:'Matte',
+    /* الخلفيات والتصميمات */
+    dark:'Noir', light:'Daylight', warm:'Amber',
+    original:'Original', patentNoir:'Patent noir', summer:'Summer',
+    wineSuede:'Wine suede', bold:'Bold',
+    /* الواجهة */
+    brandSub:'Mini Top Handle · 3D Configurator',
+    hint:'Drag to rotate · scroll to zoom',
+    lPart:'Part', lColour:'Colour', lMaterial:'Material', lExplode:'Exploded view',
+    lBackdrop:'Backdrop', lPresets:'Presets', lPrice:'Estimated price',
+    openBag:'Open bag', closeBag:'Close bag', spin:'Spin', stopSpin:'Stop spin',
+    snapshot:'Snapshot', model:'3D model',
+    preparing:'Preparing…', saved:'Saved', saveFail:'Could not save',
+    colourOnly:'Colour only', booting:'Preparing your bag…',
+    currency:'EGP', locale:'en-US',
+  },
+  ar: {
+    body:'الجسم', flap:'الغطاء', handle:'اليد', trim:'حرف المظروف', lining:'البطانة',
+    plates:'بليتات الـ V', lock:'القفل', links:'حلقات اليد', stitch:'الخياطة',
+    charcoal:'رمادي فحمي', black:'أسود', sand:'بيج', cognac:'بني', wine:'نبيتي',
+    navy:'كحلي', olive:'زيتي', cream:'أوف وايت', blush:'وردي', red:'أحمر',
+    sky:'سماوي', forest:'أخضر غامق',
+    gold:'ذهبي', silver:'فضي', rose:'روز جولد', gun:'أسود', brass:'نحاسي', steel:'ستيل',
+    grained:'جلد محبب', smooth:'جلد ناعم', suede:'سويد', patent:'ورنيش', canvas:'قماش',
+    polished:'مصقول', brushed:'مفروك', matte:'مطفي',
+    dark:'داكن', light:'فاتح', warm:'دافي',
+    original:'الأصلية', patentNoir:'أسود ورنيش', summer:'صيفي',
+    wineSuede:'نبيتي سويد', bold:'جريء',
+    brandSub:'شنطة يد صغيرة · مُكوِّن ثلاثي الأبعاد',
+    hint:'اسحب للف · عجلة الماوس للتقريب',
+    lPart:'القطعة', lColour:'اللون', lMaterial:'الخامة', lExplode:'التفكيك',
+    lBackdrop:'الخلفية', lPresets:'تصميمات جاهزة', lPrice:'السعر التقديري',
+    openBag:'افتح الشنطة', closeBag:'اقفل الشنطة', spin:'تشغيل اللف', stopSpin:'إيقاف اللف',
+    snapshot:'صورة', model:'الموديل',
+    preparing:'بيتجهّز…', saved:'اتحفظ', saveFail:'مقدرش يحفظ',
+    colourOnly:'اللون بس', booting:'بنجهّز الشنطة…',
+    currency:'ج.م', locale:'ar-EG',
+  },
+};
+const LANG_STORE = 'bag-lang';
+let lang = 'en';
+try {
+  const saved = localStorage.getItem(LANG_STORE);
+  lang = saved || ((navigator.language || '').startsWith('ar') ? 'ar' : 'en');
+} catch (e) { /* وضع خاص — الإنجليزي هو الافتراضي */ }
+const nm = k => NAMES[lang][k] ?? k;
+
+/* ===========================================================================
+   6. حالة التصميم + ربط اللوحة
    =========================================================================== */
 const LEATHER_PARTS = ['body','flap','handle','trim','lining'];
 const METAL_PARTS   = ['plates','lock','links'];
@@ -955,7 +1035,7 @@ function updatePrice(){
   for (const id of LEATHER_PARTS) p += (LEATHER_FINISH[state.finish[id]]?.price ?? 0);
   for (const id of METAL_PARTS)   p += (METAL_FINISH[state.finish[id]]?.price ?? 0);
   if (state.color.plates === 'rose' || state.color.plates === 'brass') p += 150;
-  document.getElementById('price').textContent = p.toLocaleString('en-US') + ' EGP';
+  document.getElementById('price').textContent = p.toLocaleString(nm('locale')) + ' ' + nm('currency');
 }
 
 /* --- بناء اللوحة --- */
@@ -963,19 +1043,31 @@ const $ = s => document.querySelector(s);
 const partsEl = $('#parts'), colorsEl = $('#colors'), finishEl = $('#finishes');
 
 const PART_ORDER = ['body','flap','handle','trim','lining','plates','lock','links','stitch'];
-PART_ORDER.forEach(id => {
-  const b = document.createElement('button');
-  b.className = 'chip'; b.textContent = PARTS[id].name;
-  b.setAttribute('aria-pressed', id === state.selected);
-  b.onclick = () => { state.selected = id; renderPanel(); };
-  partsEl.appendChild(b);
-});
+
+/** يبني صف أزرار: كل عنصر { id, label } وعند الضغط بينادي onPick. */
+function buildChips(host, items, isOn, onPick){
+  host.innerHTML = '';
+  for (const it of items){
+    const b = document.createElement('button');
+    b.className = 'chip'; b.textContent = it.label;
+    b.setAttribute('aria-pressed', !!isOn(it.id));
+    b.onclick = () => onPick(it.id);
+    host.appendChild(b);
+  }
+}
+
+function buildParts(){
+  buildChips(partsEl, PART_ORDER.map(id => ({ id, label: nm(id) })),
+             id => id === state.selected,
+             id => { state.selected = id; renderPanel(); });
+}
 
 function renderPanel(){
   [...partsEl.children].forEach((b,i) =>
     b.setAttribute('aria-pressed', PART_ORDER[i] === state.selected));
 
   const id = state.selected;
+  document.getElementById('colorLabel').textContent = nm('lColour');
   const isMetal = METAL_PARTS.includes(id);
   const isStitch = id === 'stitch';
   const list = isMetal ? METAL_COLORS : LEATHER_COLORS;
@@ -983,7 +1075,7 @@ function renderPanel(){
   colorsEl.innerHTML = '';
   list.forEach(c => {
     const b = document.createElement('button');
-    b.className = 'sw'; b.style.background = c.hex; b.title = c.name;
+    b.className = 'sw'; b.style.background = c.hex; b.title = nm(c.id);
     b.setAttribute('aria-pressed', state.color[id] === c.id);
     b.onclick = () => { state.color[id] = c.id; applyPart(id); updatePrice(); renderPanel(); };
     colorsEl.appendChild(b);
@@ -991,52 +1083,50 @@ function renderPanel(){
 
   finishEl.innerHTML = '';
   if (isStitch){
-    finishEl.innerHTML = '<span style="font-size:12px;color:var(--ink-dim)">Colour only</span>';
+    finishEl.innerHTML = '';
+    const note = document.createElement('span');
+    note.style.cssText = 'font-size:12px;color:var(--ink-dim)';
+    note.textContent = nm('colourOnly');
+    finishEl.appendChild(note);
   } else {
     const fl = isMetal ? METAL_FINISH : LEATHER_FINISH;
-    Object.entries(fl).forEach(([k,f]) => {
-      const b = document.createElement('button');
-      b.className = 'chip'; b.textContent = f.name;
-      b.setAttribute('aria-pressed', state.finish[id] === k);
-      b.onclick = () => { state.finish[id] = k; applyPart(id); updatePrice(); renderPanel(); };
-      finishEl.appendChild(b);
-    });
+    buildChips(finishEl, Object.keys(fl).map(k => ({ id:k, label: nm(k) })),
+               k => state.finish[id] === k,
+               k => { state.finish[id] = k; applyPart(id); updatePrice(); renderPanel(); });
   }
 }
 
 /* --- تصميمات جاهزة --- */
 const PRESETS = {
-  'Original':   { c:{body:'charcoal',flap:'charcoal',handle:'charcoal',trim:'charcoal',lining:'sand',plates:'gold',lock:'gold',links:'gold',stitch:'charcoal'},
+  original:   { c:{body:'charcoal',flap:'charcoal',handle:'charcoal',trim:'charcoal',lining:'sand',plates:'gold',lock:'gold',links:'gold',stitch:'charcoal'},
                  f:{body:'grained',flap:'grained',handle:'grained',trim:'grained',lining:'suede',plates:'polished',lock:'polished',links:'polished'} },
-  'Patent noir':{ c:{body:'black',flap:'black',handle:'black',trim:'black',lining:'red',plates:'gun',lock:'gun',links:'gun',stitch:'black'},
+  patentNoir:{ c:{body:'black',flap:'black',handle:'black',trim:'black',lining:'red',plates:'gun',lock:'gun',links:'gun',stitch:'black'},
                  f:{body:'patent',flap:'patent',handle:'patent',trim:'patent',lining:'smooth',plates:'matte',lock:'matte',links:'matte'} },
-  'Summer':      { c:{body:'cream',flap:'sand',handle:'sand',trim:'sand',lining:'cognac',plates:'gold',lock:'gold',links:'gold',stitch:'cognac'},
+  summer:      { c:{body:'cream',flap:'sand',handle:'sand',trim:'sand',lining:'cognac',plates:'gold',lock:'gold',links:'gold',stitch:'cognac'},
                  f:{body:'grained',flap:'smooth',handle:'smooth',trim:'smooth',lining:'suede',plates:'polished',lock:'polished',links:'polished'} },
-  'Wine suede':{ c:{body:'wine',flap:'wine',handle:'wine',trim:'wine',lining:'blush',plates:'brass',lock:'brass',links:'brass',stitch:'sand'},
+  wineSuede:{ c:{body:'wine',flap:'wine',handle:'wine',trim:'wine',lining:'blush',plates:'brass',lock:'brass',links:'brass',stitch:'sand'},
                  f:{body:'suede',flap:'suede',handle:'smooth',trim:'smooth',lining:'smooth',plates:'brushed',lock:'brushed',links:'brushed'} },
-  'Bold':      { c:{body:'red',flap:'navy',handle:'navy',trim:'cream',lining:'cream',plates:'silver',lock:'silver',links:'silver',stitch:'cream'},
+  bold:      { c:{body:'red',flap:'navy',handle:'navy',trim:'cream',lining:'cream',plates:'silver',lock:'silver',links:'silver',stitch:'cream'},
                  f:{body:'smooth',flap:'patent',handle:'grained',trim:'grained',lining:'suede',plates:'polished',lock:'polished',links:'polished'} },
 };
-Object.keys(PRESETS).forEach(name => {
-  const b = document.createElement('button');
-  b.className = 'chip'; b.textContent = name;
-  b.onclick = () => {
-    const p = PRESETS[name];
-    Object.assign(state.color, p.c);
-    Object.assign(state.finish, p.f);
-    applyAll(); renderPanel();
-  };
-  $('#presets').appendChild(b);
-});
+function buildPresets(){
+  buildChips($('#presets'), Object.keys(PRESETS).map(id => ({ id, label: nm(id) })),
+             () => false,
+             id => {
+               Object.assign(state.color,  PRESETS[id].c);
+               Object.assign(state.finish, PRESETS[id].f);
+               applyAll(); renderPanel();
+             });
+}
 
 /* ===========================================================================
-   6. التفكيك — كل قطعة بتسافر في اتجاهها، ومعاها اسمها معلّق عليها.
+   7. التفكيك — كل قطعة بتسافر في اتجاهها، ومعاها اسمها معلّق عليها.
    =========================================================================== */
 const labelsEl = $('#labels');
 const labels = {};
 PART_ORDER.forEach(id => {
   const d = document.createElement('div');
-  d.className = 'lab'; d.textContent = PARTS[id].name;
+  d.className = 'lab';
   labelsEl.appendChild(d);
   labels[id] = d;
 });
@@ -1136,12 +1226,12 @@ function updateExplode(dt){
 }
 
 /* ===========================================================================
-   7. أزرار، حفظ الحالة في اللينك، والحلقة
+   8. أزرار، حفظ الحالة في اللينك، والحلقة
    =========================================================================== */
 const spinBtn = $('#spin');
 function paintSpin(){
   spinBtn.classList.toggle('on', controls.autoRotate);
-  spinBtn.textContent = controls.autoRotate ? 'Stop spin' : 'Spin';
+  spinBtn.textContent = nm(controls.autoRotate ? 'stopSpin' : 'spin');
 }
 function stopSpin(){ controls.autoRotate = false; paintSpin(); }
 spinBtn.onclick = () => { controls.autoRotate = !controls.autoRotate; paintSpin(); };
@@ -1153,19 +1243,14 @@ openBtn.onclick = () => {
   if (opening) polarBefore = controls.getPolarAngle();   // نرجّعله زاويته بالظبط
   openTarget = opening ? 1 : 0;
   openBtn.classList.toggle('on', opening);
-  openBtn.textContent = opening ? 'Close bag' : 'Open bag';
+  openBtn.textContent = nm(opening ? 'closeBag' : 'openBag');
 };
 
-Object.entries(STUDIOS).forEach(([id, S]) => {
-  const b = document.createElement('button');
-  b.className = 'chip'; b.textContent = S.name;
-  b.setAttribute('aria-pressed', id === 'dark');
-  b.onclick = () => {
-    setStudio(id);
-    [...$('#studios').children].forEach(c => c.setAttribute('aria-pressed', c === b));
-  };
-  $('#studios').appendChild(b);
-});
+function buildStudios(){
+  buildChips($('#studios'), Object.keys(STUDIOS).map(id => ({ id, label: nm(id) })),
+             id => id === studio,
+             id => { setStudio(id); buildStudios(); });
+}
 
 /* حفظ الملفات.
    الصفحة بتشتغل في مكانين بقواعد مختلفة: مفتوحة عادي في المتصفح
@@ -1186,25 +1271,25 @@ async function saveFile(filename, data){
 }
 
 /** يشغّل زرار حفظ ويوري حالته: بيتجهّز → اتحفظ ✓ / مقدرش. */
-function wireSave(btn, build){
-  const label = btn.textContent;
+function wireSave(btn, key, build){
   btn.onclick = async () => {
-    btn.disabled = true; btn.textContent = 'Preparing…';
+    const label = nm(key);        // بيتقرا وقت الضغط، مش وقت التركيب
+    btn.disabled = true; btn.textContent = nm('preparing');
     try {
       await build();
-      btn.textContent = 'Saved';
+      btn.textContent = nm('saved');
     } catch (e) {
       /* declined معناها المستخدم رفض — مش خطأ، فمش محتاج رسالة تحذير */
-      btn.textContent = e?.code === 'declined' ? label : 'Could not save';
+      btn.textContent = e?.code === 'declined' ? label : nm('saveFail');
     }
-    setTimeout(() => { btn.textContent = label; btn.disabled = false; }, 1800);
+    setTimeout(() => { btn.textContent = nm(key); btn.disabled = false; }, 1800);
   };
 }
 
 /* الموديل: يتفتح في Blender أو أي عارض ثلاثي الأبعاد. glTF مالوش خريطة
    نتوءات فحبيبات الجلد مش بتتصدّر — الشكل والألوان والخامات بتتصدّر عادي.
    امتداد ‎.glb‎ مش ضمن المسموح في الـ Artifact، فهناك بنصدّر النسخة النصية. */
-wireSave($('#glb'), () => new Promise((ok, fail) => {
+wireSave($('#glb'), 'model', () => new Promise((ok, fail) => {
   const text = !!saver;
   new GLTFExporter().parse(bag,
     (out) => {
@@ -1215,7 +1300,7 @@ wireSave($('#glb'), () => new Promise((ok, fail) => {
     fail, { binary: !text });
 }));
 
-wireSave($('#shot'), () => new Promise((ok, fail) => {
+wireSave($('#shot'), 'snapshot', () => new Promise((ok, fail) => {
   renderer.render(scene, camera);          // لقطة طازة، مش الفريم اللي فات
   renderer.domElement.toBlob(
     b => b ? saveFile('my-bag.png', b).then(ok, fail) : fail(new Error('no blob')),
@@ -1245,11 +1330,38 @@ function loadHash(){
 function frameToFreeArea(){
   camera.aspect = innerWidth / innerHeight;
   const panel = innerWidth > 720 ? Math.min(340, innerWidth * 0.86) : 0;
-  /* الاتجاه بقى ltr، يعني inline-end = يمين — بنزحلق المشهد ناحية الشمال */
-  if (panel) camera.setViewOffset(innerWidth, innerHeight, panel/2, 0, innerWidth, innerHeight);
+  /* اللوحة على الجنب اللي inline-end بيوديها له، وده بيتقلب مع اتجاه الصفحة */
+  const side = document.documentElement.dir === 'rtl' ? -1 : 1;
+  if (panel) camera.setViewOffset(innerWidth, innerHeight, side * panel/2, 0, innerWidth, innerHeight);
   else camera.clearViewOffset();
   camera.updateProjectionMatrix();
 }
+/* ---------------------------------------------------------------------------
+   تغيير اللغة. مش بس ترجمة نصوص — الاتجاه بيتقلب، فاللوحة بتنتقل للجنب
+   التاني، والخط بيتغيّر، وإزاحة الكاميرا اللي بتوسّط الشنطة لازم تتقلب معاهم.
+   --------------------------------------------------------------------------- */
+function applyText(){
+  document.querySelectorAll('[data-t]').forEach(el => { el.textContent = nm(el.dataset.t); });
+  PART_ORDER.forEach(id => { labels[id].textContent = nm(id); });
+  openBtn.textContent = nm(openTarget > 0.5 ? 'closeBag' : 'openBag');
+  paintSpin();
+  updatePrice();
+}
+
+function setLang(next){
+  lang = next;
+  try { localStorage.setItem(LANG_STORE, lang); } catch (e) { /* وضع خاص */ }
+  const root = document.documentElement;
+  root.lang = lang;
+  root.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+  buildChips($('#lang'), [{id:'en',label:'EN'}, {id:'ar',label:'عربي'}],
+             id => id === lang, id => { if (id !== lang) setLang(id); });
+  buildParts(); buildStudios(); buildPresets();
+  renderPanel(); applyText();
+  frameToFreeArea();          // اللوحة بدّلت جنب، فالإزاحة بتتقلب
+}
+
 addEventListener('resize', () => {
   frameToFreeArea();
   renderer.setSize(innerWidth, innerHeight);
@@ -1272,10 +1384,9 @@ function tick(){
 }
 
 setStudio('dark');
-frameToFreeArea();
 loadHash();
 applyAll();
-renderPanel();
+setLang(lang);     // بيبني اللوحة كلها ويظبط الاتجاه والإزاحة
 tick();
 
 /* أول فريم اتعمل — نشيل شاشة التحميل */
