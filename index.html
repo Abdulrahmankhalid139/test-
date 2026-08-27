@@ -280,11 +280,12 @@ const SLANT = (B.wBot - B.wTop) / 2 / B.h;
 /** نصف عرض الجسم عند ارتفاع معيّن */
 const halfAt = (y) => B.wBot / 2 - SLANT * y;
 
-const FLAP_DROP  = 5.6;   // اللوح الأمامي بينزل قد إيه على الوش
+const FLAP_DROP  = 5.0;   // اللوح الأمامي بينزل قد إيه على الوش
 const FLAP_OVER  = 0.85;  // الفلاب بيزيد عن الجسم من الجنب
 const FLAP_TH    = 0.62;  // سماكة جلد الفلاب
-const LID_ZF     = 7.0/2 + 0.62;   // حرف الغطا الأمامي
-const LID_ZB     = -7.0/2 - 0.12;  // حرف الغطا الخلفي
+const LID_ZF     = 7.0/2 + 0.30;   // خط وسط الغطا عند الوش
+const LID_ZB     = -7.0/2 - 0.15;  // خط وسط الغطا عند الضهر
+const NOSE_R     = 1.05;  // نصف قطر الطية على الركن الأمامي
 
 /* ===========================================================================
    1. المسرح — كاميرا عدسة طويلة زي تصوير المنتجات، وإضاءة استوديو.
@@ -727,7 +728,8 @@ const PANEL = 0.62;                 // سماكة اللوح الأمامي/ال
 const flapGroup = definePart('flap','Flap','leather',leatherFlap, new THREE.Vector3(0, 8.5, 4));
 const FLAP_HW = B.wTop/2 + FLAP_OVER;
 const FLAP_BARREL = 0.72;
-const FLAP_TOP_Y = B.h - 0.12;                      // وش الغطا بيقعد على حرف الشنطة
+const LID_BASE_Y  = B.h - 0.32;                     // خط وسط الغطا عند قمته
+const FLAP_JOIN_Y = LID_BASE_Y - NOSE_R - 0.55;     // مكان لقاء اللوح الأمامي بالغطا
 
 /* حرف اللوح الأمامي المسنّن — العلامة المميزة للشكل ده */
 const FLAP_PTS = (() => {
@@ -745,14 +747,42 @@ const FLAP_PTS = (() => {
 
 {
   /* (أ) الغطا العلوي — مقطعه الجانبي مبثوقاً على العرض.
-     الشكل هنا في مستوى (z, y)، وبعدين بنلفّه ليمتد على المحور X. */
-  const prof = roundedShape([
-    V2(LID_ZB,  FLAP_TH/2), V2(LID_ZF,  FLAP_TH/2),
-    V2(LID_ZF, -FLAP_TH/2), V2(LID_ZB, -FLAP_TH/2),
-  ], [0.14, FLAP_TH*0.46, FLAP_TH*0.46, 0.14]);
-  const lid = extrudeCentered(prof, FLAP_HW * 2, 0.20, 20);
+     الشكل في مستوى (z, y)، وبعدين بنلفّه ليمتد على المحور X.
+
+     الوش العلوي مقوّس مش مستوي: الجلد فوق الشنطة بيتحدّب، والحرف الجانبي
+     بيبان كقوس مش كخط مستقيم. مقطع مستطيل كان بيدّي شكل صندوق. */
+  /* بنرسم خط الوسط الأول ثم نزيحه بنص السماكة في الاتجاهين.
+     تدوير الأركان مش كافي هنا: roundedShape بيقص نصف القطر لحد نص أقصر
+     ضلع مجاور، والأضلاع على المنحنى قصيرة — فالطية بتطلع حادة مهما كبّرناها. */
+  const CROWN = 0.30;                  // حدبة خفيفة على الضهر
+  const BACK_DIP = 0.22;               // الحرف الخلفي أوطى شوية
+
+  const mid = [ V2(LID_ZF, -NOSE_R - 0.55) ];        // نازل على الوش
+  for (let i = 0; i <= 12; i++){                     // ربع دورة على الركن الأمامي
+    const a = (i/12) * Math.PI/2;
+    mid.push(V2(LID_ZF - NOSE_R + NOSE_R*Math.cos(a), -NOSE_R + NOSE_R*Math.sin(a)));
+  }
+  const zTop = LID_ZF - NOSE_R;
+  for (let i = 1; i <= 22; i++){                     // الضهر بحدبة خفيفة
+    const u = i/22;
+    mid.push(V2(zTop + (LID_ZB - zTop) * u,
+                CROWN * Math.sin(Math.PI * u) - BACK_DIP * u));
+  }
+
+  /* عمودي على المسار عند كل نقطة، بيشاور برّه الشنطة */
+  const outer = [], inner = [];
+  for (let i = 0; i < mid.length; i++){
+    const a = mid[Math.max(0, i-1)], b = mid[Math.min(mid.length-1, i+1)];
+    const tx = b.x - a.x, ty = b.y - a.y;
+    const L = Math.hypot(tx, ty) || 1;
+    const n = V2(ty / L, -tx / L);
+    outer.push(mid[i].clone().addScaledVector(n,  FLAP_TH/2));
+    inner.push(mid[i].clone().addScaledVector(n, -FLAP_TH/2));
+  }
+  const pts = [...outer, ...inner.reverse()];
+  const lid = extrudeCentered(roundedShape(pts, pts.map(() => 0)), FLAP_HW * 2, 0.20, 4);
   lid.rotateY(-Math.PI/2);                          // محور البثق يبقى العرض
-  lid.translate(0, FLAP_TOP_Y - FLAP_TH/2, 0);
+  lid.translate(0, LID_BASE_Y, 0);
   add(flapGroup, lid, leatherFlap);
 
   /* (ب) اللوح الأمامي — بيتعلّق من تحت حرف الغطا الأمامي */
@@ -760,7 +790,7 @@ const FLAP_PTS = (() => {
                                 FLAP_TH, 0.17, 24);
   barrel(front, FLAP_HW, FLAP_BARREL, -0.5, 2.4);   // يلف على جنب الشنطة المدوّر
   front.computeVertexNormals();
-  front.translate(0, FLAP_TOP_Y - FLAP_TH/2, LID_ZF - FLAP_TH/2);
+  front.translate(0, FLAP_JOIN_Y - 0.30, LID_ZF);   // متمركز على نفس خط وسط الغطا
   add(flapGroup, front, leatherFlap);
 }
 
@@ -815,7 +845,7 @@ const platesGroup = definePart('plates','V-plates','metal',metalMain, new THREE.
 /* ---- 4.5 القفل الدوّار على الفلاب ---- */
 const lockGroup = definePart('lock','Turn lock','metal',metalLock, new THREE.Vector3(13, 9.5, 6));
 {
-  const LY = FLAP_TOP_Y - 3.15, LZ = LID_ZF + 0.13;   // الوش الخلفي بيلمس الفلاب بالظبط
+  const LY = FLAP_JOIN_Y - 2.30, LZ = LID_ZF + FLAP_TH/2 + 0.13;   // الوش الخلفي بيلمس الفلاب بالظبط
   const plate = roundedShape([V2(-2.35,-.92), V2(2.35,-.92), V2(2.35,.92), V2(-2.35,.92)], .34);
   const pg = extrudeCentered(plate, .26, .075, 14);
   const p = add(lockGroup, pg, metalLock);
@@ -905,10 +935,10 @@ const stitchGroup = definePart('stitch','Stitching','stitch',STITCH_MAT, new THR
   const bottom = FLAP_PTS.filter(p => p.y <= 0.01);        // من اليمين للشمال
   const closed = [ V2(-FLAP_HW, 0.30), V2(FLAP_HW, 0.30), ...bottom ];
   const inset  = insetPolygon(closed, 0.34).slice(2);      // من غير الحرف العلوي
-  const zFlapFace = LID_ZF + 0.04;
+  const zFlapFace = LID_ZF + FLAP_TH/2 + 0.04;
   const fade = y => Math.min(1, Math.max(0, (-0.5 - y) / 2.4));   // نفس تخفيف barrel
   stitchGroup.add(stitchLine(
-    inset.map(p => V2(p.x, p.y + FLAP_TOP_Y - FLAP_TH/2)),
+    inset.map(p => V2(p.x, p.y + FLAP_JOIN_Y - 0.30)),
     p => zFlapFace
          - FLAP_BARREL * Math.min(1, Math.abs(p.x)/FLAP_HW) ** 2 * fade(p.y),
     { spacing:.50, len:.19, rad:.032, closed:false }
