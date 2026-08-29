@@ -26,6 +26,12 @@
     margin:20px 0; padding:14px 16px; border-radius:12px; font-size:13.5px;
     background:var(--warn-soft); border:1px solid #f0dcb4; color:#5c3d00;
   }
+  .stop{
+    margin:20px 0; padding:16px 18px; border-radius:12px; font-size:14px;
+    background:#fdecec; border:1px solid #f3c2c2; color:#7a1f1f; line-height:1.9;
+  }
+  .stop b{color:#5c1010}
+  .stop ol{margin:10px 0 0; padding-inline-start:22px}
   .note b{color:#3d2900}
 
   .bar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:18px 0 8px}
@@ -242,7 +248,26 @@ function render(city, rows, note){
 const esc = s => String(s || '').replace(/[&<>"]/g, c =>
   ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 
+/* المتصفح بيدّي أي صفحة مفتوحة بدبل كليك هوية فارغة (origin: null)، وبيمنعها
+   تجيب أي بيانات من برّه. الرسالة اللي بتطلع ساعتها "Failed to fetch" بس، من
+   غير أي تلميح للسبب — فبنكشف الحالة دي بنفسنا ونقول اللي المفروض يتعمل. */
+function fileProtocolWarning(){
+  if (location.protocol !== 'file:') return false;
+  const box = document.createElement('div');
+  box.className = 'stop';
+  box.innerHTML =
+    '<b>الصفحة مفتوحة من جهازك مباشرة، والمتصفح بيمنعها تسحب بيانات في الحالة دي.</b>' +
+    '<br>مش عطل في الصفحة — ده قيد أمان في كل المتصفحات على الملفات المفتوحة بدبل كليك.' +
+    '<ol><li>ارفعي الملف على أي استضافة مجانية (GitHub Pages مثلاً)</li>' +
+    '<li>افتحيه من اللينك اللي هيطلعلك — هيشتغل على طول</li></ol>';
+  document.querySelector('header').after(box);
+  setStatus('محتاجة تفتحيها من لينك، مش من الجهاز.');
+  $('#load').disabled = true;
+  return true;
+}
+
 async function run(){
+  if (fileProtocolWarning()) return;
   $('#load').disabled = true;
   $('#xlsx').disabled = $('#csvBtn').disabled = true;
   try {
