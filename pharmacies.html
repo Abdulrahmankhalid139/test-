@@ -44,6 +44,10 @@
   button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
   button.primary:hover:not(:disabled){background:#0c6459}
   button:disabled{opacity:.5; cursor:default}
+  /* زرار مقفول بـ disabled بيبلع الضغطة من غير ما يقول ليه. زراير التنزيل
+     بنقفلها بالشكل بس، وبتفضل تستقبل الضغطة عشان تشرح السبب. */
+  button[aria-disabled="true"]{opacity:.45}
+  button[aria-disabled="true"]:hover{background:var(--card)}
   #status{color:var(--dim); font-size:13px}
 
   section{
@@ -98,8 +102,8 @@
 
 <div class="bar">
   <button class="primary" id="load">سحب البيانات</button>
-  <button id="xlsx" disabled>تنزيل Excel (شيتين)</button>
-  <button id="csvBtn" disabled>تنزيل CSV</button>
+  <button id="xlsx" aria-disabled="true">تنزيل Excel (شيتين)</button>
+  <button id="csvBtn" aria-disabled="true">تنزيل CSV</button>
   <span id="status">جاهز — اضغطي «سحب البيانات».</span>
 </div>
 
@@ -144,6 +148,18 @@ const CITIES = [
 
 const $ = s => document.querySelector(s);
 const setStatus = t => { $('#status').textContent = t; };
+
+/** يقفل/يفتح زراير التنزيل — "مقفول" هنا معناه بيشرح، مش بيتجاهل. */
+function setExportsReady(on){
+  for (const id of ['#xlsx', '#csvBtn'])
+    $(id).setAttribute('aria-disabled', String(!on));
+}
+/** true لو الزرار مقفول — وبيوضّح السبب بدل ما الضغطة تضيع. */
+function blocked(btn){
+  if (btn.getAttribute('aria-disabled') !== 'true') return false;
+  setStatus('لسه مفيش بيانات — دوسي «سحب البيانات» واستني تخلص الأول.');
+  return true;
+}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const results = {};
 
@@ -269,7 +285,7 @@ function fileProtocolWarning(){
 async function run(){
   if (fileProtocolWarning()) return;
   $('#load').disabled = true;
-  $('#xlsx').disabled = $('#csvBtn').disabled = true;
+  setExportsReady(false);
   try {
     for (const city of CITIES){
       setStatus(`بندوّر على حدود ${city.ar}…`);
@@ -284,7 +300,7 @@ async function run(){
     }
     const total = Object.values(results).reduce((n, r) => n + r.length, 0);
     setStatus(`تمام — ${total} صيدلية. تقدري تنزّلي الملف.`);
-    $('#xlsx').disabled = $('#csvBtn').disabled = total === 0;
+    setExportsReady(total > 0);
   } catch (e) {
     setStatus('مقدرش يسحب البيانات: ' + (e.message || e) + ' — جرّبي تاني بعد شوية.');
   }
@@ -295,7 +311,8 @@ const HEAD = ['#','اسم الصيدلية','خط العرض','خط الطول',
 const toAoA = rows => [HEAD, ...rows.map((r, i) =>
   [i + 1, r.name, r.lat, r.lon, r.phone, r.addr, r.city, r.osm])];
 
-$('#xlsx').onclick = () => {
+$('#xlsx').onclick = (e) => {
+  if (blocked(e.currentTarget)) return;
   /* المكتبة بتتحمّل من الإنترنت. لو الشبكة أو مانع إعلانات وقفها، الزرار كان
      هيرمي خطأ في الصامت — فبنقول السبب ونحوّلها على CSV اللي مش محتاج مكتبة. */
   if (typeof XLSX === 'undefined'){
@@ -311,7 +328,8 @@ $('#xlsx').onclick = () => {
   XLSX.writeFile(wb, 'pharmacies-badr-obour.xlsx');   // اسم لاتيني: العربي بينزل باسم download
 };
 
-$('#csvBtn').onclick = () => {
+$('#csvBtn').onclick = (e) => {
+  if (blocked(e.currentTarget)) return;
   const lines = [];
   for (const c of CITIES){
     lines.push(c.ar);
