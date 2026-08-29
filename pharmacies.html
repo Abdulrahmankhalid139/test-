@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>صيدليات بدر والعبور — سحب البيانات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --ink:#171a1f; --dim:#697079;
+    --accent:#0f7b6c; --accent-soft:#e6f2f0; --warn:#8a5a00; --warn-soft:#fdf3e0;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Cairo',system-ui,'Segoe UI',sans-serif; font-size:14px; line-height:1.7;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:28px 20px 64px}
+
+  header h1{margin:0 0 4px; font-size:23px; font-weight:700; letter-spacing:-.2px}
+  header p{margin:0; color:var(--dim); font-size:13.5px}
+
+  .note{
+    margin:20px 0; padding:14px 16px; border-radius:12px; font-size:13.5px;
+    background:var(--warn-soft); border:1px solid #f0dcb4; color:#5c3d00;
+  }
+  .note b{color:#3d2900}
+
+  .bar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:18px 0 8px}
+  button{
+    font:inherit; font-weight:600; font-size:13.5px; cursor:pointer;
+    padding:10px 18px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card); color:var(--ink); transition:background .15s,border-color .15s;
+  }
+  button:hover:not(:disabled){background:#f0f2f4}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  button.primary:hover:not(:disabled){background:#0c6459}
+  button:disabled{opacity:.5; cursor:default}
+  #status{color:var(--dim); font-size:13px}
+
+  section{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    margin-top:22px; overflow:hidden;
+  }
+  section > h2{
+    margin:0; padding:15px 18px; font-size:16px; font-weight:700;
+    border-bottom:1px solid var(--line); display:flex; justify-content:space-between;
+    align-items:baseline; gap:12px;
+  }
+  section > h2 span{font-size:12.5px; font-weight:600; color:var(--dim)}
+
+  .scroll{overflow-x:auto}
+  table{border-collapse:collapse; width:100%; font-size:13px}
+  th,td{padding:9px 12px; text-align:right; border-bottom:1px solid #eef0f2; vertical-align:top}
+  th{
+    background:#fafbfc; font-size:11.5px; font-weight:700; color:var(--dim);
+    position:sticky; top:0; white-space:nowrap;
+  }
+  tbody tr:hover{background:#fafbfc}
+  td.num{font-variant-numeric:tabular-nums; white-space:nowrap; font-size:12.5px}
+  td.idx{color:var(--dim); font-variant-numeric:tabular-nums}
+  .name{font-weight:600}
+  .empty{color:#b3b8be}
+  a{color:var(--accent); text-decoration:none; font-weight:600; white-space:nowrap}
+  a:hover{text-decoration:underline}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  .pad{padding:22px 18px; color:var(--dim)}
+
+  .legend{
+    display:flex; gap:16px; flex-wrap:wrap; padding:12px 18px;
+    border-top:1px solid var(--line); background:#fafbfc; font-size:12.5px; color:var(--dim);
+  }
+  @media (max-width:640px){ th,td{padding:8px} .wrap{padding:18px 12px 48px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>صيدليات مدينة بدر ومدينة العبور</h1>
+  <p>البيانات بتتسحب مباشرة من OpenStreetMap وقت ما تفتحي الصفحة — مش مكتوبة في الملف.</p>
+</header>
+
+<div class="note">
+  <b>اقري ده الأول.</b> الأسامي والإحداثيات بتيجي من OpenStreetMap، فهي حقيقية ومطابقة للخريطة.
+  <b>أرقام التليفونات والعناوين ناقصة في أماكن كتير</b> — لأن اللي بيضيف البيانات دي متطوعين،
+  ومش كل صيدلية متسجّل معاها رقمها. الصفوف اللي رقمها فاضي هتلاقي جنبها لينك بحث يجيبهولك.
+  اضغطي على <b>الإحداثي</b> في أي صف عشان تفتحيه في جوجل ماب وتتأكدي بنفسك.
+</div>
+
+<div class="bar">
+  <button class="primary" id="load">سحب البيانات</button>
+  <button id="xlsx" disabled>تنزيل Excel (شيتين)</button>
+  <button id="csvBtn" disabled>تنزيل CSV</button>
+  <span id="status">جاهز — اضغطي «سحب البيانات».</span>
+</div>
+
+<section id="sec-badr">
+  <h2>مدينة بدر <span id="count-badr">—</span></h2>
+  <div class="scroll"><table><thead><tr>
+    <th>#</th><th>اسم الصيدلية</th><th>خط العرض</th><th>خط الطول</th>
+    <th>رقم التواصل</th><th>العنوان</th><th>تحقّق</th>
+  </tr></thead><tbody id="tb-badr"></tbody></table></div>
+  <div class="pad" id="msg-badr">لسه ما اتسحبتش.</div>
+</section>
+
+<section id="sec-obour">
+  <h2>مدينة العبور <span id="count-obour">—</span></h2>
+  <div class="scroll"><table><thead><tr>
+    <th>#</th><th>اسم الصيدلية</th><th>خط العرض</th><th>خط الطول</th>
+    <th>رقم التواصل</th><th>العنوان</th><th>تحقّق</th>
+  </tr></thead><tbody id="tb-obour"></tbody></table></div>
+  <div class="pad" id="msg-obour">لسه ما اتسحبتش.</div>
+</section>
+
+<div class="legend">
+  <span>📍 يفتح الإحداثي في جوجل ماب</span>
+  <span>🔍 يدوّر على الصيدلية بالاسم — للأرقام الناقصة</span>
+  <span>المصدر: OpenStreetMap (ODbL)</span>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ===========================================================================
+   المدن. الحدود بتتجاب من Nominatim عشان ما نخمّنش المربع بإيدينا؛
+   والمربع المكتوب هنا احتياطي لو الخدمة وقعت أو اترفض الطلب.
+   =========================================================================== */
+const CITIES = [
+  { key:'badr',  ar:'مدينة بدر',   q:'Badr City, Cairo, Egypt',
+    fallback:[30.09, 31.63, 30.20, 31.83] },
+  { key:'obour', ar:'مدينة العبور', q:'Obour City, Qalyubia, Egypt',
+    fallback:[30.17, 31.40, 30.28, 31.55] },
+];
+
+const $ = s => document.querySelector(s);
+const setStatus = t => { $('#status').textContent = t; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const results = {};
+
+/** حدود المدينة من Nominatim: [جنوب, غرب, شمال, شرق] */
+async function cityBounds(city){
+  const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='
+            + encodeURIComponent(city.q);
+  try {
+    const r = await fetch(url, { headers:{ 'Accept':'application/json' } });
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    const bb = j[0] && j[0].boundingbox;
+    if (!bb) throw new Error('no match');
+    return { box: bb.map(Number), source: 'Nominatim' };
+  } catch (e) {
+    return { box: city.fallback, source: 'احتياطي' };
+  }
+}
+
+/* Overpass بيرد بـ CORS مفتوح، فالمتصفح يقدر يكلّمه مباشرة من غير أي سيرفر. */
+const MIRRORS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
+
+async function pharmacies(box){
+  const [s, w, n, e] = box;
+  const bbox = `${s},${w},${n},${e}`;
+  const q = `[out:json][timeout:90];
+(
+  nwr["amenity"="pharmacy"](${bbox});
+  nwr["healthcare"="pharmacy"](${bbox});
+);
+out center tags;`;
+  let lastErr;
+  for (const m of MIRRORS){
+    try {
+      const r = await fetch(m, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+        body:'data=' + encodeURIComponent(q),
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return (await r.json()).elements || [];
+    } catch (err) { lastErr = err; }
+  }
+  throw lastErr;
+}
+
+/** العنوان بيتجمّع من الحقول الموجودة فعلاً — من غير حشو. */
+function address(t){
+  const parts = [
+    t['addr:full'],
+    [t['addr:housenumber'], t['addr:street']].filter(Boolean).join(' '),
+    t['addr:suburb'], t['addr:district'], t['addr:city'],
+  ].filter(Boolean);
+  return [...new Set(parts)].join('، ');
+}
+
+function tidy(el, cityAr){
+  const t = el.tags || {};
+  const lat = el.lat ?? el.center?.lat;
+  const lon = el.lon ?? el.center?.lon;
+  if (lat == null || lon == null) return null;
+  return {
+    name:  t['name:ar'] || t.name || t['name:en'] || '',
+    lat:   +lat.toFixed(7),
+    lon:   +lon.toFixed(7),
+    phone: t.phone || t['contact:phone'] || t.mobile || t['contact:mobile'] || '',
+    addr:  address(t),
+    city:  cityAr,
+    osm:   `${el.type}/${el.id}`,
+  };
+}
+
+function render(city, rows, note){
+  const tb = $('#tb-' + city.key);
+  tb.innerHTML = '';
+  $('#count-' + city.key).textContent =
+    `${rows.length} صيدلية · بأرقام: ${rows.filter(r => r.phone).length}`;
+  $('#msg-' + city.key).textContent = note || '';
+  $('#msg-' + city.key).style.display = rows.length ? 'none' : '';
+
+  rows.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    const blank = '<span class="empty">—</span>';
+    const maps = `https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}`;
+    const find = 'https://www.google.com/maps/search/'
+               + encodeURIComponent(`${r.name || 'صيدلية'} ${r.city}`);
+    tr.innerHTML =
+      `<td class="idx">${i + 1}</td>` +
+      `<td class="name">${esc(r.name) || blank}</td>` +
+      `<td class="num">${r.lat}</td>` +
+      `<td class="num">${r.lon}</td>` +
+      `<td class="num">${esc(r.phone) || blank}</td>` +
+      `<td>${esc(r.addr) || blank}</td>` +
+      `<td><a href="${maps}" target="_blank" rel="noopener">📍 ماب</a> ` +
+      `<a href="${find}" target="_blank" rel="noopener">🔍 بحث</a></td>`;
+    tb.appendChild(tr);
+  });
+}
+const esc = s => String(s || '').replace(/[&<>"]/g, c =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+async function run(){
+  $('#load').disabled = true;
+  $('#xlsx').disabled = $('#csvBtn').disabled = true;
+  try {
+    for (const city of CITIES){
+      setStatus(`بندوّر على حدود ${city.ar}…`);
+      const { box, source } = await cityBounds(city);
+      setStatus(`بنسحب صيدليات ${city.ar}… (الحدود: ${source})`);
+      const raw = await pharmacies(box);
+      const rows = raw.map(el => tidy(el, city.ar)).filter(Boolean)
+                      .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+      results[city.key] = rows;
+      render(city, rows, rows.length ? '' : 'مفيش صيدليات مسجّلة في النطاق ده على OpenStreetMap.');
+      await sleep(1100);            // Nominatim بيطلب طلب واحد في الثانية كحد أقصى
+    }
+    const total = Object.values(results).reduce((n, r) => n + r.length, 0);
+    setStatus(`تمام — ${total} صيدلية. تقدري تنزّلي الملف.`);
+    $('#xlsx').disabled = $('#csvBtn').disabled = total === 0;
+  } catch (e) {
+    setStatus('مقدرش يسحب البيانات: ' + (e.message || e) + ' — جرّبي تاني بعد شوية.');
+  }
+  $('#load').disabled = false;
+}
+
+const HEAD = ['#','اسم الصيدلية','خط العرض','خط الطول','رقم التواصل','العنوان','المدينة','مرجع OSM'];
+const toAoA = rows => [HEAD, ...rows.map((r, i) =>
+  [i + 1, r.name, r.lat, r.lon, r.phone, r.addr, r.city, r.osm])];
+
+$('#xlsx').onclick = () => {
+  /* المكتبة بتتحمّل من الإنترنت. لو الشبكة أو مانع إعلانات وقفها، الزرار كان
+     هيرمي خطأ في الصامت — فبنقول السبب ونحوّلها على CSV اللي مش محتاج مكتبة. */
+  if (typeof XLSX === 'undefined'){
+    setStatus('مكتبة Excel ما اتحمّلتش (الإنترنت أو مانع إعلانات) — نزّلي CSV، بيفتح في إكسل عادي.');
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  for (const c of CITIES){
+    const ws = XLSX.utils.aoa_to_sheet(toAoA(results[c.key] || []));
+    ws['!cols'] = [{wch:5},{wch:34},{wch:13},{wch:13},{wch:18},{wch:42},{wch:14},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, ws, 'صيدليات ' + c.ar.replace('مدينة ',''));
+  }
+  XLSX.writeFile(wb, 'pharmacies-badr-obour.xlsx');   // اسم لاتيني: العربي بينزل باسم download
+};
+
+$('#csvBtn').onclick = () => {
+  const lines = [];
+  for (const c of CITIES){
+    lines.push(c.ar);
+    toAoA(results[c.key] || []).forEach(row =>
+      lines.push(row.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',')));
+    lines.push('');
+  }
+  /* الـ BOM هو اللي بيخلي إكسل يقرا العربي صح بدل ما يطلع رموز */
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pharmacies-badr-obour.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+
+$('#load').onclick = run;
+run();
+</script>
+</body>
+</html>
