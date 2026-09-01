@@ -99,7 +99,7 @@ if (process.argv.includes('--terser')) {
   const inJs = join(dir, 'in.js');
   const outJs = join(dir, 'out.js');
   writeFileSync(inJs, bundle);
-  execFileSync('npx', ['--yes', 'terser', inJs, '-c', '-m', '--format', 'ascii_only=false', '-o', outJs], { stdio: 'inherit' });
+  execFileSync('npx', ['--yes', 'terser', inJs, '-c', '-m', '--format', 'ascii_only=false,max_line_len=180', '-o', outJs], { stdio: 'inherit' });
   const minJs = readFileSync(outJs, 'utf8');
   rmSync(dir, { recursive: true, force: true });
 

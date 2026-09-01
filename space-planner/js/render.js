@@ -12,6 +12,27 @@ const CATEGORY_COLORS = {
   plant: '#22c55e', books: '#0ea5e9', storage: '#94a3b8', decor: '#f472b6',
   camera: '#ef4444', electronics: '#3b82f6', glass: '#ef4444', shoes: '#a16207',
   clothes: '#06b6d4', toiletries: '#f97316', book: '#0ea5e9', food: '#84cc16',
+
+  // التسريحة
+  mirror: '#38bdf8', dailyMakeup: '#fb7185', makeup: '#f43f5e', brushes: '#f472b6',
+  skincare: '#2dd4bf', perfume: '#c084fc', jewelry: '#fbbf24', hairTools: '#f97316',
+  tissues: '#94a3b8',
+
+  // المطبخ
+  board: '#a16207', knives: '#64748b', spices: '#f59e0b', oils: '#eab308',
+  appliance: '#3b82f6', pots: '#94a3b8', utensils: '#14b8a6', dishes: '#0ea5e9',
+  produce: '#22c55e',
+
+  // الورشة
+  vise: '#475569', workArea: '#a16207', handTools: '#64748b', powerTools: '#8b5cf6',
+  fasteners: '#94a3b8', measuring: '#14b8a6', chemicals: '#ef4444',
+
+  // الكومودينو والمذاكرة
+  water: '#38bdf8', glasses: '#a855f7', meds: '#ef4444',
+
+  // البروفايل العام
+  main: '#3b82f6', daily: '#14b8a6', liquid: '#38bdf8', tall: '#a855f7', rare: '#94a3b8',
+
   other: '#64748b',
 };
 
