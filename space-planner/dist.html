@@ -1,0 +1,2078 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>مرتّب المساحة — صوّر أي مساحة</title>
+<meta name="description" content="صوّر مكتبك أو شنطتك، والتطبيق يقيسها بالسنتيمتر ويقولك ترتّبها إزاي بالظبط. مجاني وبيشتغل من متصفحك.">
+<meta name="theme-color" content="#0f7b6c">
+
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+--bg:#f4f6f8; --surface:#ffffff; --card:#ffffff; --line:#dfe4ea;
+--ink:#161a1e; --dim:#68727d; --accent:#0f7b6c; --accent-ink:#ffffff;
+--accent-soft:#e4f2ef; --warn:#b45309; --warn-soft:#fef3c7;
+--ok:#166534; --ok-soft:#dcfce7; --reach:#94a3b8; --seat:#0f7b6c;
+--radius:14px; --shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+:root{
+--bg:#12151a; --surface:#1a1f26; --card:#1a1f26; --line:#2c333d;
+--ink:#e8ecf1; --dim:#94a1af; --accent:#2dd4bf; --accent-ink:#0b1114;
+--accent-soft:#134e4a; --warn:#fbbf24; --warn-soft:#3b2f0b;
+--ok:#4ade80; --ok-soft:#14331f; --reach:#4b5563; --seat:#2dd4bf;
+--shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+}
+}
+*,*::before,*::after{box-sizing:border-box}
+body{
+margin:0; background:var(--bg); color:var(--ink);
+font-family:'Cairo',system-ui,-apple-system,'Segoe UI',sans-serif;
+line-height:1.65; -webkit-text-size-adjust:100%;
+}
+img{max-width:100%;display:block}
+.topbar{
+position:sticky; top:0; z-index:20; display:flex; align-items:center;
+justify-content:space-between; gap:12px; padding:12px 16px;
+background:var(--surface); border-bottom:1px solid var(--line);
+padding-top:max(12px,env(safe-area-inset-top));
+}
+.topbar h1{font-size:18px;margin:0;font-weight:800}
+.icon-btn{background:none;border:0;font-size:20px;cursor:pointer;padding:6px;border-radius:8px}
+.icon-btn:hover{background:var(--bg)}
+#app{max-width:720px;margin:0 auto;padding:16px 16px 48px}
+.screen{display:none;animation:fade .25s ease}
+.screen.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.screen{animation:none}}
+h2{font-size:20px;margin:4px 0 14px}
+h3{font-size:16px;margin:20px 0 8px}
+.lead{color:var(--dim);margin:4px 0 22px}
+.hint{font-size:13px;color:var(--dim);margin:6px 0}
+.hint.center{text-align:center;margin-top:14px}
+.muted{color:var(--dim)}
+.hidden{display:none !important}
+a{color:var(--accent)}
+.back{background:none;border:0;color:var(--dim);font:inherit;font-size:14px;cursor:pointer;padding:4px 0;margin-bottom:8px}
+.back:hover{color:var(--ink)}
+.btn{
+display:block;width:100%;padding:13px 16px;border-radius:var(--radius);
+border:1px solid var(--line);background:var(--surface);color:var(--ink);
+font:inherit;font-weight:600;cursor:pointer;margin-top:10px;transition:.15s;
+}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn.big{padding:16px;font-size:16px}
+.mode-grid{display:grid;gap:12px}
+.mode-card{
+display:block;text-align:right;padding:20px;border-radius:var(--radius);
+border:1px solid var(--line);background:var(--card);cursor:pointer;
+font:inherit;color:var(--ink);box-shadow:var(--shadow);transition:.15s;
+}
+.mode-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.mode-icon{font-size:32px;display:block;margin-bottom:8px}
+.mode-card strong{display:block;font-size:17px;margin-bottom:4px}
+.mode-card small{color:var(--dim);font-size:13px;line-height:1.5}
+.field{margin:22px 0}
+.label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
+.input{
+width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);
+background:var(--surface);color:var(--ink);font:inherit;margin-top:6px;
+}
+.input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>*{flex:1;min-width:110px}
+.preview{margin-top:12px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line)}
+.items{display:grid;gap:10px;margin:14px 0}
+.item{
+display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;
+padding:12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);
+}
+.item-name{font-weight:600;border:0;background:none;color:var(--ink);font:inherit;font-weight:600;width:100%;padding:2px 0}
+.item-name:focus{outline:1px solid var(--accent);border-radius:4px}
+.item-dims{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.item-dims input{
+width:62px;padding:6px;border:1px solid var(--line);border-radius:8px;
+background:var(--surface);color:var(--ink);font:inherit;font-size:13px;text-align:center;
+}
+.item-dims label{font-size:11px;color:var(--dim);display:flex;flex-direction:column;gap:2px;align-items:center}
+.item select{padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;margin-top:8px}
+.item-del{background:none;border:0;color:var(--dim);font-size:20px;cursor:pointer;padding:2px 6px;border-radius:6px}
+.item-del:hover{color:#dc2626;background:var(--bg)}
+.conf-low{border-right:3px solid var(--warn)}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.stat{flex:1;min-width:88px;padding:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;text-align:center}
+.stat b{display:block;font-size:20px;font-weight:800}
+.stat span{font-size:12px;color:var(--dim)}
+.plan{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px;overflow-x:auto}
+.plan-svg{width:100%;height:auto;display:block}
+.layers{display:grid;gap:16px}
+.layer{margin:0}
+.legend{list-style:none;padding:0;margin:12px 0;display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--dim)}
+.legend li{display:flex;align-items:center;gap:5px}
+.dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+.banner{padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px}
+.banner.ok{background:var(--ok-soft);color:var(--ok)}
+.banner.warn{background:var(--warn-soft);color:var(--warn)}
+.ai-note{
+background:var(--accent-soft);border-radius:var(--radius);padding:14px;
+margin:16px 0;font-size:14px;border-right:3px solid var(--accent);
+}
+.notes{display:grid;gap:8px;margin:16px 0}
+.note{padding:11px 13px;border-radius:10px;font-size:13.5px;display:flex;gap:8px;align-items:flex-start}
+.note.warn{background:var(--warn-soft);color:var(--warn)}
+.note.ok{background:var(--ok-soft);color:var(--ok)}
+.note.tip{background:var(--surface);border:1px solid var(--line);color:var(--dim)}
+.steps{margin:16px 0}
+.steps ol{padding-inline-start:20px;margin:8px 0}
+.steps li{margin-bottom:8px;font-size:14px}
+.steps .pos{color:var(--dim);font-size:13px}
+.off-desk{background:var(--warn-soft);border-radius:var(--radius);padding:14px;margin-top:16px}
+.off-desk h3{margin-top:0;color:var(--warn);font-size:15px}
+.off-desk ul{margin:6px 0 0;padding-inline-start:20px;font-size:13.5px;color:var(--warn)}
+.actions{display:grid;gap:8px;margin-top:22px}
+.saved{margin-top:32px}
+.saved ul{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.saved li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px}
+.saved button{background:none;border:0;font:inherit;color:var(--accent);cursor:pointer;font-weight:600}
+dialog{
+border:0;border-radius:var(--radius);padding:22px;max-width:420px;width:calc(100% - 32px);
+background:var(--card);color:var(--ink);box-shadow:var(--shadow);
+}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog h2{margin-top:0}
+dialog .row{margin-top:16px}
+dialog .btn{margin-top:0}
+.toast{
+position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:10px;
+font-size:14px;z-index:100;max-width:90%;text-align:center;box-shadow:var(--shadow);
+}
+.loader{
+position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;
+flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:90;color:#fff;
+}
+.spinner{
+width:38px;height:38px;border:3px solid rgba(255,255,255,.25);
+border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (min-width:600px){
+.mode-grid{grid-template-columns:1fr 1fr}
+.actions{grid-template-columns:1fr 1fr}
+}
+.detected{background:var(--accent-soft);border-radius:var(--radius);padding:14px;margin-bottom:14px}
+.detected-row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:15px}
+.detected-row b{font-size:17px}
+.link-btn{background:none;border:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}
+.rules{list-style:none;padding:0;margin:12px 0 0;display:flex;flex-wrap:wrap;gap:6px}
+.rules li{font-size:11.5px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:3px 10px;color:var(--dim)}
+#changeSpaceWrap{margin-top:10px}
+.ask{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-top:20px}
+.ask .btn{margin-top:8px}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>📐 مرتّب المساحة</h1>
+  <button id="btnSettings" class="icon-btn" aria-label="الإعدادات">⚙️</button>
+</header>
+
+<main id="app">
+
+  <!-- ═══ ١) اختيار الوضع ═══ -->
+  <section class="screen active" data-screen="mode">
+    <p class="lead">صوّر المساحة بتاعتك، والتطبيق هيقيسها بالسنتيمتر ويحسبلك أحسن ترتيب — بالخوارزمية، مش بالتخمين.</p>
+
+    <div class="mode-grid">
+      <button class="mode-card" data-mode="surface">
+        <span class="mode-icon">📷</span>
+        <strong>رتّب أي مساحة</strong>
+        <small>مكتب، تسريحة، رف مطبخ، ترابيزة عدة، كومودينو... صوّرها والتطبيق يعرف هي إيه ويكتب قواعدها</small>
+      </button>
+      <button class="mode-card" data-mode="bag">
+        <span class="mode-icon">🧳</span>
+        <strong>رص شنطتي</strong>
+        <small>إيه اللي هيدخل، وإيه اللي لأ، وبأي ترتيب</small>
+      </button>
+    </div>
+
+    <div id="savedScans" class="saved hidden">
+      <h3>محفوظات</h3>
+      <ul id="savedList"></ul>
+    </div>
+  </section>
+
+  <!-- ═══ ٢) التصوير والإعدادات ═══ -->
+  <section class="screen" data-screen="capture">
+    <button class="back" data-goto="mode">→ رجوع</button>
+    <h2 id="captureTitle">صوّر المساحة</h2>
+
+    <div class="field">
+      <label class="label">١. حط مرجع قياس في الصورة</label>
+      <p class="hint" id="scaleHint">من غير مرجع قياس، أي مقاس هيطلع تخمين. حط الحاجة دي في الصورة جنب الحاجات:</p>
+      <select id="scaleRef" class="input"></select>
+      <div id="customRefWrap" class="hidden">
+        <input id="customRefCm" class="input" type="number" min="1" step="0.1" placeholder="العرض الحقيقي بالسنتيمتر">
+      </div>
+    </div>
+
+    <div class="field" id="deskOpts">
+      <label class="label">٢. المساحة دي إيه؟</label>
+      <select id="spaceType" class="input"></select>
+      <p class="hint" id="spaceTypeHint">لو سيبتها على «اكتشف تلقائياً»، الموديل هيبص على الصورة ويعرف هي إيه ويكتب قواعد ترتيبها بنفسه.</p>
+      <input id="intent" class="input" type="text" maxlength="120" placeholder="عايز إيه من المساحة دي؟ (اختياري)">
+      <p class="hint">مثال: «عايزة أجهّز نفسي بسرعة الصبح» أو «عايز أحوّلها ركن مذاكرة»</p>
+      <select id="dominantHand" class="input">
+        <option value="right">بستخدم إيدي اليمين</option>
+        <option value="left">بستخدم إيدي الشمال</option>
+      </select>
+    </div>
+
+    <div class="field hidden" id="bagOpts">
+      <label class="label">٢. الشنطة</label>
+      <select id="bagPreset" class="input"></select>
+      <div id="customBagWrap" class="row hidden">
+        <input id="bagW" class="input" type="number" placeholder="العرض سم">
+        <input id="bagD" class="input" type="number" placeholder="العمق سم">
+        <input id="bagH" class="input" type="number" placeholder="الارتفاع سم">
+      </div>
+      <p class="hint">⚠️ مقاسات شركات الطيران بتتغيّر — راجع موقع شركتك قبل السفر.</p>
+    </div>
+
+    <div class="field">
+      <label class="label">٣. الصورة</label>
+      <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
+      <button id="btnPick" class="btn big">📷 صوّر أو اختار صورة</button>
+      <div id="preview" class="preview hidden"><img id="previewImg" alt="الصورة اللي اخترتها"></div>
+    </div>
+
+    <button id="btnAnalyze" class="btn primary big" disabled>حلّل الصورة</button>
+    <button id="btnManual" class="btn ghost">أو أدخل الحاجات بنفسك من غير صورة</button>
+    <p class="hint center">الصورة بتتبعت لجوجل بمفتاحك انت، ومش بتتخزن عندنا — مفيش سيرفر أصلاً.</p>
+  </section>
+
+  <!-- ═══ ٣) مراجعة الحاجات ═══ -->
+  <section class="screen" data-screen="review">
+    <button class="back" data-goto="capture">→ رجوع</button>
+    <h2>راجع المقاسات</h2>
+    <div id="scaleBanner" class="banner"></div>
+    <div id="detectedSpace" class="detected hidden">
+      <div class="detected-row">
+        <span>المساحة دي: <b id="detectedName">—</b></span>
+        <button id="btnChangeSpace" class="link-btn">غيّرها</button>
+      </div>
+      <div id="changeSpaceWrap" class="hidden">
+        <input id="adaptIntent" class="input" type="text" maxlength="120" placeholder="اكتب عايز إيه: «خليها ركن مذاكرة»">
+        <button id="btnAdapt" class="btn ghost">🤖 اعمل القواعد من تاني</button>
+      </div>
+      <ul id="rulesList" class="rules"></ul>
+    </div>
+    <p class="hint">الأرقام دي محسوبة من مرجع القياس. لو حاجة غلط، عدّلها — الترتيب هيتحسب على اللي انت تأكده.</p>
+    <div id="itemsList" class="items"></div>
+    <button id="btnAddItem" class="btn ghost">+ ضيف حاجة بنفسك</button>
+    <button id="btnPlan" class="btn primary big">احسب الترتيب</button>
+  </section>
+
+  <!-- ═══ ٤) النتيجة ═══ -->
+  <section class="screen" data-screen="result">
+    <button class="back" data-goto="review">→ رجوع للمقاسات</button>
+    <h2 id="resultTitle">الترتيب المقترح</h2>
+    <div id="statsRow" class="stats"></div>
+    <div id="planView" class="plan"></div>
+    <div id="legendView"></div>
+    <div id="aiNote" class="ai-note hidden"></div>
+    <div id="notesView" class="notes"></div>
+    <div id="stepsView" class="steps"></div>
+    <div class="ask">
+      <label class="label" for="askInput">💬 اسأل عن مساحتك</label>
+      <input id="askInput" class="input" type="text" maxlength="200" placeholder="مثال: ليه رقبتي بتوجعني؟ / إزاي أخليها أهدى؟">
+      <button id="btnAsk" class="btn ghost">اسأل</button>
+      <div id="askAnswer" class="ai-note hidden"></div>
+    </div>
+    <div class="actions">
+      <button id="btnAfterImage" class="btn ghost">🎨 ورّيني صورة "بعد الترتيب"</button>
+      <button id="btnSave" class="btn ghost">💾 احفظ</button>
+    </div>
+    <div id="afterImageWrap" class="hidden">
+      <p class="hint">⚠️ دي صورة تخيلية من الـAI — المخطط اللي فوق هو الدقيق.</p>
+      <img id="afterImage" alt="تصور للمكان بعد الترتيب">
+    </div>
+  </section>
+
+</main>
+
+<!-- ═══ الإعدادات ═══ -->
+<dialog id="settingsDialog">
+  <form method="dialog">
+    <h2>الإعدادات</h2>
+    <label class="label" for="apiKey">مفتاح Gemini</label>
+    <input id="apiKey" class="input" type="password" placeholder="AIza..." autocomplete="off">
+    <p class="hint">
+      المفتاح مجاني من <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+      بيتخزن في متصفحك انت بس، وبيتبعت لجوجل مباشرة. مفيش سيرفر بيشوفه.
+    </p>
+    <div class="row">
+      <button value="save" class="btn primary">حفظ</button>
+      <button value="cancel" class="btn ghost">إلغاء</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast hidden"></div>
+<div id="loader" class="loader hidden"><div class="spinner"></div><p id="loaderText">بحلل...</p></div>
+
+<script>
+
+/* js/geometry.js */
+const SCALE_REFERENCES = {
+card: {
+id: 'card',
+labelAr: 'كارت بنك / بطاقة هوية',
+hintAr: 'أي كارت بمقاس البطاقة البنكية (ISO ID-1)',
+widthCm: 8.56,
+heightCm: 5.398,
+},
+a4: {
+id: 'a4',
+labelAr: 'ورقة A4',
+hintAr: 'ورقة الطباعة العادية',
+widthCm: 21.0,
+heightCm: 29.7,
+},
+a5: {
+id: 'a5',
+labelAr: 'ورقة A5',
+hintAr: 'نص ورقة A4',
+widthCm: 14.8,
+heightCm: 21.0,
+},
+ruler30: {
+id: 'ruler30',
+labelAr: 'مسطرة 30 سم',
+hintAr: 'المسطرة المدرسية',
+widthCm: 30.0,
+heightCm: 3.5,
+},
+custom: {
+id: 'custom',
+labelAr: 'حاجة تانية (أدخل المقاس)',
+hintAr: 'اكتب العرض بالسنتيمتر',
+widthCm: null,
+heightCm: null,
+},
+};
+function normalizeBox(box) {
+if (!Array.isArray(box) || box.length !== 4) return null;
+const [ymin, xmin, ymax, xmax] = box.map(Number);
+if ([ymin, xmin, ymax, xmax].some((n) => !Number.isFinite(n))) return null;
+return {
+x: Math.min(xmin, xmax) / 1000,
+y: Math.min(ymin, ymax) / 1000,
+w: Math.abs(xmax - xmin) / 1000,
+h: Math.abs(ymax - ymin) / 1000,
+};
+}
+function computeScale(refBox, refRealWidthCm, refRealHeightCm) {
+if (!refBox || !refBox.w || !refBox.h) {
+throw new Error('مرجع القياس مش موجود في الصورة');
+}
+if (!refRealWidthCm || !refRealHeightCm) {
+throw new Error('مقاس مرجع القياس ناقص');
+}
+const boxAspect = refBox.w / refBox.h;
+const uprightAspect = refRealWidthCm / refRealHeightCm;
+const rotatedAspect = refRealHeightCm / refRealWidthCm;
+const uprightError = Math.abs(Math.log(boxAspect / uprightAspect));
+const rotatedError = Math.abs(Math.log(boxAspect / rotatedAspect));
+const rotated = rotatedError < uprightError;
+const realW = rotated ? refRealHeightCm : refRealWidthCm;
+const realH = rotated ? refRealWidthCm : refRealHeightCm;
+return {
+cmPerUnitX: realW / refBox.w,
+cmPerUnitY: realH / refBox.h,
+rotated,
+aspectError: Math.min(uprightError, rotatedError),
+};
+}
+function boxToCm(box, scale) {
+return {
+widthCm: round1(box.w * scale.cmPerUnitX),
+depthCm: round1(box.h * scale.cmPerUnitY),
+};
+}
+function perspectiveCorrect(objBox, refBox, strength = 0.35) {
+const objCenterY = objBox.y + objBox.h / 2;
+const refCenterY = refBox.y + refBox.h / 2;
+const delta = refCenterY - objCenterY; // موجب = الحاجة أبعد (أعلى في الصورة)
+const factor = 1 + delta * strength;
+return Math.min(1.6, Math.max(0.65, factor));
+}
+function round1(n) {
+return Math.round(n * 10) / 10;
+}
+function cm(n) {
+return `${round1(n)} سم`;
+}
+function scaleConfidence(scale, refBox) {
+const areaFraction = refBox.w * refBox.h;
+let score = 1;
+if (areaFraction < 0.004) score -= 0.45;
+else if (areaFraction < 0.012) score -= 0.2;
+if (scale.aspectError > 0.35) score -= 0.4;
+else if (scale.aspectError > 0.18) score -= 0.2;
+score = Math.max(0.1, Math.min(1, score));
+const labelAr = score > 0.75 ? 'عالية' : score > 0.45 ? 'متوسطة' : 'منخفضة';
+return { score, labelAr };
+}
+
+/* js/profiles.js */
+const ZONES = {
+front:     { targetCm: 18, labelAr: 'قدامك مباشرة' },
+primary:   { targetCm: 32, labelAr: 'في متناول إيدك من غير ما تتحرك' },
+secondary: { targetCm: 52, labelAr: 'على بُعد مد دراع' },
+back:      { targetCm: 70, labelAr: 'في العمق ناحية الحيطة' },
+far:       { targetCm: 85, labelAr: 'بعيد عن منطقة الشغل' },
+};
+const SIDES = ['dominant', 'off', 'center', 'any'];
+const ANCHOR_SLOTS = ['back-center', 'front-center', 'front-dominant'];
+const BUILT_IN_PROFILES = {
+desk: {
+id: 'desk',
+spaceTypeAr: 'مكتب شغل',
+spaceKind: 'surface',
+defaultSizeCm: { width: 140, depth: 70 },
+categories: {
+monitor:    { labelAr: 'شاشة',        zone: 'back',      side: 'center',   anchor: 'back-center', tall: true, screen: true },
+laptop:     { labelAr: 'لابتوب',      zone: 'back',      side: 'center',   anchor: 'back-center', tall: true, screen: true },
+keyboard:   { labelAr: 'كيبورد',      zone: 'front',     side: 'center',   anchor: 'front-center' },
+mouse:      { labelAr: 'ماوس',        zone: 'front',     side: 'dominant', anchor: 'front-dominant' },
+drink:      { labelAr: 'مشروب',       zone: 'secondary', side: 'off',      keepDry: true },
+phone:      { labelAr: 'موبايل',      zone: 'primary',   side: 'off' },
+notebook:   { labelAr: 'نوتة / ورق',  zone: 'primary',   side: 'dominant' },
+pens:       { labelAr: 'أقلام',       zone: 'primary',   side: 'dominant' },
+lamp:       { labelAr: 'أباجورة',     zone: 'back',      side: 'off',      tall: true },
+speaker:    { labelAr: 'سماعة',       zone: 'back',      side: 'any',      tall: true },
+headphones: { labelAr: 'سماعة راس',   zone: 'secondary', side: 'off' },
+plant:      { labelAr: 'نبتة',        zone: 'far',       side: 'any',      tall: true, wantsLight: true },
+books:      { labelAr: 'كتب',         zone: 'far',       side: 'any',      tall: true },
+storage:    { labelAr: 'تخزين',       zone: 'far',       side: 'any' },
+decor:      { labelAr: 'ديكور',       zone: 'far',       side: 'any' },
+other:      { labelAr: 'حاجة تانية',  zone: 'secondary', side: 'any' },
+},
+tipsAr: [],
+},
+dresser: {
+id: 'dresser',
+spaceTypeAr: 'تسريحة',
+spaceKind: 'surface',
+defaultSizeCm: { width: 110, depth: 45 },
+categories: {
+mirror:     { labelAr: 'مراية',        zone: 'back',      side: 'center',   anchor: 'back-center', tall: true },
+lamp:       { labelAr: 'إضاءة',        zone: 'back',      side: 'off',      tall: true },
+dailyMakeup:{ labelAr: 'مكياج يومي',   zone: 'primary',   side: 'dominant' },
+makeup:     { labelAr: 'مكياج',        zone: 'secondary', side: 'dominant' },
+brushes:    { labelAr: 'فرش',          zone: 'primary',   side: 'dominant', tall: true },
+skincare:   { labelAr: 'عناية بالبشرة',zone: 'secondary', side: 'off',      avoidLight: true },
+perfume:    { labelAr: 'برفان',        zone: 'secondary', side: 'any',      tall: true, avoidLight: true },
+jewelry:    { labelAr: 'إكسسوار',      zone: 'secondary', side: 'off' },
+hairTools:  { labelAr: 'أدوات شعر',    zone: 'secondary', side: 'dominant', hot: true },
+tissues:    { labelAr: 'مناديل',       zone: 'secondary', side: 'off' },
+storage:    { labelAr: 'علب تخزين',    zone: 'far',       side: 'any' },
+decor:      { labelAr: 'ديكور',        zone: 'far',       side: 'any' },
+other:      { labelAr: 'حاجة تانية',   zone: 'secondary', side: 'any' },
+},
+tipsAr: [
+'الإضاءة الأحسن للمكياج بتيجي من قدامك على مستوى الوش — مش من فوق، عشان متعملش ضل تحت العين.',
+'البرفانات والسيرومات بتبوظ بسرعة في الشمس والحرارة — خليها في ركن مظلل أو في درج.',
+],
+},
+kitchen: {
+id: 'kitchen',
+spaceTypeAr: 'رف / تختة مطبخ',
+spaceKind: 'surface',
+defaultSizeCm: { width: 180, depth: 60 },
+categories: {
+board:      { labelAr: 'تختة تقطيع',   zone: 'front',     side: 'center',   anchor: 'front-center' },
+knives:     { labelAr: 'سكاكين',       zone: 'primary',   side: 'dominant', tall: true },
+spices:     { labelAr: 'بهارات',       zone: 'primary',   side: 'off',      tall: true, avoidLight: true },
+oils:       { labelAr: 'زيوت',         zone: 'secondary', side: 'off',      tall: true, avoidLight: true },
+appliance:  { labelAr: 'جهاز كهربا',   zone: 'back',      side: 'any',      tall: true, keepDry: true },
+pots:       { labelAr: 'حلل وطاسات',   zone: 'secondary', side: 'any',      tall: true },
+utensils:   { labelAr: 'أدوات',        zone: 'primary',   side: 'dominant', tall: true },
+dishes:     { labelAr: 'أطباق',        zone: 'secondary', side: 'any' },
+produce:    { labelAr: 'خضار وفاكهة',  zone: 'far',       side: 'any' },
+storage:    { labelAr: 'برطمانات',     zone: 'far',       side: 'any',      tall: true },
+other:      { labelAr: 'حاجة تانية',   zone: 'secondary', side: 'any' },
+},
+tipsAr: [
+'سيب مساحة فاضية قدام تختة التقطيع — دي أهم مساحة في المطبخ وأكتر حاجة بتضيع.',
+'البهارات والزيوت بتبوظ جنب البوتاجاز من الحرارة، حتى لو ده أقرب مكان.',
+],
+},
+workbench: {
+id: 'workbench',
+spaceTypeAr: 'ترابيزة عدة / ورشة',
+spaceKind: 'surface',
+defaultSizeCm: { width: 150, depth: 70 },
+categories: {
+vise:       { labelAr: 'منجلة',        zone: 'front',     side: 'dominant', anchor: 'front-dominant' },
+workArea:   { labelAr: 'منطقة الشغل',  zone: 'front',     side: 'center',   anchor: 'front-center' },
+handTools:  { labelAr: 'عدة يدوي',     zone: 'primary',   side: 'dominant' },
+powerTools: { labelAr: 'عدة كهربا',    zone: 'secondary', side: 'dominant' },
+fasteners:  { labelAr: 'مسامير وصواميل',zone: 'secondary', side: 'off' },
+measuring:  { labelAr: 'أدوات قياس',   zone: 'primary',   side: 'off' },
+lamp:       { labelAr: 'إضاءة',        zone: 'back',      side: 'off',      tall: true },
+chemicals:  { labelAr: 'مواد كيماوية', zone: 'far',       side: 'any',      avoidLight: true, keepDry: true },
+storage:    { labelAr: 'صناديق',       zone: 'far',       side: 'any' },
+other:      { labelAr: 'حاجة تانية',   zone: 'secondary', side: 'any' },
+},
+tipsAr: [
+'العدة اللي بتستخدمها كل شوية لازم تتمسك من غير ما تبص — ثبّت مكانها ومتغيرهوش.',
+'سيب نص المساحة على الأقل فاضية: الترابيزة المليانة بتوقّف الشغل.',
+],
+},
+bedside: {
+id: 'bedside',
+spaceTypeAr: 'كومودينو',
+spaceKind: 'surface',
+defaultSizeCm: { width: 45, depth: 40 },
+categories: {
+lamp:       { labelAr: 'أباجورة',      zone: 'back',      side: 'off',      tall: true, anchor: 'back-center' },
+phone:      { labelAr: 'موبايل',       zone: 'primary',   side: 'dominant' },
+water:      { labelAr: 'مية',          zone: 'primary',   side: 'off',      keepDry: true },
+book:       { labelAr: 'كتاب',         zone: 'secondary', side: 'dominant' },
+glasses:    { labelAr: 'نضارة',        zone: 'primary',   side: 'dominant' },
+meds:       { labelAr: 'دوا',          zone: 'secondary', side: 'off',      avoidLight: true },
+decor:      { labelAr: 'ديكور',        zone: 'far',       side: 'any' },
+other:      { labelAr: 'حاجة تانية',   zone: 'secondary', side: 'any' },
+},
+tipsAr: [
+'المية والدوا لازم توصلهم في الضلمة من غير ما تقوم — خليهم في نفس المكان دايماً.',
+'الكومودينو الصغير بيمتلي بسرعة: أي حاجة مش بتستخدمها قبل النوم أو بعد الصحيان مكانها مش هنا.',
+],
+},
+study: {
+id: 'study',
+spaceTypeAr: 'مكتب مذاكرة',
+spaceKind: 'surface',
+defaultSizeCm: { width: 120, depth: 60 },
+categories: {
+books:      { labelAr: 'كتب',          zone: 'back',      side: 'center',   anchor: 'back-center', tall: true },
+notebook:   { labelAr: 'كشكول',        zone: 'front',     side: 'center',   anchor: 'front-center' },
+pens:       { labelAr: 'أقلام',        zone: 'primary',   side: 'dominant', tall: true },
+lamp:       { labelAr: 'أباجورة',      zone: 'back',      side: 'off',      tall: true },
+laptop:     { labelAr: 'لابتوب',       zone: 'secondary', side: 'any',      tall: true, screen: true },
+water:      { labelAr: 'مية',          zone: 'secondary', side: 'off',      keepDry: true },
+phone:      { labelAr: 'موبايل',       zone: 'far',       side: 'off' },
+storage:    { labelAr: 'تخزين',        zone: 'far',       side: 'any' },
+other:      { labelAr: 'حاجة تانية',   zone: 'secondary', side: 'any' },
+},
+tipsAr: [
+'الموبايل مكانه بعيد عن متناول إيدك عن قصد — لو في متناولك هتمسكه.',
+'الأباجورة على عكس إيد الكتابة عشان إيدك متعملش ضل على الورقة.',
+],
+},
+};
+const GENERIC_PROFILE = {
+id: 'generic',
+spaceTypeAr: 'مساحة',
+spaceKind: 'surface',
+defaultSizeCm: { width: 120, depth: 60 },
+categories: {
+main:    { labelAr: 'الحاجة الأساسية', zone: 'back',      side: 'center', anchor: 'back-center', tall: true },
+daily:   { labelAr: 'بستخدمها يومياً', zone: 'primary',   side: 'dominant' },
+liquid:  { labelAr: 'سوايل',           zone: 'secondary', side: 'off', keepDry: true },
+tall:    { labelAr: 'حاجة عالية',      zone: 'back',      side: 'any', tall: true },
+rare:    { labelAr: 'نادراً',          zone: 'far',       side: 'any' },
+decor:   { labelAr: 'ديكور',           zone: 'far',       side: 'any' },
+other:   { labelAr: 'حاجة تانية',      zone: 'secondary', side: 'any' },
+},
+tipsAr: [],
+};
+const VALID_FLAGS = ['tall', 'keepDry', 'avoidLight', 'wantsLight', 'hot', 'fragile', 'screen'];
+function normalizeProfile(raw, fallback = GENERIC_PROFILE) {
+if (!raw || typeof raw !== 'object') return { ...fallback, source: 'fallback' };
+const categories = {};
+const rawCats = raw.categories && typeof raw.categories === 'object' ? raw.categories : {};
+const anchorsUsed = new Set();
+for (const [key, def] of Object.entries(rawCats)) {
+if (!def || typeof def !== 'object') continue;
+const safeKey = String(key).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 32);
+if (!safeKey) continue;
+const cat = {
+labelAr: String(def.labelAr || safeKey).slice(0, 40),
+zone: ZONES[def.zone] ? def.zone : 'secondary',
+side: SIDES.includes(def.side) ? def.side : 'any',
+};
+for (const flag of VALID_FLAGS) if (def[flag] === true) cat[flag] = true;
+if (ANCHOR_SLOTS.includes(def.anchor) && !anchorsUsed.has(def.anchor)) {
+cat.anchor = def.anchor;
+anchorsUsed.add(def.anchor);
+}
+categories[safeKey] = cat;
+}
+if (!categories.other) {
+categories.other = { labelAr: 'حاجة تانية', zone: 'secondary', side: 'any' };
+}
+if (Object.keys(categories).length < 2) return { ...fallback, source: 'fallback' };
+const size = raw.defaultSizeCm || {};
+return {
+id: 'ai',
+spaceTypeAr: String(raw.spaceTypeAr || 'مساحة').slice(0, 40),
+spaceKind: raw.spaceKind === 'container' ? 'container' : 'surface',
+defaultSizeCm: {
+width: clampNum(size.width, 20, 400, fallback.defaultSizeCm.width),
+depth: clampNum(size.depth, 15, 200, fallback.defaultSizeCm.depth),
+},
+categories,
+tipsAr: Array.isArray(raw.tipsAr)
+? raw.tipsAr.filter((t) => typeof t === 'string' && t.trim()).slice(0, 4).map((t) => t.slice(0, 300))
+: [],
+source: 'ai',
+};
+}
+function clampNum(v, lo, hi, fallback) {
+const n = Number(v);
+return Number.isFinite(n) && n >= lo && n <= hi ? n : fallback;
+}
+function profileOptions() {
+return Object.values(BUILT_IN_PROFILES).map((p) => ({ id: p.id, labelAr: p.spaceTypeAr }));
+}
+function getProfile(id) {
+return BUILT_IN_PROFILES[id] || GENERIC_PROFILE;
+}
+
+/* js/packing.js */
+const EPS = 0.001;
+function orientations(item) {
+const { w, d, h } = item;
+const all = [
+[w, d, h], [w, h, d], [d, w, h],
+[d, h, w], [h, w, d], [h, d, w],
+];
+const allowed = item.keepUpright ? [[w, d, h], [d, w, h]] : all;
+const seen = new Set();
+const out = [];
+for (const [ow, od, oh] of allowed) {
+const key = `${ow.toFixed(2)}x${od.toFixed(2)}x${oh.toFixed(2)}`;
+if (seen.has(key)) continue;
+seen.add(key);
+out.push({ w: ow, d: od, h: oh });
+}
+return out;
+}
+function fitsIn(space, dim) {
+return (
+dim.w <= space.w + EPS &&
+dim.d <= space.d + EPS &&
+dim.h <= space.h + EPS
+);
+}
+function intersects(a, b) {
+return (
+a.x < b.x + b.w - EPS && a.x + a.w > b.x + EPS &&
+a.y < b.y + b.d - EPS && a.y + a.d > b.y + EPS &&
+a.z < b.z + b.h - EPS && a.z + a.h > b.z + EPS
+);
+}
+function contains(outer, inner) {
+return (
+outer.x <= inner.x + EPS && outer.y <= inner.y + EPS && outer.z <= inner.z + EPS &&
+outer.x + outer.w >= inner.x + inner.w - EPS &&
+outer.y + outer.d >= inner.y + inner.d - EPS &&
+outer.z + outer.h >= inner.z + inner.h - EPS
+);
+}
+function splitSpace(space, box) {
+const parts = [];
+if (box.x - space.x > EPS) {
+parts.push({ x: space.x, y: space.y, z: space.z, w: box.x - space.x, d: space.d, h: space.h });
+}
+const rightEdge = box.x + box.w;
+if (space.x + space.w - rightEdge > EPS) {
+parts.push({ x: rightEdge, y: space.y, z: space.z, w: space.x + space.w - rightEdge, d: space.d, h: space.h });
+}
+if (box.y - space.y > EPS) {
+parts.push({ x: space.x, y: space.y, z: space.z, w: space.w, d: box.y - space.y, h: space.h });
+}
+const backEdge = box.y + box.d;
+if (space.y + space.d - backEdge > EPS) {
+parts.push({ x: space.x, y: backEdge, z: space.z, w: space.w, d: space.y + space.d - backEdge, h: space.h });
+}
+if (box.z - space.z > EPS) {
+parts.push({ x: space.x, y: space.y, z: space.z, w: space.w, d: space.d, h: box.z - space.z });
+}
+const topEdge = box.z + box.h;
+if (space.z + space.h - topEdge > EPS) {
+parts.push({ x: space.x, y: space.y, z: topEdge, w: space.w, d: space.d, h: space.z + space.h - topEdge });
+}
+return parts;
+}
+function prune(spaces) {
+const kept = [];
+for (let i = 0; i < spaces.length; i++) {
+const s = spaces[i];
+if (s.w < 1 || s.d < 1 || s.h < 1) continue; // أقل من سنتيمتر = مش مفيدة
+let swallowed = false;
+for (let j = 0; j < spaces.length; j++) {
+if (i === j) continue;
+if (contains(spaces[j], s) && !(contains(s, spaces[j]) && j > i)) {
+swallowed = true;
+break;
+}
+}
+if (!swallowed) kept.push(s);
+}
+return kept;
+}
+function pack3D(bin, items) {
+const B = { w: bin.widthCm, d: bin.depthCm, h: bin.heightCm };
+const binVolume = B.w * B.d * B.h;
+const rigid = [];
+const soft = [];
+for (const it of items) {
+const norm = {
+...it,
+w: Number(it.widthCm) || 0,
+d: Number(it.depthCm) || 0,
+h: Number(it.heightCm) || 0,
+weightKg: Number(it.weightKg) || 0,
+};
+if (norm.w <= 0 || norm.d <= 0 || norm.h <= 0) continue;
+(it.compressible ? soft : rigid).push(norm);
+}
+rigid.sort((a, b) => {
+if (!!a.fragile !== !!b.fragile) return a.fragile ? 1 : -1;
+const volA = a.w * a.d * a.h;
+const volB = b.w * b.d * b.h;
+if (Math.abs(volA - volB) > 1) return volB - volA;
+return Math.max(b.w, b.d, b.h) - Math.max(a.w, a.d, a.h);
+});
+let spaces = [{ x: 0, y: 0, z: 0, ...B }];
+const placed = [];
+const unplaced = [];
+let usedWeight = 0;
+for (const item of rigid) {
+if (bin.maxWeightKg && usedWeight + item.weightKg > bin.maxWeightKg + EPS) {
+unplaced.push({ ...item, reasonAr: 'هيعدّي حد الوزن المسموح' });
+continue;
+}
+let best = null;
+for (const space of spaces) {
+for (const dim of orientations(item)) {
+if (!fitsIn(space, dim)) continue;
+const score = item.fragile
+? -space.z * 1000 + space.y * 10 + space.x
+: space.z * 1000 + space.y * 10 + space.x;
+if (!best || score < best.score) {
+best = { score, space, dim };
+}
+}
+}
+if (!best) {
+const emptyBin = { x: 0, y: 0, z: 0, ...B };
+const everFits = orientations(item).some((dim) => fitsIn(emptyBin, dim));
+unplaced.push({
+...item,
+reasonAr: everFits
+? 'مفيش مساحة فاضية كفاية'
+: `أكبر من الشنطة نفسها (أطول ضلع ${Math.round(Math.max(item.w, item.d, item.h))} سم)`,
+});
+continue;
+}
+const box = {
+x: best.space.x, y: best.space.y, z: best.space.z,
+w: best.dim.w, d: best.dim.d, h: best.dim.h,
+};
+placed.push({ ...item, box, rotated: box.w !== item.w || box.h !== item.h });
+usedWeight += item.weightKg;
+const next = [];
+for (const s of spaces) {
+if (intersects(s, box)) next.push(...splitSpace(s, box));
+else next.push(s);
+}
+spaces = prune(next);
+}
+const usedVolume = placed.reduce((sum, p) => sum + p.box.w * p.box.d * p.box.h, 0);
+let freeVolume = binVolume - usedVolume;
+soft.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+for (const item of soft) {
+const compressed = item.w * item.d * item.h * 0.7; // اللبس بيتضغط ~٣٠٪
+if (bin.maxWeightKg && usedWeight + item.weightKg > bin.maxWeightKg + EPS) {
+unplaced.push({ ...item, reasonAr: 'هيعدّي حد الوزن المسموح' });
+continue;
+}
+if (compressed <= freeVolume) {
+freeVolume -= compressed;
+usedWeight += item.weightKg;
+placed.push({ ...item, box: null, stuffed: true });
+} else {
+unplaced.push({ ...item, reasonAr: 'مفيش فاضي كفاية حتى بعد الكبس' });
+}
+}
+const finalUsed = binVolume - freeVolume;
+return {
+placed,
+unplaced,
+stats: {
+binVolumeCm3: Math.round(binVolume),
+usedVolumeCm3: Math.round(finalUsed),
+fillPercent: Math.round((finalUsed / binVolume) * 100),
+totalWeightKg: Math.round(usedWeight * 100) / 100,
+overWeight: bin.maxWeightKg ? usedWeight > bin.maxWeightKg : false,
+placedCount: placed.length,
+unplacedCount: unplaced.length,
+},
+};
+}
+function packingOrder(placed) {
+const rigid = placed.filter((p) => p.box);
+const soft = placed.filter((p) => !p.box);
+const sorted = [...rigid].sort((a, b) => {
+if (Math.abs(a.box.z - b.box.z) > 0.5) return a.box.z - b.box.z;
+if (Math.abs(a.box.y - b.box.y) > 0.5) return b.box.y - a.box.y;
+return a.box.x - b.box.x;
+});
+const steps = sorted.map((p, i) => ({
+step: i + 1,
+nameAr: p.nameAr,
+positionAr: describePosition(p.box),
+rotated: p.rotated,
+fragile: !!p.fragile,
+}));
+if (soft.length) {
+steps.push({
+step: steps.length + 1,
+nameAr: soft.map((s) => s.nameAr).join('، '),
+positionAr: 'احشرها في الفراغات اللي فضلت بين الحاجات',
+rotated: false,
+fragile: false,
+});
+}
+return steps;
+}
+function describePosition(box) {
+const layer = box.z < 1 ? 'في القاع' : `على ارتفاع ${Math.round(box.z)} سم`;
+const depth = box.y < 1 ? 'ناحية الضهر' : 'قدام';
+return `${layer}، ${depth}`;
+}
+
+/* js/surface.js */
+const GRID = 2;                 // دقة البحث بالسنتيمتر
+const FRONT_WORK_GAP = 10;      // مساحة الرسغين/الشغل قدام المرساة القدامية
+const EDGE_MARGIN = 4;          // هامش أمان من حافة السطح
+const BULKY_AREA_CM2 = 600;     // أكبر من كده ونادر الاستخدام = يتشال
+const HOT_CLEARANCE = 5;        // خلوص حوالين الحاجات السخنة
+function lightVector(windowSide, W, D) {
+switch (windowSide) {
+case 'left':  return { x: 0, y: D / 2 };
+case 'right': return { x: W, y: D / 2 };
+case 'front': return { x: W / 2, y: D };   // الشباك ورا السطح
+case 'back':  return { x: W / 2, y: 0 };   // الشباك ورا ضهرك
+default:      return null;
+}
+}
+function rectsOverlap(a, b, pad = 1) {
+return (
+a.x < b.x + b.w + pad && a.x + a.w + pad > b.x &&
+a.y < b.y + b.d + pad && a.y + a.d + pad > b.y
+);
+}
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+function layoutSurface(surface, items, profile, opts = {}) {
+const W = surface.widthCm;
+const D = surface.depthCm;
+const dominant = opts.dominantHand === 'left' ? 'left' : 'right';
+const windowSide = opts.windowSide || 'none';
+const seatX = Number.isFinite(opts.seatXCm) ? opts.seatXCm : W / 2;
+const reachOrigin = { x: seatX, y: -5 };
+const light = lightVector(windowSide, W, D);
+const cats = profile.categories || {};
+const ruleFor = (c) => cats[c] || cats.other || { zone: 'secondary', side: 'any' };
+const placed = [];
+const offDesk = [];
+const notes = [];
+const norm = items
+.map((it) => ({
+...it,
+w: Number(it.widthCm) || 0,
+d: Number(it.depthCm) || 0,
+h: Number(it.heightCm) || 0,
+category: cats[it.category] ? it.category : 'other',
+frequency: it.frequency || 'medium',
+}))
+.filter((it) => it.w > 0 && it.d > 0);
+const anchorOf = (slot) => norm.find((i) => cats[i.category]?.anchor === slot);
+const backCenter = anchorOf('back-center');
+const frontCenter = anchorOf('front-center');
+const frontDominant = anchorOf('front-dominant');
+if (backCenter) {
+const y = Math.max(0, D - backCenter.d - 2);
+const x = clamp(seatX - backCenter.w / 2, 0, W - backCenter.w);
+placed.push({ ...backCenter, x, y, rotated: false, reasonAr: 'قدامك مباشرة وفي أبعد نقطة — دي الحاجة اللي بتبص لها' });
+if (cats[backCenter.category]?.screen) {
+const viewDistance = y - reachOrigin.y;
+if (viewDistance < 50) {
+notes.push({
+level: 'warn',
+textAr: 'مسافة النظر للشاشة حوالي ' + Math.round(viewDistance) + ' سم — الموصى بيه 50 لـ 70 سم. السطح ضيق في العمق، فارجع بالكرسي شوية أو ركّب الشاشة على ذراع حائط.',
+});
+}
+if (backCenter.category === 'laptop') {
+notes.push({
+level: 'tip',
+textAr: 'اللابتوب شاشته واطية فبتخلّيك تحني رقبتك. ارفعه على ستاند (أو رزمة كتب) لحد ما تبقى أعلى نقطة في الشاشة على مستوى عينك، واستخدم كيبورد وماوس خارجيين.',
+});
+}
+}
+}
+if (frontCenter) {
+const x = clamp(seatX - frontCenter.w / 2, 0, W - frontCenter.w);
+placed.push({ ...frontCenter, x, y: FRONT_WORK_GAP, rotated: false, reasonAr: 'في المنتصف قدامك، وسايب مساحة تشتغل فيها' });
+}
+if (frontDominant) {
+const fc = placed.find((p) => p.id === frontCenter?.id);
+const y = fc ? fc.y : FRONT_WORK_GAP;
+const x = dominant === 'right'
+? clamp((fc ? fc.x + fc.w : seatX + 10) + 3, 0, W - frontDominant.w)
+: clamp((fc ? fc.x : seatX - 10) - frontDominant.w - 3, 0, W - frontDominant.w);
+placed.push({ ...frontDominant, x, y, rotated: false, reasonAr: 'على ناحية إيدك ال' + (dominant === 'right' ? 'يمين' : 'شمال') + ' وقريب من إيدك' });
+}
+const rest = norm.filter((i) => !placed.some((p) => p.id === i.id));
+const freqRank = { high: 0, medium: 1, low: 2 };
+rest.sort((a, b) => (freqRank[a.frequency] ?? 1) - (freqRank[b.frequency] ?? 1));
+for (const item of rest) {
+if (item.frequency === 'low' && item.w * item.d > BULKY_AREA_CM2) {
+offDesk.push({
+...item,
+reasonAr: 'بتاخد ' + Math.round(item.w * item.d) + ' سم² من المساحة وانت نادراً بتستخدمها — مكانها رف أو درج',
+});
+continue;
+}
+const rule = ruleFor(item.category);
+const spot = findSpot(item, rule, { W, D, placed, reachOrigin, dominant, light, cats });
+if (spot) {
+placed.push({ ...item, x: spot.x, y: spot.y, w: spot.w, d: spot.d, rotated: spot.rotated, reasonAr: spot.reasonAr });
+} else {
+offDesk.push({
+...item,
+reasonAr: item.frequency === 'low'
+? 'مش بتستخدمها كتير والمساحة مزحومة — مكانها الدرج أو رف'
+: 'مفيش مساحة مناسبة ليها على السطح',
+});
+}
+}
+notes.push(...physicalNotes({ surface, windowSide, dominant, placed, offDesk, cats }));
+for (const tip of profile.tipsAr || []) notes.push({ level: 'tip', textAr: tip });
+const usedArea = placed.reduce((s, p) => s + p.w * p.d, 0);
+return {
+desk: { widthCm: W, depthCm: D, seatXCm: seatX },
+profileAr: profile.spaceTypeAr,
+placed,
+offDesk,
+notes,
+stats: {
+surfaceAreaCm2: Math.round(W * D),
+usedAreaCm2: Math.round(usedArea),
+freePercent: Math.round(100 - (usedArea / (W * D)) * 100),
+onDesk: placed.length,
+removed: offDesk.length,
+},
+};
+}
+function findSpot(item, rule, ctx) {
+const { W, D, placed, reachOrigin, dominant, light, cats } = ctx;
+const target = ZONES[rule.zone]?.targetCm ?? ZONES.secondary.targetCm;
+const selfPad = rule.hot ? HOT_CLEARANCE : 1;
+let best = null;
+const variants = [{ w: item.w, d: item.d, rotated: false }];
+if (Math.abs(item.w - item.d) > 2) variants.push({ w: item.d, d: item.w, rotated: true });
+const frontAnchor = placed.find((p) => cats[p.category]?.anchor === 'front-center');
+const backAnchor = placed.find((p) => cats[p.category]?.anchor === 'back-center');
+for (const v of variants) {
+for (let x = 0; x <= W - v.w; x += GRID) {
+for (let y = 0; y <= D - v.d; y += GRID) {
+const cand = { x, y, w: v.w, d: v.d };
+if (cand.y < EDGE_MARGIN) continue;
+const blocked = placed.some((p) => {
+const pad = Math.max(selfPad, cats[p.category]?.hot ? HOT_CLEARANCE : 1);
+return rectsOverlap(cand, { x: p.x, y: p.y, w: p.w, d: p.d }, pad);
+});
+if (blocked) continue;
+if (frontAnchor && cand.y < frontAnchor.y &&
+rectsOverlap(cand, { x: frontAnchor.x - 4, y: 0, w: frontAnchor.w + 8, d: frontAnchor.y }, 0)) continue;
+if (backAnchor && item.h > 12 && cand.y + cand.d > backAnchor.y - 12 &&
+rectsOverlap(cand, { x: backAnchor.x - 5, y: 0, w: backAnchor.w + 10, d: backAnchor.y }, 0)) continue;
+const cx = cand.x + cand.w / 2;
+const cy = cand.y + cand.d / 2;
+const dist = Math.hypot(cx - reachOrigin.x, cy - reachOrigin.y);
+let cost = Math.abs(dist - target);
+const isDominantSide = dominant === 'right' ? cx > reachOrigin.x : cx < reachOrigin.x;
+if (rule.side === 'dominant' && !isDominantSide) cost += 22;
+if (rule.side === 'off' && isDominantSide) cost += 22;
+if (rule.side === 'center') cost += Math.abs(cx - reachOrigin.x) * 0.8;
+if (rule.keepDry) {
+if (frontAnchor && cand.y < frontAnchor.y + frontAnchor.d + 6) cost += 30;
+for (const e of placed) {
+if (!cats[e.category]?.screen && !cats[e.category]?.anchor) continue;
+const gap = Math.hypot(cx - (e.x + e.w / 2), cy - (e.y + e.d / 2));
+if (gap < 25) cost += (25 - gap) * 1.2;
+}
+}
+if (light) {
+const toLight = Math.hypot(cx - light.x, cy - light.y);
+if (rule.avoidLight) cost += Math.max(0, 70 - toLight) * 0.6;
+if (rule.wantsLight) cost += toLight * 0.4;
+}
+if (rule.zone === 'far') cost += (D - (cand.y + cand.d)) * 0.5;
+if (!best || cost < best.cost) best = { ...cand, rotated: v.rotated, cost, dist };
+}
+}
+}
+if (!best) return null;
+if (best.cost > 60 && item.frequency === 'low') return null;
+best.reasonAr = describeReason(rule, best, dominant);
+return best;
+}
+function describeReason(rule, spot, dominant) {
+const zoneAr = ZONES[rule.zone]?.labelAr || 'في منطقة مريحة';
+let extra = '';
+if (rule.side === 'dominant') extra = ' على ناحية إيدك ال' + (dominant === 'right' ? 'يمين' : 'شمال');
+else if (rule.side === 'off') extra = ' على الناحية ال' + (dominant === 'right' ? 'شمال' : 'يمين') + ' بعيد عن إيد الشغل';
+if (rule.keepDry) extra += ' وبعيد عن الحاجات اللي بتتلف لو اتكب';
+if (rule.avoidLight) extra += ' وبعيد عن الشمس';
+if (rule.wantsLight) extra += ' وقريب من الضو';
+if (rule.hot) extra += ' وحواليه خلوص عشان بيسخن';
+return zoneAr + extra + ' — على بُعد ' + Math.round(spot.dist) + ' سم منك';
+}
+function physicalNotes({ surface, windowSide, dominant, placed, offDesk, cats }) {
+const out = [];
+const hasScreen = placed.some((p) => cats[p.category]?.screen);
+if (windowSide === 'back' && hasScreen) {
+out.push({ level: 'warn', textAr: 'الشباك ورا ضهرك — الضو هيتعكس على الشاشة وهيتعبك. لف السطح بحيث يبقى الشباك على جنبك، أو استخدم ستارة.' });
+} else if (windowSide === 'front' && hasScreen) {
+out.push({ level: 'warn', textAr: 'الشباك قدامك ورا الشاشة — هتبص في الضو طول اليوم وعينك هتوجعك. لف السطح ٩٠ درجة عشان الشباك يبقى على جنبك.' });
+} else if (windowSide === 'left' || windowSide === 'right') {
+out.push({ level: 'ok', textAr: 'الشباك على جنبك — ده أحسن وضع للإضاءة الطبيعية. ✅' });
+}
+const lamp = placed.find((p) => /lamp|إضاءة|أباجورة/i.test(p.category + p.nameAr));
+if (lamp) {
+const onDominant = dominant === 'right'
+? lamp.x + lamp.w / 2 > surface.widthCm / 2
+: lamp.x + lamp.w / 2 < surface.widthCm / 2;
+if (!onDominant) {
+out.push({ level: 'ok', textAr: 'الإضاءة على ناحية إيدك ال' + (dominant === 'right' ? 'شمال' : 'يمين') + ' — عشان إيدك متعملش ضل على اللي بتعمله. ✅' });
+}
+}
+if (placed.some((p) => cats[p.category]?.keepDry)) {
+out.push({ level: 'tip', textAr: 'السوايل اتحطت بعيد — لو اتكبت مش هتوصل للحاجات اللي بتتلف.' });
+}
+if (placed.some((p) => cats[p.category]?.hot)) {
+out.push({ level: 'tip', textAr: 'الحاجات اللي بتسخن سيبنا حواليها خلوص عشان متقربش من حاجة تتأثر بالحرارة.' });
+}
+if (offDesk.length) {
+out.push({ level: 'tip', textAr: 'شيلنا ' + offDesk.length + ' حاجة من على السطح. المساحة الفاضية بتقلل التشتت، والحاجات دي مكانها الأنسب درج أو رف.' });
+}
+return out;
+}
+
+/* js/render.js */
+const CATEGORY_COLORS = {
+monitor: '#3b82f6', laptop: '#3b82f6', keyboard: '#6366f1', mouse: '#8b5cf6',
+drink: '#f59e0b', phone: '#10b981', notebook: '#14b8a6', pens: '#14b8a6',
+lamp: '#eab308', speaker: '#a855f7', headphones: '#ec4899',
+plant: '#22c55e', books: '#0ea5e9', storage: '#94a3b8', decor: '#f472b6',
+camera: '#ef4444', electronics: '#3b82f6', glass: '#ef4444', shoes: '#a16207',
+clothes: '#06b6d4', toiletries: '#f97316', book: '#0ea5e9', food: '#84cc16',
+other: '#64748b',
+};
+const colorFor = (c) => CATEGORY_COLORS[c] || CATEGORY_COLORS.other;
+function esc(s) {
+return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function fitLabel(text, boxW, boxD) {
+const maxByWidth = (boxW * 1.25) / Math.max(text.length, 1);
+const size = Math.min(4.2, maxByWidth, boxD * 0.5);
+return size < 1.6 ? null : size;
+}
+function renderDeskPlan(layout) {
+const { widthCm: W, depthCm: D, seatXCm } = layout.desk;
+const pad = 12;
+const vbW = W + pad * 2;
+const vbH = D + pad * 2 + 22;
+const ty = (y) => pad + (D - y);
+const parts = [];
+parts.push(`<rect x="${pad}" y="${pad}" width="${W}" height="${D}" rx="2"
+fill="var(--surface)" stroke="var(--line)" stroke-width="0.6"/>`);
+const sx = pad + seatXCm;
+const sy = ty(-5);
+for (const r of [40, 65]) {
+parts.push(`<circle cx="${sx}" cy="${sy}" r="${r}" fill="none"
+stroke="var(--reach)" stroke-width="0.5" stroke-dasharray="2.5 2" opacity="0.75"/>`);
+}
+for (const it of layout.placed) {
+const c = colorFor(it.category);
+const x = pad + it.x;
+const y = ty(it.y + it.d);
+parts.push(`<rect x="${x}" y="${y}" width="${it.w}" height="${it.d}" rx="1.2"
+fill="${c}" fill-opacity="0.22" stroke="${c}" stroke-width="0.7"/>`);
+const size = fitLabel(it.nameAr, it.w, it.d);
+if (size) {
+parts.push(`<text x="${x + it.w / 2}" y="${y + it.d / 2 + size * 0.35}"
+font-size="${size}" fill="var(--ink)" text-anchor="middle" font-weight="600">${esc(it.nameAr)}</text>`);
+} else {
+parts.push(`<text x="${x + it.w / 2}" y="${y - 1.2}" font-size="2.8" fill="var(--dim)"
+text-anchor="middle">${esc(it.nameAr)}</text>`);
+}
+}
+parts.push(`<path d="M ${sx - 6} ${ty(-2)} a 6 6 0 0 1 12 0" fill="var(--seat)" opacity="0.5"/>`);
+parts.push(`<text x="${sx}" y="${ty(-8)}" font-size="3.6" fill="var(--dim)" text-anchor="middle">انت هنا</text>`);
+parts.push(`<line x1="${pad}" y1="${pad - 5}" x2="${pad + W}" y2="${pad - 5}"
+stroke="var(--dim)" stroke-width="0.4"/>
+<text x="${pad + W / 2}" y="${pad - 7}" font-size="3.6" fill="var(--dim)" text-anchor="middle">${Math.round(W)} سم</text>`);
+parts.push(`<text x="${pad + W / 2}" y="${pad + D + 17}" font-size="3.2" fill="var(--dim)"
+text-anchor="middle">الدواير = مدى وصول إيدك</text>`);
+return `<svg viewBox="0 0 ${vbW} ${vbH}" xmlns="http://www.w3.org/2000/svg"
+role="img" aria-label="مخطط المكتب من فوق" class="plan-svg">${parts.join('')}</svg>`;
+}
+function renderBagPlan(bin, placed) {
+const boxed = placed.filter((p) => p.box);
+if (!boxed.length) return '<p class="muted">مفيش حاجة اترصت.</p>';
+const levels = [...new Set(boxed.map((p) => Math.round(p.box.z)))].sort((a, b) => a - b);
+const pad = 6;
+const svgs = [];
+levels.forEach((z, i) => {
+const items = boxed.filter((p) => Math.round(p.box.z) === z);
+const vbW = bin.widthCm + pad * 2;
+const vbH = bin.depthCm + pad * 2 + 10;
+const parts = [`<rect x="${pad}" y="${pad}" width="${bin.widthCm}" height="${bin.depthCm}"
+rx="2" fill="var(--surface)" stroke="var(--line)" stroke-width="0.6"/>`];
+for (const p of boxed.filter((q) => Math.round(q.box.z) < z)) {
+parts.push(`<rect x="${pad + p.box.x}" y="${pad + p.box.y}" width="${p.box.w}" height="${p.box.d}"
+rx="1" fill="var(--line)" fill-opacity="0.35" stroke="none"/>`);
+}
+for (const p of items) {
+const c = colorFor(p.category);
+parts.push(`<rect x="${pad + p.box.x}" y="${pad + p.box.y}" width="${p.box.w}" height="${p.box.d}"
+rx="1.2" fill="${c}" fill-opacity="0.28" stroke="${c}" stroke-width="0.8"/>`);
+const size = fitLabel(p.nameAr, p.box.w, p.box.d);
+parts.push(size
+? `<text x="${pad + p.box.x + p.box.w / 2}" y="${pad + p.box.y + p.box.d / 2 + size * 0.35}"
+font-size="${size}" fill="var(--ink)" text-anchor="middle" font-weight="600">${esc(p.nameAr)}</text>`
+: `<text x="${pad + p.box.x + p.box.w / 2}" y="${pad + p.box.y - 1.2}"
+font-size="2.8" fill="var(--dim)" text-anchor="middle">${esc(p.nameAr)}</text>`);
+if (p.fragile) {
+parts.push(`<text x="${pad + p.box.x + p.box.w - 1}" y="${pad + p.box.y + 4}"
+font-size="3.5" text-anchor="end">⚠</text>`);
+}
+}
+parts.push(`<text x="${pad + bin.widthCm / 2}" y="${pad + bin.depthCm + 7}" font-size="4"
+fill="var(--dim)" text-anchor="middle">طبقة ${i + 1} — على ارتفاع ${z} سم</text>`);
+svgs.push(`<figure class="layer">
+<svg viewBox="0 0 ${vbW} ${vbH}" xmlns="http://www.w3.org/2000/svg" class="plan-svg"
+role="img" aria-label="طبقة ${i + 1}">${parts.join('')}</svg>
+</figure>`);
+});
+const sideParts = [`<rect x="${pad}" y="${pad}" width="${bin.widthCm}" height="${bin.heightCm}"
+rx="2" fill="var(--surface)" stroke="var(--line)" stroke-width="0.6"/>`];
+for (const p of boxed) {
+const c = colorFor(p.category);
+const y = pad + bin.heightCm - p.box.z - p.box.h; // بنقلب المحور الرأسي
+sideParts.push(`<rect x="${pad + p.box.x}" y="${y}" width="${p.box.w}" height="${p.box.h}"
+rx="1" fill="${c}" fill-opacity="0.28" stroke="${c}" stroke-width="0.7"/>`);
+const size = fitLabel(p.nameAr, p.box.w, p.box.h);
+if (size) {
+sideParts.push(`<text x="${pad + p.box.x + p.box.w / 2}" y="${y + p.box.h / 2 + size * 0.35}"
+font-size="${size}" fill="var(--ink)" text-anchor="middle" font-weight="600">${esc(p.nameAr)}</text>`);
+}
+}
+sideParts.push(`<text x="${pad + bin.widthCm / 2}" y="${pad + bin.heightCm + 7}" font-size="3.6"
+fill="var(--dim)" text-anchor="middle">منظر جانبي — التستيف</text>`);
+svgs.push(`<figure class="layer">
+<svg viewBox="0 0 ${bin.widthCm + pad * 2} ${bin.heightCm + pad * 2 + 10}"
+xmlns="http://www.w3.org/2000/svg" class="plan-svg" role="img" aria-label="منظر جانبي">${sideParts.join('')}</svg>
+</figure>`);
+return `<div class="layers">${svgs.join('')}</div>`;
+}
+function renderLegend(items) {
+const seen = new Map();
+for (const it of items) if (!seen.has(it.category)) seen.set(it.category, it.nameAr);
+return `<ul class="legend">${[...seen.entries()].map(([cat, name]) =>
+`<li><span class="dot" style="background:${colorFor(cat)}"></span>${esc(name)}</li>`).join('')}</ul>`;
+}
+
+/* js/store.js */
+const KEY_API = 'sp.apiKey';
+const KEY_PREFS = 'sp.prefs';
+const KEY_SCANS = 'sp.scans';
+function safeGet(key, fallback) {
+try {
+const raw = localStorage.getItem(key);
+return raw ? JSON.parse(raw) : fallback;
+} catch {
+return fallback;
+}
+}
+function safeSet(key, value) {
+try {
+localStorage.setItem(key, JSON.stringify(value));
+return true;
+} catch {
+return false;
+}
+}
+const store = {
+getApiKey: () => safeGet(KEY_API, ''),
+setApiKey: (k) => safeSet(KEY_API, k || ''),
+clearApiKey: () => localStorage.removeItem(KEY_API),
+getPrefs: () => safeGet(KEY_PREFS, {
+dominantHand: 'right',
+windowSide: 'none',
+scaleRef: 'card',
+customRefCm: 0,
+}),
+setPrefs: (p) => safeSet(KEY_PREFS, { ...store.getPrefs(), ...p }),
+getScans: () => safeGet(KEY_SCANS, []),
+saveScan: (scan) => {
+const all = safeGet(KEY_SCANS, []);
+all.unshift({ ...scan, savedAt: Date.now() });
+return safeSet(KEY_SCANS, all.slice(0, 10)); // آخر ١٠ بس عشان مساحة المتصفح
+},
+deleteScan: (savedAt) => safeSet(KEY_SCANS, safeGet(KEY_SCANS, []).filter((s) => s.savedAt !== savedAt)),
+};
+
+/* data/bags.js */
+const CABIN_BAGS = [
+{ id:'qr',      nameAr:'القطرية (اقتصادي)',   w:50, d:37, h:25, kg:7,  note:'شنطة واحدة' },
+{ id:'ek',      nameAr:'طيران الإمارات',       w:55, d:38, h:20, kg:7,  note:'اقتصادي' },
+{ id:'fz',      nameAr:'فلاي دبي',             w:55, d:38, h:20, kg:7,  note:'' },
+{ id:'ey',      nameAr:'الاتحاد',              w:56, d:40, h:25, kg:7,  note:'' },
+{ id:'sv',      nameAr:'السعودية',             w:56, d:45, h:25, kg:7,  note:'' },
+{ id:'ms',      nameAr:'مصر للطيران',          w:55, d:40, h:20, kg:8,  note:'' },
+{ id:'tk',      nameAr:'الخطوط التركية',       w:55, d:40, h:23, kg:8,  note:'' },
+{ id:'iata',    nameAr:'المقاس الدولي الشائع', w:56, d:45, h:25, kg:0,  note:'IATA — مقبول في أغلب الشركات' },
+{ id:'backpack',nameAr:'شنطة ضهر متوسطة',      w:45, d:30, h:20, kg:0,  note:'مقاس تقريبي' },
+{ id:'custom',  nameAr:'مقاس مخصص',            w:0,  d:0,  h:0,  kg:0,  note:'اكتب مقاسك بنفسك' },
+];
+const BAG_CATEGORIES = {
+laptop:     { labelAr:'لابتوب / تابلت',   keepUpright:true,  fragile:true },
+electronics:{ labelAr:'إلكترونيات',        keepUpright:false, fragile:true },
+camera:     { labelAr:'كاميرا / عدسة',     keepUpright:true,  fragile:true },
+glass:      { labelAr:'حاجة قابلة للكسر',  keepUpright:true,  fragile:true },
+shoes:      { labelAr:'جزم',               keepUpright:false, fragile:false },
+clothes:    { labelAr:'هدوم',              keepUpright:false, fragile:false, compressible:true },
+toiletries: { labelAr:'أدوات نظافة',       keepUpright:true,  fragile:false },
+book:       { labelAr:'كتاب / ورق',        keepUpright:false, fragile:false },
+food:       { labelAr:'أكل',               keepUpright:true,  fragile:false },
+other:      { labelAr:'حاجة تانية',        keepUpright:false, fragile:false },
+};
+
+/* js/vision.js */
+const MODELS = {
+vision: 'gemini-2.5-flash',
+image: 'gemini-2.5-flash-image',
+};
+const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const BAG_CATS_LIST = [
+'laptop', 'electronics', 'camera', 'glass', 'shoes', 'clothes',
+'toiletries', 'book', 'food', 'other',
+];
+const ZONE_ENUM = ['front', 'primary', 'secondary', 'back', 'far'];
+const SIDE_ENUM = ['dominant', 'off', 'center', 'any'];
+const ANCHOR_ENUM = ['back-center', 'front-center', 'front-dominant', 'none'];
+function fileToBase64Resized(file, maxSide = 1280) {
+return new Promise((resolve, reject) => {
+const img = new Image();
+const url = URL.createObjectURL(file);
+img.onload = () => {
+URL.revokeObjectURL(url);
+const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+const w = Math.round(img.width * scale);
+const h = Math.round(img.height * scale);
+const canvas = document.createElement('canvas');
+canvas.width = w;
+canvas.height = h;
+canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+resolve({ base64: dataUrl.split(',')[1], dataUrl, width: w, height: h });
+};
+img.onerror = () => {
+URL.revokeObjectURL(url);
+reject(new Error('مقدرناش نفتح الصورة دي'));
+};
+img.src = url;
+});
+}
+async function callGemini(model, body, apiKey) {
+if (!apiKey) throw new Error('محتاج تحط مفتاح Gemini الأول (مجاني من Google AI Studio)');
+let res;
+try {
+res = await fetch(`${API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(body),
+});
+} catch {
+throw new Error('مفيش اتصال بالإنترنت — أو الشبكة رفضت الطلب');
+}
+if (!res.ok) {
+let detail = '';
+try {
+const err = await res.json();
+detail = err?.error?.message || '';
+} catch { /* الرد مش JSON */ }
+if (res.status === 400 && /API key/i.test(detail)) throw new Error('مفتاح الـAPI غلط — راجعه');
+if (res.status === 403) throw new Error('المفتاح مرفوض. اتأكد إنه مفعّل لـ Generative Language API');
+if (res.status === 404) throw new Error(`الموديل "${model}" مش متاح لمفتاحك. غيّر الاسم من MODELS في vision.js`);
+if (res.status === 429) throw new Error('خلصت حصتك المجانية دلوقتي. استنى شوية وجرب تاني');
+if (res.status >= 500) throw new Error('سيرفر جوجل مضغوط دلوقتي — جرب كمان شوية');
+throw new Error(detail || `الطلب فشل (${res.status})`);
+}
+return res.json();
+}
+function textOf(response) {
+const parts = response?.candidates?.[0]?.content?.parts || [];
+return parts.map((p) => p.text).filter(Boolean).join('');
+}
+function extractJson(response) {
+const text = textOf(response);
+if (!text.trim()) {
+const reason = response?.candidates?.[0]?.finishReason;
+throw new Error(reason === 'SAFETY'
+? 'الموديل رفض يحلل الصورة دي'
+: 'الموديل رجّع رد فاضي — جرب صورة أوضح');
+}
+try {
+return JSON.parse(text);
+} catch {
+const m = text.match(/\{[\s\S]*\}/);
+if (m) return JSON.parse(m[0]);
+throw new Error('مقدرناش نقرا رد الموديل');
+}
+}
+const profileSchema = {
+type: 'OBJECT',
+properties: {
+spaceTypeAr: { type: 'STRING' },
+defaultSizeCm: {
+type: 'OBJECT',
+properties: { width: { type: 'NUMBER' }, depth: { type: 'NUMBER' } },
+},
+categories: {
+type: 'ARRAY',
+items: {
+type: 'OBJECT',
+properties: {
+key: { type: 'STRING' },
+labelAr: { type: 'STRING' },
+zone: { type: 'STRING', enum: ZONE_ENUM },
+side: { type: 'STRING', enum: SIDE_ENUM },
+anchor: { type: 'STRING', enum: ANCHOR_ENUM },
+tall: { type: 'BOOLEAN' },
+keepDry: { type: 'BOOLEAN' },
+avoidLight: { type: 'BOOLEAN' },
+wantsLight: { type: 'BOOLEAN' },
+hot: { type: 'BOOLEAN' },
+screen: { type: 'BOOLEAN' },
+},
+required: ['key', 'labelAr', 'zone', 'side'],
+},
+},
+tipsAr: { type: 'ARRAY', items: { type: 'STRING' } },
+},
+required: ['spaceTypeAr', 'categories'],
+};
+function sceneSchema(withProfile) {
+const properties = {
+scaleReference: {
+type: 'OBJECT',
+properties: {
+found: { type: 'BOOLEAN' },
+whatAr: { type: 'STRING' },
+box: { type: 'ARRAY', items: { type: 'NUMBER' } },
+},
+required: ['found'],
+},
+surface: {
+type: 'OBJECT',
+properties: {
+box: { type: 'ARRAY', items: { type: 'NUMBER' } },
+descriptionAr: { type: 'STRING' },
+},
+},
+windowSide: { type: 'STRING', enum: ['left', 'right', 'front', 'back', 'none'] },
+objects: {
+type: 'ARRAY',
+items: {
+type: 'OBJECT',
+properties: {
+nameAr: { type: 'STRING' },
+category: { type: 'STRING' },
+box: { type: 'ARRAY', items: { type: 'NUMBER' } },
+heightCm: { type: 'NUMBER' },
+frequency: { type: 'STRING', enum: ['high', 'medium', 'low'] },
+fragile: { type: 'BOOLEAN' },
+confidence: { type: 'NUMBER' },
+},
+required: ['nameAr', 'category', 'box', 'heightCm'],
+},
+},
+};
+if (withProfile) properties.profile = profileSchema;
+return { type: 'OBJECT', properties, required: ['scaleReference', 'objects'] };
+}
+function profileFromModel(raw) {
+if (!raw || !Array.isArray(raw.categories)) return null;
+const categories = {};
+for (const c of raw.categories) {
+if (!c || !c.key) continue;
+const def = { labelAr: c.labelAr, zone: c.zone, side: c.side };
+for (const f of ['tall', 'keepDry', 'avoidLight', 'wantsLight', 'hot', 'screen']) {
+if (c[f] === true) def[f] = true;
+}
+if (c.anchor && c.anchor !== 'none') def.anchor = c.anchor;
+categories[c.key] = def;
+}
+return {
+spaceTypeAr: raw.spaceTypeAr,
+spaceKind: 'surface',
+defaultSizeCm: raw.defaultSizeCm,
+categories,
+tipsAr: raw.tipsAr,
+};
+}
+const RULES_BRIEF = `
+لو هتولّد قواعد، القواعد بتتكتب بالمفردات دي بس:
+- zone: front (قدامه مباشرة) / primary (في متناول إيده) / secondary (مد دراع) / back (في العمق) / far (بعيد)
+- side: dominant (ناحية إيده المسيطرة) / off (الناحية التانية) / center (في النص) / any
+- anchor: الحاجة الرئيسية اللي المساحة بتتبني حواليها — back-center (اللي بيبص لها زي الشاشة أو المراية)،
+front-center (اللي بيشتغل عليه زي الكيبورد أو تختة التقطيع)، front-dominant (جنب إيده زي الماوس)، أو none.
+كل خانة إرساء تتاخد مرة واحدة بالكتير.
+- الأعلام: tall (عالية فممكن تحجب)، keepDry (سايلة)، avoidLight (بتبوظ في الشمس)،
+wantsLight (محتاجة ضو)، hot (بتسخن)، screen (شاشة).
+لازم تسيب فئة اسمها other لأي حاجة مش داخلة في تصنيف.
+`;
+async function analyzeScene({ base64, mode, scaleRefLabel, profile, intent, apiKey }) {
+const isBag = mode === 'bag';
+const generateProfile = !isBag && !profile;
+let prompt;
+if (isBag) {
+prompt = `انت مساعد بصري بيحلل صورة حاجات هتترص في شنطة.
+مهمتك:
+1) دوّر على مرجع القياس: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.
+2) اعمل ليستة بكل حاجة ظاهرة هتترص، وكل واحدة: nameAr (بالمصري، قصير)، category (من: ${BAG_CATS_LIST.join(', ')})، box، heightCm (تقديرك للارتفاع الحقيقي)، frequency، fragile، confidence.`;
+} else if (generateProfile) {
+prompt = `انت مساعد بيحلل صورة مساحة ويرتّبها.
+مهمتك:
+1) **حدد المساحة دي إيه بالظبط.** بص على الحاجات اللي عليها والمكان اللي هي فيه.
+مثال: ترابيزة عليها مراية ومكياج = تسريحة، مش مكتب. ترابيزة عليها شاشة وكيبورد = مكتب شغل.
+ترابيزة جنب سرير عليها أباجورة = كومودينو. اكتب الاسم بالمصري في spaceTypeAr.
+2) **اكتب قواعد ترتيب المساحة دي** في profile: الفئات اللي بتتحط على النوع ده من المساحات،
+وكل فئة تروح فين وليه. فكّر زي متخصص في المساحة دي — إيه اللي لازم يبقى في متناول الإيد،
+إيه اللي بيبوظ في الشمس، إيه اللي بيسخن، وإيه اللي بيحجب.
+وحط في tipsAr نصيحة أو اتنين عملية ومحددة للنوع ده من المساحات.
+${RULES_BRIEF}
+3) دوّر على مرجع القياس: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.
+4) حدد سطح المساحة نفسه بمربع في surface، وقدّر مقاسه الحقيقي في profile.defaultSizeCm.
+5) اعمل ليستة بكل حاجة على السطح، وكل واحدة: nameAr، category (لازم تكون key من الفئات اللي انت كتبتها)،
+box، heightCm، frequency، fragile، confidence.
+6) windowSide: الشباك أو مصدر الضو الأساسي فين بالنسبة للشخص الواقف/القاعد؟`;
+} else {
+const catList = Object.entries(profile.categories)
+.map(([k, v]) => `${k} (${v.labelAr})`).join('، ');
+prompt = `انت مساعد بصري بيحلل صورة ${profile.spaceTypeAr}.
+مهمتك:
+1) دوّر على مرجع القياس: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.
+2) حدد سطح المساحة نفسه بمربع في surface.
+3) اعمل ليستة بكل حاجة على السطح، وكل واحدة: nameAr (بالمصري، قصير)، box، heightCm (تقديرك للارتفاع الحقيقي)، frequency، fragile، confidence، و category من دي بس: ${catList}
+4) windowSide: الشباك أو مصدر الضو الأساسي فين بالنسبة للشخص؟`;
+}
+if (intent) {
+prompt += `\n\n**اللي صاحب المساحة عايزه منها:** "${intent}"\nخلي التصنيف والقواعد تخدم الهدف ده.`;
+}
+prompt += `
+قواعد مهمة:
+- المربعات بصيغة [ymin, xmin, ymax, xmax] بمقياس من 0 لـ 1000.
+- متخترعش حاجات مش ظاهرة في الصورة.
+- متحاولش تحسب العرض أو العمق بالسنتيمتر — إحنا هنحسبهم من مرجع القياس. قدّر الارتفاع بس.`;
+const body = {
+contents: [{
+role: 'user',
+parts: [
+{ text: prompt },
+{ inlineData: { mimeType: 'image/jpeg', data: base64 } },
+],
+}],
+generationConfig: {
+temperature: 0.15,
+responseMimeType: 'application/json',
+responseSchema: sceneSchema(generateProfile),
+},
+};
+const json = extractJson(await callGemini(MODELS.vision, body, apiKey));
+json.objects = (json.objects || []).filter((o) => Array.isArray(o.box) && o.box.length === 4);
+if (json.profile) json.generatedProfile = profileFromModel(json.profile);
+return json;
+}
+async function adaptProfile({ profile, intent, apiKey }) {
+const current = Object.entries(profile.categories)
+.map(([k, v]) => `${k} | ${v.labelAr} | ${v.zone} | ${v.side}${v.anchor ? ' | anchor:' + v.anchor : ''}`)
+.join('\n');
+const prompt = `دي قواعد ترتيب "${profile.spaceTypeAr}" الحالية (المفتاح | الاسم | المنطقة | الناحية):
+${current}
+صاحب المساحة عايز: "${intent}"
+عدّل القواعد عشان تخدم اللي هو عايزه. تقدر تنقل فئات لمناطق تانية، تضيف فئات جديدة، أو تغيّر المرساة.
+سيب أي فئة اللي هو عايزه مش بيأثر عليها زي ما هي.
+${RULES_BRIEF}
+وحدّث spaceTypeAr لو نوع المساحة اتغير فعلاً، وحط في tipsAr نصيحة أو اتنين مرتبطين باللي هو طلبه.`;
+const body = {
+contents: [{ role: 'user', parts: [{ text: prompt }] }],
+generationConfig: {
+temperature: 0.3,
+responseMimeType: 'application/json',
+responseSchema: profileSchema,
+},
+};
+return profileFromModel(extractJson(await callGemini(MODELS.vision, body, apiKey)));
+}
+async function explainPlan({ mode, plan, apiKey }) {
+const summary = mode === 'bag'
+? plan.steps.map((s) => `${s.step}. ${s.nameAr} — ${s.positionAr}`).join('\n')
+: plan.placed.map((p) => `${p.nameAr}: ${p.reasonAr}`).join('\n');
+const prompt = `دي نتيجة خوارزمية ${mode === 'bag' ? 'رص شنطة' : 'ترتيب ' + (plan.profileAr || 'مساحة')}:
+${summary}
+${plan.notes ? '\nملاحظات:\n' + plan.notes.map((n) => n.textAr).join('\n') : ''}
+اكتب فقرة قصيرة (٣ لـ ٤ جمل) بالعامية المصرية تشرح منطق الترتيب ده وأهم حاجة يركز عليها.
+متكررش الليستة، وميبقاش فيها عناوين ولا نقط. كلام طبيعي زي ما صاحبك بيشرحلك.
+متخترعش أرقام أو تفاصيل مش موجودة فوق.`;
+const body = {
+contents: [{ role: 'user', parts: [{ text: prompt }] }],
+generationConfig: { temperature: 0.6, maxOutputTokens: 400 },
+};
+return textOf(await callGemini(MODELS.vision, body, apiKey));
+}
+async function askAboutSpace({ question, plan, mode, apiKey }) {
+const context = mode === 'bag'
+? `شنطة، ترتيب الرص:\n${plan.steps.map((s) => `${s.step}. ${s.nameAr} — ${s.positionAr}`).join('\n')}` +
+(plan.unplaced?.length ? `\nمدخلش: ${plan.unplaced.map((u) => u.nameAr).join('، ')}` : '')
+: `${plan.profileAr || 'مساحة'} مقاسها ${Math.round(plan.desk.widthCm)}×${Math.round(plan.desk.depthCm)} سم.\n` +
+`اللي عليها:\n${plan.placed.map((p) => `- ${p.nameAr} (${Math.round(p.w)}×${Math.round(p.d)} سم): ${p.reasonAr}`).join('\n')}` +
+(plan.offDesk?.length ? `\nاتشال: ${plan.offDesk.map((o) => o.nameAr).join('، ')}` : '') +
+`\nملاحظات: ${plan.notes.map((n) => n.textAr).join(' | ')}`;
+const prompt = `دي مساحة مستخدم بعد ما الخوارزمية رتبتها:
+${context}
+سؤاله: "${question}"
+جاوبه بالعامية المصرية في ٤ جمل بالكتير، بناءً على المساحة والمقاسات اللي فوق بالظبط.
+لو السؤال محتاج معلومة مش موجودة فوق، قوله إنك مش شايفها في الصورة بدل ما تخترع.
+كن عملي ومحدد — اقترح حاجة يعملها.`;
+const body = {
+contents: [{ role: 'user', parts: [{ text: prompt }] }],
+generationConfig: { temperature: 0.5, maxOutputTokens: 500 },
+};
+return textOf(await callGemini(MODELS.vision, body, apiKey));
+}
+async function renderAfterImage({ base64, plan, apiKey }) {
+const moves = plan.placed.slice(0, 12).map((p) => `- ${p.nameAr}: ${p.reasonAr}`).join('\n');
+const removed = (plan.offDesk || []).map((p) => p.nameAr).join('، ');
+const prompt = `عدّل الصورة دي عشان تورّي نفس المكان بالظبط بعد الترتيب.
+مهم جداً: خلي نفس الأوضة، نفس الأثاث، نفس الحيطة، نفس الإضاءة، ونفس زاوية التصوير.
+متخترعش حاجات جديدة ومتغيرش المكان. حرّك الحاجات الموجودة بس.
+الترتيب الجديد:
+${moves}${removed ? `\n\nشيل من على السطح: ${removed}` : ''}
+النتيجة: نفس الصورة بالظبط بس الحاجات اتحركت للأماكن دي، والمساحة مرتبة ونضيفة.`;
+const body = {
+contents: [{
+role: 'user',
+parts: [
+{ text: prompt },
+{ inlineData: { mimeType: 'image/jpeg', data: base64 } },
+],
+}],
+};
+const res = await callGemini(MODELS.image, body, apiKey);
+const parts = res?.candidates?.[0]?.content?.parts || [];
+const img = parts.find((p) => p.inlineData?.data);
+if (!img) throw new Error('الموديل مرجعش صورة — جرب تاني أو اكتفي بالمخطط');
+return `data:${img.inlineData.mimeType || 'image/png'};base64,${img.inlineData.data}`;
+}
+
+/* js/app.js */
+const FREQ_LABELS = { high:'بستخدمها كتير', medium:'أحياناً', low:'نادراً' };
+const state = {
+mode: 'surface',
+profile: null,      // بروفايل المساحة — جاهز أو مولّد بالـAI
+image: null,
+items: [],
+scale: null,
+surface: { widthCm: 140, depthCm: 70 },
+plan: null,
+bin: null,
+};
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+function showScreen(name) {
+$$('.screen').forEach((s) => s.classList.toggle('active', s.dataset.screen === name));
+window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function toast(msg, ms = 3600) {
+const t = $('#toast');
+t.textContent = msg;
+t.classList.remove('hidden');
+clearTimeout(toast._t);
+toast._t = setTimeout(() => t.classList.add('hidden'), ms);
+}
+function loading(on, text = 'بحلل...') {
+$('#loaderText').textContent = text;
+$('#loader').classList.toggle('hidden', !on);
+}
+const escHtml = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+function init() {
+$('#scaleRef').innerHTML = Object.values(SCALE_REFERENCES)
+.map((r) => `<option value="${r.id}">${r.labelAr}</option>`).join('');
+$('#bagPreset').innerHTML = CABIN_BAGS
+.map((b) => `<option value="${b.id}">${b.nameAr}${b.w ? ` — ${b.w}×${b.d}×${b.h} سم` : ''}</option>`).join('');
+$('#spaceType').innerHTML =
+'<option value="auto">🤖 اكتشف تلقائياً من الصورة</option>' +
+profileOptions().map((p) => `<option value="${p.id}">${p.labelAr}</option>`).join('');
+const prefs = store.getPrefs();
+$('#spaceType').value = prefs.spaceType || 'auto';
+$('#scaleRef').value = prefs.scaleRef || 'card';
+$('#dominantHand').value = prefs.dominantHand || 'right';
+$('#apiKey').value = store.getApiKey();
+onScaleRefChange();
+renderSaved();
+$$('.mode-card').forEach((c) => c.addEventListener('click', () => {
+state.mode = c.dataset.mode;
+$('#captureTitle').textContent = state.mode === 'surface' ? 'صوّر المساحة' : 'صوّر الحاجات اللي هتشيلها';
+$('#deskOpts').classList.toggle('hidden', state.mode !== 'surface');
+$('#bagOpts').classList.toggle('hidden', state.mode !== 'bag');
+$('#scaleHint').textContent = state.mode === 'surface'
+? 'حط الحاجة دي على المكتب جنب باقي الحاجات، وصوّر من فوق قدر الإمكان:'
+: 'حط الحاجة دي جنب الحاجات اللي هتترص، وافردهم على الأرض وصوّرهم من فوق:';
+showScreen('capture');
+}));
+$$('[data-goto]').forEach((b) => b.addEventListener('click', () => showScreen(b.dataset.goto)));
+$('#scaleRef').addEventListener('change', onScaleRefChange);
+$('#bagPreset').addEventListener('change', () => {
+$('#customBagWrap').classList.toggle('hidden', $('#bagPreset').value !== 'custom');
+});
+$('#btnPick').addEventListener('click', () => $('#fileInput').click());
+$('#fileInput').addEventListener('change', onFilePicked);
+$('#btnAnalyze').addEventListener('click', onAnalyze);
+$('#btnManual').addEventListener('click', onManual);
+$('#spaceType').addEventListener('change', () => {
+store.setPrefs({ spaceType: $('#spaceType').value });
+$('#spaceTypeHint').textContent = $('#spaceType').value === 'auto'
+? 'لو سيبتها على «اكتشف تلقائياً»، الموديل هيبص على الصورة ويعرف هي إيه ويكتب قواعد ترتيبها بنفسه.'
+: 'اخترت النوع بنفسك — الموديل هيستخدم قواعد جاهزة ومجرّبة للمساحة دي.';
+});
+$('#btnChangeSpace').addEventListener('click', () => $('#changeSpaceWrap').classList.toggle('hidden'));
+$('#btnAdapt').addEventListener('click', onAdaptProfile);
+$('#btnAsk').addEventListener('click', onAsk);
+$('#btnAddItem').addEventListener('click', () => { addItem(); renderItems(); });
+$('#btnPlan').addEventListener('click', onPlan);
+$('#btnAfterImage').addEventListener('click', onAfterImage);
+$('#btnSave').addEventListener('click', onSave);
+$('#btnSettings').addEventListener('click', () => $('#settingsDialog').showModal());
+$('#settingsDialog').addEventListener('close', (e) => {
+if ($('#settingsDialog').returnValue === 'save') {
+store.setApiKey($('#apiKey').value.trim());
+toast('اتحفظ ✅');
+} else {
+$('#apiKey').value = store.getApiKey();
+}
+});
+if ('serviceWorker' in navigator) {
+navigator.serviceWorker.register('sw.js').catch(() => { /* بيشتغل عادي من غيره */ });
+}
+}
+function onScaleRefChange() {
+const isCustom = $('#scaleRef').value === 'custom';
+$('#customRefWrap').classList.toggle('hidden', !isCustom);
+store.setPrefs({ scaleRef: $('#scaleRef').value });
+}
+async function onFilePicked(e) {
+const file = e.target.files?.[0];
+if (!file) return;
+try {
+const img = await fileToBase64Resized(file);
+state.image = img;
+$('#previewImg').src = img.dataUrl;
+$('#preview').classList.remove('hidden');
+$('#btnAnalyze').disabled = false;
+} catch (err) {
+toast(err.message);
+}
+}
+async function onAnalyze() {
+const apiKey = store.getApiKey();
+if (!apiKey) { $('#settingsDialog').showModal(); return toast('محتاج مفتاح Gemini الأول'); }
+if (!state.image) return toast('اختار صورة الأول');
+const refId = $('#scaleRef').value;
+const ref = SCALE_REFERENCES[refId];
+const customCm = parseFloat($('#customRefCm').value);
+if (refId === 'custom' && !(customCm > 0)) return toast('اكتب عرض مرجع القياس بالسنتيمتر');
+store.setPrefs({ dominantHand: $('#dominantHand').value, customRefCm: customCm || 0 });
+loading(true, 'الموديل بيبص على الصورة...');
+try {
+const chosen = $('#spaceType').value;
+const intent = $('#intent').value.trim();
+const chosenProfile = state.mode === 'surface' && chosen !== 'auto' ? getProfile(chosen) : null;
+const analysis = await analyzeScene({
+base64: state.image.base64,
+mode: state.mode,
+scaleRefLabel: refId === 'custom' ? `حاجة عرضها ${customCm} سم` : ref.labelAr,
+profile: chosenProfile,
+intent,
+apiKey,
+});
+if (state.mode === 'surface') {
+state.profile = chosenProfile
+|| (analysis.generatedProfile ? normalizeProfile(analysis.generatedProfile) : GENERIC_PROFILE);
+}
+const refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
+if (!refBox) {
+throw new Error(`مالقيناش ${refId === 'custom' ? 'مرجع القياس' : ref.labelAr} في الصورة. حطه في مكان واضح وصوّر تاني.`);
+}
+let scale;
+if (refId === 'custom') {
+const k = customCm / refBox.w;
+scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
+} else {
+scale = computeScale(refBox, ref.widthCm, ref.heightCm);
+}
+state.scale = scale;
+const conf = scaleConfidence(scale, refBox);
+$('#scaleBanner').className = `banner ${conf.score > 0.45 ? 'ok' : 'warn'}`;
+$('#scaleBanner').innerHTML = conf.score > 0.45
+? `✅ لقينا مرجع القياس (${escHtml(analysis.scaleReference.whatAr || ref.labelAr)}). دقة القياس: <b>${conf.labelAr}</b>`
+: `⚠️ دقة القياس <b>${conf.labelAr}</b> — المرجع صغير أو متصوّر بزاوية مايلة. راجع الأرقام كويس أو صوّر تاني من فوق.`;
+if (state.mode === 'surface' && analysis.surface?.box) {
+const sBox = normalizeBox(analysis.surface.box);
+if (sBox) {
+const d = boxToCm(sBox, scale);
+state.surface = { widthCm: clampCm(d.widthCm, 40, 400), depthCm: clampCm(d.depthCm, 30, 200) };
+}
+} else if (state.mode === 'surface') {
+applyProfileSize();
+}
+if (analysis.windowSide) store.setPrefs({ windowSide: analysis.windowSide });
+state.items = analysis.objects.map((o, i) => {
+const box = normalizeBox(o.box);
+const dims = boxToCm(box, scale);
+const corr = perspectiveCorrect(box, refBox);
+return {
+id: `it${i}`,
+nameAr: o.nameAr || 'حاجة',
+category: o.category || 'other',
+widthCm: clampCm(dims.widthCm * corr, 0.5, 300),
+depthCm: clampCm(dims.depthCm * corr, 0.5, 300),
+heightCm: clampCm(Number(o.heightCm) || 5, 0.2, 200),
+frequency: o.frequency || 'medium',
+fragile: !!o.fragile,
+confidence: Number(o.confidence) || 0.6,
+};
+});
+if (!state.items.length) throw new Error('مالقيناش حاجات في الصورة. جرب صورة أوضح أو ضيف الحاجات بنفسك.');
+renderDetectedSpace();
+renderItems();
+showScreen('review');
+} catch (err) {
+toast(err.message);
+} finally {
+loading(false);
+}
+}
+function onManual() {
+state.items = [];
+state.scale = null;
+const chosen = $('#spaceType').value;
+if (state.mode === 'surface') {
+state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
+applyProfileSize();
+} else {
+state.profile = null;
+}
+addItem();
+renderDetectedSpace();
+$('#scaleBanner').className = 'banner warn';
+$('#scaleBanner').innerHTML = '✍️ إدخال يدوي — اكتب المقاسات بنفسك بالمسطرة. الحساب والترتيب هيشتغلوا عادي من غير أي AI.';
+renderItems();
+showScreen('review');
+}
+const clampCm = (v, lo, hi) => round1(Math.max(lo, Math.min(hi, Number(v) || lo)));
+function addItem() {
+state.items.push({
+id: `it${Date.now()}`, nameAr: 'حاجة جديدة',
+category: 'other',
+widthCm: 10, depthCm: 10, heightCm: 10,
+frequency: 'medium', fragile: false, confidence: 1,
+});
+}
+function renderItems() {
+const catOptions = state.mode === 'surface'
+? Object.entries(state.profile?.categories || GENERIC_PROFILE.categories).map(([k, v]) => [k, v.labelAr])
+: Object.entries(BAG_CATEGORIES).map(([k, v]) => [k, v.labelAr]);
+const surfaceEditor = state.mode === 'surface' ? `
+<div class="item">
+<div>
+<strong>📏 مقاس السطح نفسه</strong>
+<p class="hint">التقدير ده من الصورة، والصورة بزاوية فبيقل عن الحقيقة. لو تعرف مقاس السطح اكتبه — ده أهم رقم في الحسبة.</p>
+<div class="item-dims">
+<label>عرض<input type="number" data-surface="widthCm" value="${state.surface.widthCm}" step="1"></label>
+<label>عمق<input type="number" data-surface="depthCm" value="${state.surface.depthCm}" step="1"></label>
+</div>
+</div>
+</div>` : '';
+$('#itemsList').innerHTML = surfaceEditor + state.items.map((it) => `
+<div class="item ${it.confidence < 0.5 ? 'conf-low' : ''}" data-id="${it.id}">
+<div>
+<input class="item-name" data-f="nameAr" value="${escHtml(it.nameAr)}" aria-label="اسم الحاجة">
+<div class="item-dims">
+<label>عرض<input type="number" data-f="widthCm" value="${it.widthCm}" step="0.5" min="0.5"></label>
+<label>عمق<input type="number" data-f="depthCm" value="${it.depthCm}" step="0.5" min="0.5"></label>
+<label>ارتفاع<input type="number" data-f="heightCm" value="${it.heightCm}" step="0.5" min="0.2"></label>
+</div>
+<select data-f="category" aria-label="النوع">
+${catOptions.map(([k, v]) => `<option value="${k}" ${it.category === k ? 'selected' : ''}>${v}</option>`).join('')}
+</select>
+${state.mode === 'surface' ? `
+<select data-f="frequency" aria-label="معدل الاستخدام">
+${Object.entries(FREQ_LABELS).map(([k, v]) => `<option value="${k}" ${it.frequency === k ? 'selected' : ''}>${v}</option>`).join('')}
+</select>` : ''}
+</div>
+<button class="item-del" data-del="${it.id}" aria-label="امسح">×</button>
+</div>`).join('');
+$('#itemsList').oninput = (e) => {
+const surfaceField = e.target.dataset.surface;
+if (surfaceField) { state.surface[surfaceField] = Number(e.target.value) || 0; return; }
+const row = e.target.closest('[data-id]');
+const f = e.target.dataset.f;
+if (!row || !f) return;
+const it = state.items.find((x) => x.id === row.dataset.id);
+if (!it) return;
+it[f] = ['widthCm', 'depthCm', 'heightCm'].includes(f) ? Number(e.target.value) || 0 : e.target.value;
+};
+$('#itemsList').onclick = (e) => {
+const id = e.target.dataset.del;
+if (!id) return;
+state.items = state.items.filter((x) => x.id !== id);
+renderItems();
+};
+}
+async function onPlan() {
+const valid = state.items.filter((i) => i.widthCm > 0 && i.depthCm > 0 && i.heightCm > 0);
+if (!valid.length) return toast('محتاجين حاجة واحدة على الأقل بمقاسات صحيحة');
+if (state.mode === 'surface') {
+if (!(state.surface.widthCm > 20 && state.surface.depthCm > 20)) return toast('اكتب مقاس السطح الأول');
+const prefs = store.getPrefs();
+state.plan = layoutSurface(state.surface, valid, state.profile || GENERIC_PROFILE, {
+dominantHand: $('#dominantHand').value,
+windowSide: prefs.windowSide || 'none',
+});
+renderDeskResult();
+} else {
+const preset = CABIN_BAGS.find((b) => b.id === $('#bagPreset').value);
+const bin = preset.id === 'custom'
+? { widthCm: +$('#bagW').value, depthCm: +$('#bagD').value, heightCm: +$('#bagH').value, maxWeightKg: 0 }
+: { widthCm: preset.w, depthCm: preset.d, heightCm: preset.h, maxWeightKg: preset.kg };
+if (!(bin.widthCm > 0 && bin.depthCm > 0 && bin.heightCm > 0)) return toast('اكتب مقاس الشنطة');
+state.bin = bin;
+const items = valid.map((i) => {
+const meta = BAG_CATEGORIES[i.category] || BAG_CATEGORIES.other;
+return { ...i, keepUpright: meta.keepUpright, fragile: i.fragile || meta.fragile, compressible: !!meta.compressible };
+});
+const res = pack3D(bin, items);
+state.plan = { ...res, steps: packingOrder(res.placed) };
+renderBagResult();
+}
+$('#askAnswer').classList.add('hidden');
+$('#askInput').value = '';
+showScreen('result');
+maybeExplain();
+}
+function renderDeskResult() {
+const p = state.plan;
+$('#resultTitle').textContent = 'ترتيب ' + (p.profileAr || 'المساحة');
+$('#statsRow').innerHTML = `
+<div class="stat"><b>${p.stats.onDesk}</b><span>حاجة على السطح</span></div>
+<div class="stat"><b>${p.stats.freePercent}%</b><span>مساحة فاضية</span></div>
+<div class="stat"><b>${p.stats.removed}</b><span>اتشالت</span></div>`;
+$('#planView').innerHTML = renderDeskPlan(p);
+$('#legendView').innerHTML = renderLegend(p.placed);
+$('#notesView').innerHTML = p.notes.map((n) =>
+`<div class="note ${n.level}"><span>${n.level === 'warn' ? '⚠️' : n.level === 'ok' ? '✅' : '💡'}</span><span>${escHtml(n.textAr)}</span></div>`).join('');
+$('#stepsView').innerHTML = `
+<h3>كل حاجة وليه اتحطت هنا</h3>
+<ol>${p.placed.map((i) => `<li><b>${escHtml(i.nameAr)}</b><br><span class="pos">${escHtml(i.reasonAr)}</span></li>`).join('')}</ol>
+${p.offDesk.length ? `<div class="off-desk"><h3>شيل دول من على السطح</h3><ul>${
+p.offDesk.map((i) => `<li><b>${escHtml(i.nameAr)}</b> — ${escHtml(i.reasonAr)}</li>`).join('')}</ul></div>` : ''}`;
+$('#btnAfterImage').classList.remove('hidden');
+}
+function renderBagResult() {
+const p = state.plan;
+$('#resultTitle').textContent = 'رص الشنطة';
+const weightWarn = p.stats.overWeight ? ' ⚠️' : '';
+$('#statsRow').innerHTML = `
+<div class="stat"><b>${p.stats.placedCount}</b><span>هتدخل</span></div>
+<div class="stat"><b>${p.stats.unplacedCount}</b><span>مش هتدخل</span></div>
+<div class="stat"><b>${p.stats.fillPercent}%</b><span>امتلاء</span></div>
+${p.stats.totalWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>كجم</span></div>` : ''}`;
+$('#planView').innerHTML = renderBagPlan(state.bin, p.placed);
+$('#legendView').innerHTML = renderLegend(p.placed);
+$('#notesView').innerHTML = p.stats.overWeight
+? `<div class="note warn"><span>⚠️</span><span>الوزن عدّى الحد المسموح للشنطة دي.</span></div>` : '';
+$('#stepsView').innerHTML = `
+<h3>رصّها بالترتيب ده</h3>
+<ol>${p.steps.map((s) => `<li><b>${escHtml(s.nameAr)}</b>${s.rotated ? ' <span class="pos">(لفّها)</span>' : ''}${s.fragile ? ' ⚠️' : ''}<br><span class="pos">${escHtml(s.positionAr)}</span></li>`).join('')}</ol>
+${p.unplaced.length ? `<div class="off-desk"><h3>دول مش هيدخلوا</h3><ul>${
+p.unplaced.map((i) => `<li><b>${escHtml(i.nameAr)}</b> — ${escHtml(i.reasonAr)}</li>`).join('')}</ul></div>` : ''}`;
+$('#btnAfterImage').classList.add('hidden');
+}
+async function maybeExplain() {
+const apiKey = store.getApiKey();
+if (!apiKey) return;
+$('#aiNote').classList.add('hidden');
+try {
+const text = await explainPlan({ mode: state.mode, plan: state.plan, apiKey });
+if (text.trim()) {
+$('#aiNote').textContent = text.trim();
+$('#aiNote').classList.remove('hidden');
+}
+} catch { /* الشرح رفاهية — المخطط هو الأساس */ }
+}
+async function onAfterImage() {
+const apiKey = store.getApiKey();
+if (!apiKey) return toast('محتاج مفتاح Gemini');
+if (!state.image) return toast('مفيش صورة أصلية');
+loading(true, 'برسم صورة "بعد الترتيب"...');
+try {
+const url = await renderAfterImage({ base64: state.image.base64, plan: state.plan, apiKey });
+$('#afterImage').src = url;
+$('#afterImageWrap').classList.remove('hidden');
+$('#afterImageWrap').scrollIntoView({ behavior: 'smooth' });
+} catch (err) {
+toast(err.message);
+} finally {
+loading(false);
+}
+}
+function onSave() {
+const ok = store.saveScan({
+mode: state.mode,
+title: state.mode === 'surface'
+? `${state.profile?.spaceTypeAr || 'مساحة'} ${Math.round(state.surface.widthCm)}×${Math.round(state.surface.depthCm)}`
+: 'رص شنطة',
+items: state.items,
+surface: state.surface,
+profile: state.profile,
+bin: state.bin,
+});
+toast(ok ? 'اتحفظ في متصفحك ✅' : 'مساحة المتصفح مليانة — امسح محفوظات قديمة');
+renderSaved();
+}
+function renderSaved() {
+const scans = store.getScans();
+$('#savedScans').classList.toggle('hidden', !scans.length);
+$('#savedList').innerHTML = scans.map((s) => `
+<li>
+<span>${escHtml(s.title)} <span class="muted">— ${new Date(s.savedAt).toLocaleDateString('ar-EG')}</span></span>
+<span>
+<button data-load="${s.savedAt}">افتح</button>
+<button data-drop="${s.savedAt}">مسح</button>
+</span>
+</li>`).join('');
+$('#savedList').onclick = (e) => {
+const load = e.target.dataset.load, drop = e.target.dataset.drop;
+if (drop) { store.deleteScan(+drop); renderSaved(); return; }
+if (!load) return;
+const s = store.getScans().find((x) => x.savedAt === +load);
+if (!s) return;
+state.mode = s.mode; state.items = s.items; state.surface = s.surface || state.surface; state.profile = s.profile; state.bin = s.bin;
+$('#deskOpts').classList.toggle('hidden', state.mode !== 'surface');
+$('#bagOpts').classList.toggle('hidden', state.mode !== 'bag');
+renderDetectedSpace();
+renderItems();
+showScreen('review');
+};
+}
+function applyProfileSize() {
+const size = state.profile?.defaultSizeCm;
+if (size?.width > 0 && size?.depth > 0) {
+state.surface = { widthCm: size.width, depthCm: size.depth };
+}
+}
+function renderDetectedSpace() {
+const box = $('#detectedSpace');
+if (state.mode !== 'surface' || !state.profile) { box.classList.add('hidden'); return; }
+box.classList.remove('hidden');
+const src = state.profile.source === 'ai' ? ' 🤖' : '';
+$('#detectedName').textContent = state.profile.spaceTypeAr + src;
+$('#rulesList').innerHTML = Object.values(state.profile.categories)
+.filter((c) => c.zone)
+.slice(0, 14)
+.map((c) => {
+const zone = ZONES[c.zone]?.labelAr || c.zone;
+const flags = [c.keepDry && '💧', c.avoidLight && '🌑', c.wantsLight && '☀️', c.hot && '🔥', c.anchor && '📌']
+.filter(Boolean).join('');
+return `<li>${escHtml(c.labelAr)} → ${escHtml(zone)} ${flags}</li>`;
+}).join('');
+}
+async function onAdaptProfile() {
+const apiKey = store.getApiKey();
+if (!apiKey) return toast('محتاج مفتاح Gemini للميزة دي');
+const intent = $('#adaptIntent').value.trim();
+if (!intent) return toast('اكتب عايز إيه من المساحة');
+if (!state.profile) return toast('محتاجين نعرف المساحة الأول');
+loading(true, 'بكتب القواعد من تاني...');
+try {
+const adapted = await adaptProfile({ profile: state.profile, intent, apiKey });
+if (!adapted) throw new Error('الموديل مرجعش قواعد صالحة — جرب صياغة تانية');
+const before = state.profile.spaceTypeAr;
+state.profile = normalizeProfile(adapted, state.profile);
+if (state.profile.spaceTypeAr !== before) applyProfileSize();
+for (const it of state.items) {
+if (!state.profile.categories[it.category]) it.category = 'other';
+}
+renderDetectedSpace();
+renderItems();
+$('#changeSpaceWrap').classList.add('hidden');
+toast('القواعد اتغيرت ✅ اضغط «احسب الترتيب»');
+} catch (err) {
+toast(err.message);
+} finally {
+loading(false);
+}
+}
+async function onAsk() {
+const apiKey = store.getApiKey();
+if (!apiKey) return toast('محتاج مفتاح Gemini للميزة دي');
+const question = $('#askInput').value.trim();
+if (!question) return toast('اكتب سؤالك');
+if (!state.plan) return toast('احسب الترتيب الأول');
+loading(true, 'بفكر...');
+try {
+const answer = await askAboutSpace({ question, plan: state.plan, mode: state.mode, apiKey });
+$('#askAnswer').textContent = answer.trim() || 'مالقيتش إجابة — جرب صياغة تانية';
+$('#askAnswer').classList.remove('hidden');
+} catch (err) {
+toast(err.message);
+} finally {
+loading(false);
+}
+}
+init();
+
+</script>
+</body>
+</html>

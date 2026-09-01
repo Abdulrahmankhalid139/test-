@@ -27,6 +27,32 @@ const RENAMES = {
   ],
 };
 
+/**
+ * بيشيل السطور اللي كلها تعليق بس — مش بيلمس أي سطر فيه كود،
+ * عشان مايخربش رابط جوه نص (زي https://) أو محتوى template literal.
+ */
+function stripFullLineComments(code) {
+  const out = [];
+  let inBlock = false;
+  for (const line of code.split('\n')) {
+    const t = line.trim();
+    if (inBlock) {
+      if (t.endsWith('*/')) inBlock = false;
+      continue;
+    }
+    if (t.startsWith('/*')) {
+      if (!t.endsWith('*/')) inBlock = true;
+      continue;
+    }
+    if (t.startsWith('//')) continue;
+    if (t === '') continue;
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
+const MINIFY = process.argv.includes('--min');
+
 let bundle = '';
 for (const file of ORDER) {
   let src = readFileSync(file, 'utf8');
@@ -40,10 +66,16 @@ for (const file of ORDER) {
     .replace(/^export\s+(const|function|async function|class|let)\s/gm, '$1 ')
     .replace(/^export\s*\{[^}]*\};?\s*$/gm, '');
 
-  bundle += `\n/* ══════════ ${file} ══════════ */\n${src.trim()}\n`;
+  if (MINIFY) {
+    src = stripFullLineComments(src);
+    // شيل المسافة البادئة بس — أي حاجة تانية ممكن تكسر نص جوه template literal
+    src = src.split('\n').map((l) => l.replace(/^[ \t]+/, '')).join('\n');
+  }
+  bundle += `\n/* ${file} */\n${src.trim()}\n`;
 }
 
-const css = readFileSync('css/app.css', 'utf8');
+let css = readFileSync('css/app.css', 'utf8');
+if (MINIFY) css = stripFullLineComments(css).split('\n').map((l) => l.trim()).join('\n');
 const html = readFileSync('index.html', 'utf8');
 
 // مهم: الاستبدال بدالة مش بنص. النص بيفسّر $$ على إنها $ واحدة،
@@ -55,4 +87,4 @@ const out = html
   .replace('<link rel="manifest" href="manifest.json">', '');
 
 writeFileSync('dist.html', out);
-console.log(`dist.html: ${(out.length / 1024).toFixed(1)} KB`);
+console.log(`dist.html: ${(out.length / 1024).toFixed(1)} KB${MINIFY ? ' (بدون تعليقات)' : ''}`);
