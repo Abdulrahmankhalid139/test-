@@ -87,4 +87,34 @@ const out = html
   .replace('<link rel="manifest" href="manifest.json">', '');
 
 writeFileSync('dist.html', out);
+
+// --terser: يمرّر الـJS على مصغّر حقيقي وينتج dist.min.html
+if (process.argv.includes('--terser')) {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+
+  const dir = mkdtempSync(join(tmpdir(), 'sp-'));
+  const inJs = join(dir, 'in.js');
+  const outJs = join(dir, 'out.js');
+  writeFileSync(inJs, bundle);
+  execFileSync('npx', ['--yes', 'terser', inJs, '-c', '-m', '--format', 'ascii_only=false', '-o', outJs], { stdio: 'inherit' });
+  const minJs = readFileSync(outJs, 'utf8');
+  rmSync(dir, { recursive: true, force: true });
+
+  const minCss = css
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\s*([{}:;,>])\s*/g, '$1')
+    .replace(/;}/g, '}')
+    .replace(/\n+/g, '')
+    .trim();
+
+  const minOut = out
+    .replace(/<style>[\s\S]*?<\/style>/, () => `<style>${minCss}</style>`)
+    .replace(/<script>[\s\S]*?<\/script>/, () => `<script>${minJs}</script>`);
+
+  writeFileSync('dist.min.html', minOut);
+  console.log(`dist.min.html: ${(minOut.length / 1024).toFixed(1)} KB`);
+}
 console.log(`dist.html: ${(out.length / 1024).toFixed(1)} KB${MINIFY ? ' (بدون تعليقات)' : ''}`);
