@@ -168,7 +168,6 @@ async function onAnalyze() {
       // البروفايل المولّد بيتفلتر قبل ما يوصل للخوارزمية
       state.profile = chosenProfile
         || (analysis.generatedProfile ? normalizeProfile(analysis.generatedProfile) : GENERIC_PROFILE);
-      if (state.profile.defaultSizeCm) state.surface = { ...state.surface };
     }
 
     const refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
@@ -464,6 +463,7 @@ function renderSaved() {
     state.mode = s.mode; state.items = s.items; state.surface = s.surface || state.surface; state.profile = s.profile; state.bin = s.bin;
     $('#deskOpts').classList.toggle('hidden', state.mode !== 'surface');
     $('#bagOpts').classList.toggle('hidden', state.mode !== 'bag');
+    renderDetectedSpace();
     renderItems();
     showScreen('review');
   };
