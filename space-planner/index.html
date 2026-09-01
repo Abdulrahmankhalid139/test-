@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>مرتّب المساحة — صوّر مكتبك أو شنطتك</title>
+<meta name="description" content="صوّر مكتبك أو شنطتك، والتطبيق يقيسها بالسنتيمتر ويقولك ترتّبها إزاي بالظبط. مجاني وبيشتغل من متصفحك.">
+<meta name="theme-color" content="#0f7b6c">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>📐 مرتّب المساحة</h1>
+  <button id="btnSettings" class="icon-btn" aria-label="الإعدادات">⚙️</button>
+</header>
+
+<main id="app">
+
+  <!-- ═══ ١) اختيار الوضع ═══ -->
+  <section class="screen active" data-screen="mode">
+    <p class="lead">صوّر المساحة بتاعتك، والتطبيق هيقيسها بالسنتيمتر ويحسبلك أحسن ترتيب — بالخوارزمية، مش بالتخمين.</p>
+
+    <div class="mode-grid">
+      <button class="mode-card" data-mode="desk">
+        <span class="mode-icon">🖥️</span>
+        <strong>رتّب مكتبي</strong>
+        <small>كل حاجة تروح فين، وإيه اللي يتشال — بقواعد إرجونومية</small>
+      </button>
+      <button class="mode-card" data-mode="bag">
+        <span class="mode-icon">🧳</span>
+        <strong>رص شنطتي</strong>
+        <small>إيه اللي هيدخل، وإيه اللي لأ، وبأي ترتيب</small>
+      </button>
+    </div>
+
+    <div id="savedScans" class="saved hidden">
+      <h3>محفوظات</h3>
+      <ul id="savedList"></ul>
+    </div>
+  </section>
+
+  <!-- ═══ ٢) التصوير والإعدادات ═══ -->
+  <section class="screen" data-screen="capture">
+    <button class="back" data-goto="mode">→ رجوع</button>
+    <h2 id="captureTitle">صوّر المكتب</h2>
+
+    <div class="field">
+      <label class="label">١. حط مرجع قياس في الصورة</label>
+      <p class="hint" id="scaleHint">من غير مرجع قياس، أي مقاس هيطلع تخمين. حط الحاجة دي في الصورة جنب الحاجات:</p>
+      <select id="scaleRef" class="input"></select>
+      <div id="customRefWrap" class="hidden">
+        <input id="customRefCm" class="input" type="number" min="1" step="0.1" placeholder="العرض الحقيقي بالسنتيمتر">
+      </div>
+    </div>
+
+    <div class="field" id="deskOpts">
+      <label class="label">٢. إعدادات المكتب</label>
+      <div class="row">
+        <select id="dominantHand" class="input">
+          <option value="right">بكتب بإيدي اليمين</option>
+          <option value="left">بكتب بإيدي الشمال</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field hidden" id="bagOpts">
+      <label class="label">٢. الشنطة</label>
+      <select id="bagPreset" class="input"></select>
+      <div id="customBagWrap" class="row hidden">
+        <input id="bagW" class="input" type="number" placeholder="العرض سم">
+        <input id="bagD" class="input" type="number" placeholder="العمق سم">
+        <input id="bagH" class="input" type="number" placeholder="الارتفاع سم">
+      </div>
+      <p class="hint">⚠️ مقاسات شركات الطيران بتتغيّر — راجع موقع شركتك قبل السفر.</p>
+    </div>
+
+    <div class="field">
+      <label class="label">٣. الصورة</label>
+      <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
+      <button id="btnPick" class="btn big">📷 صوّر أو اختار صورة</button>
+      <div id="preview" class="preview hidden"><img id="previewImg" alt="الصورة اللي اخترتها"></div>
+    </div>
+
+    <button id="btnAnalyze" class="btn primary big" disabled>حلّل الصورة</button>
+    <button id="btnManual" class="btn ghost">أو أدخل الحاجات بنفسك من غير صورة</button>
+    <p class="hint center">الصورة بتتبعت لجوجل بمفتاحك انت، ومش بتتخزن عندنا — مفيش سيرفر أصلاً.</p>
+  </section>
+
+  <!-- ═══ ٣) مراجعة الحاجات ═══ -->
+  <section class="screen" data-screen="review">
+    <button class="back" data-goto="capture">→ رجوع</button>
+    <h2>راجع المقاسات</h2>
+    <div id="scaleBanner" class="banner"></div>
+    <p class="hint">الأرقام دي محسوبة من مرجع القياس. لو حاجة غلط، عدّلها — الترتيب هيتحسب على اللي انت تأكده.</p>
+    <div id="itemsList" class="items"></div>
+    <button id="btnAddItem" class="btn ghost">+ ضيف حاجة بنفسك</button>
+    <button id="btnPlan" class="btn primary big">احسب الترتيب</button>
+  </section>
+
+  <!-- ═══ ٤) النتيجة ═══ -->
+  <section class="screen" data-screen="result">
+    <button class="back" data-goto="review">→ رجوع للمقاسات</button>
+    <h2 id="resultTitle">الترتيب المقترح</h2>
+    <div id="statsRow" class="stats"></div>
+    <div id="planView" class="plan"></div>
+    <div id="legendView"></div>
+    <div id="aiNote" class="ai-note hidden"></div>
+    <div id="notesView" class="notes"></div>
+    <div id="stepsView" class="steps"></div>
+    <div class="actions">
+      <button id="btnAfterImage" class="btn ghost">🎨 ورّيني صورة "بعد الترتيب"</button>
+      <button id="btnSave" class="btn ghost">💾 احفظ</button>
+    </div>
+    <div id="afterImageWrap" class="hidden">
+      <p class="hint">⚠️ دي صورة تخيلية من الـAI — المخطط اللي فوق هو الدقيق.</p>
+      <img id="afterImage" alt="تصور للمكان بعد الترتيب">
+    </div>
+  </section>
+
+</main>
+
+<!-- ═══ الإعدادات ═══ -->
+<dialog id="settingsDialog">
+  <form method="dialog">
+    <h2>الإعدادات</h2>
+    <label class="label" for="apiKey">مفتاح Gemini</label>
+    <input id="apiKey" class="input" type="password" placeholder="AIza..." autocomplete="off">
+    <p class="hint">
+      المفتاح مجاني من <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+      بيتخزن في متصفحك انت بس، وبيتبعت لجوجل مباشرة. مفيش سيرفر بيشوفه.
+    </p>
+    <div class="row">
+      <button value="save" class="btn primary">حفظ</button>
+      <button value="cancel" class="btn ghost">إلغاء</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast hidden"></div>
+<div id="loader" class="loader hidden"><div class="spinner"></div><p id="loaderText">بحلل...</p></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
