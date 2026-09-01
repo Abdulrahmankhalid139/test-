@@ -3,21 +3,18 @@
  */
 import { SCALE_REFERENCES, normalizeBox, computeScale, boxToCm, perspectiveCorrect, scaleConfidence, round1 } from './geometry.js';
 import { pack3D, packingOrder } from './packing.js';
-import { layoutDesk } from './desk.js';
+import { layoutSurface } from './surface.js';
 import { renderDeskPlan, renderBagPlan, renderLegend } from './render.js';
-import { analyzeScene, explainPlan, renderAfterImage, fileToBase64Resized } from './vision.js';
+import { analyzeScene, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized } from './vision.js';
+import { BUILT_IN_PROFILES, GENERIC_PROFILE, normalizeProfile, profileOptions, getProfile, ZONES } from './profiles.js';
 import { CABIN_BAGS, BAG_CATEGORIES } from '../data/bags.js';
 import { store } from './store.js';
 
-const DESK_CATEGORY_LABELS = {
-  monitor:'شاشة', laptop:'لابتوب', keyboard:'كيبورد', mouse:'ماوس', drink:'مشروب',
-  phone:'موبايل', notebook:'نوتة/ورق', pens:'أقلام', lamp:'أباجورة', speaker:'سماعة',
-  headphones:'سماعة راس', plant:'نبتة', books:'كتب', storage:'تخزين', decor:'ديكور', other:'حاجة تانية',
-};
 const FREQ_LABELS = { high:'بستخدمها كتير', medium:'أحياناً', low:'نادراً' };
 
 const state = {
-  mode: 'desk',
+  mode: 'surface',
+  profile: null,      // بروفايل المساحة — جاهز أو مولّد بالـAI
   image: null,
   items: [],
   scale: null,
@@ -56,7 +53,12 @@ function init() {
   $('#bagPreset').innerHTML = CABIN_BAGS
     .map((b) => `<option value="${b.id}">${b.nameAr}${b.w ? ` — ${b.w}×${b.d}×${b.h} سم` : ''}</option>`).join('');
 
+  $('#spaceType').innerHTML =
+    '<option value="auto">🤖 اكتشف تلقائياً من الصورة</option>' +
+    profileOptions().map((p) => `<option value="${p.id}">${p.labelAr}</option>`).join('');
+
   const prefs = store.getPrefs();
+  $('#spaceType').value = prefs.spaceType || 'auto';
   $('#scaleRef').value = prefs.scaleRef || 'card';
   $('#dominantHand').value = prefs.dominantHand || 'right';
   $('#apiKey').value = store.getApiKey();
@@ -65,10 +67,10 @@ function init() {
 
   $$('.mode-card').forEach((c) => c.addEventListener('click', () => {
     state.mode = c.dataset.mode;
-    $('#captureTitle').textContent = state.mode === 'desk' ? 'صوّر المكتب' : 'صوّر الحاجات اللي هتشيلها';
-    $('#deskOpts').classList.toggle('hidden', state.mode !== 'desk');
+    $('#captureTitle').textContent = state.mode === 'surface' ? 'صوّر المساحة' : 'صوّر الحاجات اللي هتشيلها';
+    $('#deskOpts').classList.toggle('hidden', state.mode !== 'surface');
     $('#bagOpts').classList.toggle('hidden', state.mode !== 'bag');
-    $('#scaleHint').textContent = state.mode === 'desk'
+    $('#scaleHint').textContent = state.mode === 'surface'
       ? 'حط الحاجة دي على المكتب جنب باقي الحاجات، وصوّر من فوق قدر الإمكان:'
       : 'حط الحاجة دي جنب الحاجات اللي هتترص، وافردهم على الأرض وصوّرهم من فوق:';
     showScreen('capture');
@@ -83,6 +85,15 @@ function init() {
   $('#fileInput').addEventListener('change', onFilePicked);
   $('#btnAnalyze').addEventListener('click', onAnalyze);
   $('#btnManual').addEventListener('click', onManual);
+  $('#spaceType').addEventListener('change', () => {
+    store.setPrefs({ spaceType: $('#spaceType').value });
+    $('#spaceTypeHint').textContent = $('#spaceType').value === 'auto'
+      ? 'لو سيبتها على «اكتشف تلقائياً»، الموديل هيبص على الصورة ويعرف هي إيه ويكتب قواعد ترتيبها بنفسه.'
+      : 'اخترت النوع بنفسك — الموديل هيستخدم قواعد جاهزة ومجرّبة للمساحة دي.';
+  });
+  $('#btnChangeSpace').addEventListener('click', () => $('#changeSpaceWrap').classList.toggle('hidden'));
+  $('#btnAdapt').addEventListener('click', onAdaptProfile);
+  $('#btnAsk').addEventListener('click', onAsk);
   $('#btnAddItem').addEventListener('click', () => { addItem(); renderItems(); });
   $('#btnPlan').addEventListener('click', onPlan);
   $('#btnAfterImage').addEventListener('click', onAfterImage);
@@ -139,12 +150,26 @@ async function onAnalyze() {
 
   loading(true, 'الموديل بيبص على الصورة...');
   try {
+    const chosen = $('#spaceType').value;
+    const intent = $('#intent').value.trim();
+    // لو المستخدم اختار نوع، بنستخدم قواعده الجاهزة. لو "اكتشف تلقائياً"، الموديل هيولّدها.
+    const chosenProfile = state.mode === 'surface' && chosen !== 'auto' ? getProfile(chosen) : null;
+
     const analysis = await analyzeScene({
       base64: state.image.base64,
       mode: state.mode,
       scaleRefLabel: refId === 'custom' ? `حاجة عرضها ${customCm} سم` : ref.labelAr,
+      profile: chosenProfile,
+      intent,
       apiKey,
     });
+
+    if (state.mode === 'surface') {
+      // البروفايل المولّد بيتفلتر قبل ما يوصل للخوارزمية
+      state.profile = chosenProfile
+        || (analysis.generatedProfile ? normalizeProfile(analysis.generatedProfile) : GENERIC_PROFILE);
+      if (state.profile.defaultSizeCm) state.surface = { ...state.surface };
+    }
 
     const refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
     if (!refBox) {
@@ -168,12 +193,14 @@ async function onAnalyze() {
       : `⚠️ دقة القياس <b>${conf.labelAr}</b> — المرجع صغير أو متصوّر بزاوية مايلة. راجع الأرقام كويس أو صوّر تاني من فوق.`;
 
     // سطح الشغل
-    if (state.mode === 'desk' && analysis.surface?.box) {
+    if (state.mode === 'surface' && analysis.surface?.box) {
       const sBox = normalizeBox(analysis.surface.box);
       if (sBox) {
         const d = boxToCm(sBox, scale);
         state.surface = { widthCm: clampCm(d.widthCm, 40, 400), depthCm: clampCm(d.depthCm, 30, 200) };
       }
+    } else if (state.mode === 'surface') {
+      applyProfileSize();
     }
     if (analysis.windowSide) store.setPrefs({ windowSide: analysis.windowSide });
 
@@ -197,6 +224,7 @@ async function onAnalyze() {
 
     if (!state.items.length) throw new Error('مالقيناش حاجات في الصورة. جرب صورة أوضح أو ضيف الحاجات بنفسك.');
 
+    renderDetectedSpace();
     renderItems();
     showScreen('review');
   } catch (err) {
@@ -210,7 +238,15 @@ async function onAnalyze() {
 function onManual() {
   state.items = [];
   state.scale = null;
+  const chosen = $('#spaceType').value;
+  if (state.mode === 'surface') {
+    state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
+    applyProfileSize();
+  } else {
+    state.profile = null;
+  }
   addItem();
+  renderDetectedSpace();
   $('#scaleBanner').className = 'banner warn';
   $('#scaleBanner').innerHTML = '✍️ إدخال يدوي — اكتب المقاسات بنفسك بالمسطرة. الحساب والترتيب هيشتغلوا عادي من غير أي AI.';
   renderItems();
@@ -223,22 +259,22 @@ const clampCm = (v, lo, hi) => round1(Math.max(lo, Math.min(hi, Number(v) || lo)
 function addItem() {
   state.items.push({
     id: `it${Date.now()}`, nameAr: 'حاجة جديدة',
-    category: state.mode === 'desk' ? 'other' : 'other',
+    category: 'other',
     widthCm: 10, depthCm: 10, heightCm: 10,
     frequency: 'medium', fragile: false, confidence: 1,
   });
 }
 
 function renderItems() {
-  const catOptions = state.mode === 'desk'
-    ? Object.entries(DESK_CATEGORY_LABELS)
+  const catOptions = state.mode === 'surface'
+    ? Object.entries(state.profile?.categories || GENERIC_PROFILE.categories).map(([k, v]) => [k, v.labelAr])
     : Object.entries(BAG_CATEGORIES).map(([k, v]) => [k, v.labelAr]);
 
-  const surfaceEditor = state.mode === 'desk' ? `
+  const surfaceEditor = state.mode === 'surface' ? `
     <div class="item">
       <div>
-        <strong>📏 مقاس المكتب نفسه</strong>
-        <p class="hint">التقدير ده من الصورة، والصورة بزاوية فبيقل عن الحقيقة. لو تعرف مقاس مكتبك اكتبه — ده أهم رقم في الحسبة.</p>
+        <strong>📏 مقاس السطح نفسه</strong>
+        <p class="hint">التقدير ده من الصورة، والصورة بزاوية فبيقل عن الحقيقة. لو تعرف مقاس السطح اكتبه — ده أهم رقم في الحسبة.</p>
         <div class="item-dims">
           <label>عرض<input type="number" data-surface="widthCm" value="${state.surface.widthCm}" step="1"></label>
           <label>عمق<input type="number" data-surface="depthCm" value="${state.surface.depthCm}" step="1"></label>
@@ -258,7 +294,7 @@ function renderItems() {
         <select data-f="category" aria-label="النوع">
           ${catOptions.map(([k, v]) => `<option value="${k}" ${it.category === k ? 'selected' : ''}>${v}</option>`).join('')}
         </select>
-        ${state.mode === 'desk' ? `
+        ${state.mode === 'surface' ? `
         <select data-f="frequency" aria-label="معدل الاستخدام">
           ${Object.entries(FREQ_LABELS).map(([k, v]) => `<option value="${k}" ${it.frequency === k ? 'selected' : ''}>${v}</option>`).join('')}
         </select>` : ''}
@@ -289,10 +325,10 @@ async function onPlan() {
   const valid = state.items.filter((i) => i.widthCm > 0 && i.depthCm > 0 && i.heightCm > 0);
   if (!valid.length) return toast('محتاجين حاجة واحدة على الأقل بمقاسات صحيحة');
 
-  if (state.mode === 'desk') {
-    if (!(state.surface.widthCm > 20 && state.surface.depthCm > 20)) return toast('اكتب مقاس المكتب الأول');
+  if (state.mode === 'surface') {
+    if (!(state.surface.widthCm > 20 && state.surface.depthCm > 20)) return toast('اكتب مقاس السطح الأول');
     const prefs = store.getPrefs();
-    state.plan = layoutDesk(state.surface, valid, {
+    state.plan = layoutSurface(state.surface, valid, state.profile || GENERIC_PROFILE, {
       dominantHand: $('#dominantHand').value,
       windowSide: prefs.windowSide || 'none',
     });
@@ -314,15 +350,17 @@ async function onPlan() {
     renderBagResult();
   }
 
+  $('#askAnswer').classList.add('hidden');
+  $('#askInput').value = '';
   showScreen('result');
   maybeExplain();
 }
 
 function renderDeskResult() {
   const p = state.plan;
-  $('#resultTitle').textContent = 'ترتيب المكتب';
+  $('#resultTitle').textContent = 'ترتيب ' + (p.profileAr || 'المساحة');
   $('#statsRow').innerHTML = `
-    <div class="stat"><b>${p.stats.onDesk}</b><span>حاجة على المكتب</span></div>
+    <div class="stat"><b>${p.stats.onDesk}</b><span>حاجة على السطح</span></div>
     <div class="stat"><b>${p.stats.freePercent}%</b><span>مساحة فاضية</span></div>
     <div class="stat"><b>${p.stats.removed}</b><span>اتشالت</span></div>`;
   $('#planView').innerHTML = renderDeskPlan(p);
@@ -332,7 +370,7 @@ function renderDeskResult() {
   $('#stepsView').innerHTML = `
     <h3>كل حاجة وليه اتحطت هنا</h3>
     <ol>${p.placed.map((i) => `<li><b>${esc(i.nameAr)}</b><br><span class="pos">${esc(i.reasonAr)}</span></li>`).join('')}</ol>
-    ${p.offDesk.length ? `<div class="off-desk"><h3>شيل دول من على المكتب</h3><ul>${
+    ${p.offDesk.length ? `<div class="off-desk"><h3>شيل دول من على السطح</h3><ul>${
       p.offDesk.map((i) => `<li><b>${esc(i.nameAr)}</b> — ${esc(i.reasonAr)}</li>`).join('')}</ul></div>` : ''}`;
   $('#btnAfterImage').classList.remove('hidden');
 }
@@ -379,7 +417,7 @@ async function onAfterImage() {
   if (!state.image) return toast('مفيش صورة أصلية');
   loading(true, 'برسم صورة "بعد الترتيب"...');
   try {
-    const url = await renderAfterImage({ base64: state.image.base64, mode: state.mode, plan: state.plan, apiKey });
+    const url = await renderAfterImage({ base64: state.image.base64, plan: state.plan, apiKey });
     $('#afterImage').src = url;
     $('#afterImageWrap').classList.remove('hidden');
     $('#afterImageWrap').scrollIntoView({ behavior: 'smooth' });
@@ -394,9 +432,12 @@ async function onAfterImage() {
 function onSave() {
   const ok = store.saveScan({
     mode: state.mode,
-    title: state.mode === 'desk' ? `مكتب ${Math.round(state.surface.widthCm)}×${Math.round(state.surface.depthCm)}` : 'رص شنطة',
+    title: state.mode === 'surface'
+      ? `${state.profile?.spaceTypeAr || 'مساحة'} ${Math.round(state.surface.widthCm)}×${Math.round(state.surface.depthCm)}`
+      : 'رص شنطة',
     items: state.items,
     surface: state.surface,
+    profile: state.profile,
     bin: state.bin,
   });
   toast(ok ? 'اتحفظ في متصفحك ✅' : 'مساحة المتصفح مليانة — امسح محفوظات قديمة');
@@ -420,12 +461,96 @@ function renderSaved() {
     if (!load) return;
     const s = store.getScans().find((x) => x.savedAt === +load);
     if (!s) return;
-    state.mode = s.mode; state.items = s.items; state.surface = s.surface || state.surface; state.bin = s.bin;
-    $('#deskOpts').classList.toggle('hidden', state.mode !== 'desk');
+    state.mode = s.mode; state.items = s.items; state.surface = s.surface || state.surface; state.profile = s.profile; state.bin = s.bin;
+    $('#deskOpts').classList.toggle('hidden', state.mode !== 'surface');
     $('#bagOpts').classList.toggle('hidden', state.mode !== 'bag');
     renderItems();
     showScreen('review');
   };
+}
+
+/* ═══════════ ٤+٥: المساحة اللي اتحددت وقواعدها ═══════════ */
+
+/** كل مساحة ليها مقاس نموذجي مختلف — التسريحة مش بمقاس المكتب. */
+function applyProfileSize() {
+  const size = state.profile?.defaultSizeCm;
+  if (size?.width > 0 && size?.depth > 0) {
+    state.surface = { widthCm: size.width, depthCm: size.depth };
+  }
+}
+
+/** بيعرض نوع المساحة والقواعد اللي هتتنفّذ — عشان تشوفها قبل الحساب. */
+function renderDetectedSpace() {
+  const box = $('#detectedSpace');
+  if (state.mode !== 'surface' || !state.profile) { box.classList.add('hidden'); return; }
+
+  box.classList.remove('hidden');
+  const src = state.profile.source === 'ai' ? ' 🤖' : '';
+  $('#detectedName').textContent = state.profile.spaceTypeAr + src;
+
+  // ملخص القواعد: كل فئة رايحة فين
+  $('#rulesList').innerHTML = Object.values(state.profile.categories)
+    .filter((c) => c.zone)
+    .slice(0, 14)
+    .map((c) => {
+      const zone = ZONES[c.zone]?.labelAr || c.zone;
+      const flags = [c.keepDry && '💧', c.avoidLight && '🌑', c.wantsLight && '☀️', c.hot && '🔥', c.anchor && '📌']
+        .filter(Boolean).join('');
+      return `<li>${esc(c.labelAr)} → ${esc(zone)} ${flags}</li>`;
+    }).join('');
+}
+
+/* ═══════════ ٦: التوجيه بالكلام ═══════════ */
+
+async function onAdaptProfile() {
+  const apiKey = store.getApiKey();
+  if (!apiKey) return toast('محتاج مفتاح Gemini للميزة دي');
+  const intent = $('#adaptIntent').value.trim();
+  if (!intent) return toast('اكتب عايز إيه من المساحة');
+  if (!state.profile) return toast('محتاجين نعرف المساحة الأول');
+
+  loading(true, 'بكتب القواعد من تاني...');
+  try {
+    const adapted = await adaptProfile({ profile: state.profile, intent, apiKey });
+    if (!adapted) throw new Error('الموديل مرجعش قواعد صالحة — جرب صياغة تانية');
+    const before = state.profile.spaceTypeAr;
+    state.profile = normalizeProfile(adapted, state.profile);
+    if (state.profile.spaceTypeAr !== before) applyProfileSize();
+
+    // الفئات اتغيرت، فأي حاجة فئتها بقت مش موجودة بترجع "حاجة تانية"
+    for (const it of state.items) {
+      if (!state.profile.categories[it.category]) it.category = 'other';
+    }
+    renderDetectedSpace();
+    renderItems();
+    $('#changeSpaceWrap').classList.add('hidden');
+    toast('القواعد اتغيرت ✅ اضغط «احسب الترتيب»');
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    loading(false);
+  }
+}
+
+/* ═══════════ ٧: اسأل عن مساحتك ═══════════ */
+
+async function onAsk() {
+  const apiKey = store.getApiKey();
+  if (!apiKey) return toast('محتاج مفتاح Gemini للميزة دي');
+  const question = $('#askInput').value.trim();
+  if (!question) return toast('اكتب سؤالك');
+  if (!state.plan) return toast('احسب الترتيب الأول');
+
+  loading(true, 'بفكر...');
+  try {
+    const answer = await askAboutSpace({ question, plan: state.plan, mode: state.mode, apiKey });
+    $('#askAnswer').textContent = answer.trim() || 'مالقيتش إجابة — جرب صياغة تانية';
+    $('#askAnswer').classList.remove('hidden');
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    loading(false);
+  }
 }
 
 init();

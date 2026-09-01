@@ -28,10 +28,10 @@
     <p class="lead">صوّر المساحة بتاعتك، والتطبيق هيقيسها بالسنتيمتر ويحسبلك أحسن ترتيب — بالخوارزمية، مش بالتخمين.</p>
 
     <div class="mode-grid">
-      <button class="mode-card" data-mode="desk">
-        <span class="mode-icon">🖥️</span>
-        <strong>رتّب مكتبي</strong>
-        <small>كل حاجة تروح فين، وإيه اللي يتشال — بقواعد إرجونومية</small>
+      <button class="mode-card" data-mode="surface">
+        <span class="mode-icon">📷</span>
+        <strong>رتّب أي مساحة</strong>
+        <small>مكتب، تسريحة، رف مطبخ، ترابيزة عدة، كومودينو... صوّرها والتطبيق يعرف هي إيه ويكتب قواعدها</small>
       </button>
       <button class="mode-card" data-mode="bag">
         <span class="mode-icon">🧳</span>
@@ -49,7 +49,7 @@
   <!-- ═══ ٢) التصوير والإعدادات ═══ -->
   <section class="screen" data-screen="capture">
     <button class="back" data-goto="mode">→ رجوع</button>
-    <h2 id="captureTitle">صوّر المكتب</h2>
+    <h2 id="captureTitle">صوّر المساحة</h2>
 
     <div class="field">
       <label class="label">١. حط مرجع قياس في الصورة</label>
@@ -61,13 +61,15 @@
     </div>
 
     <div class="field" id="deskOpts">
-      <label class="label">٢. إعدادات المكتب</label>
-      <div class="row">
-        <select id="dominantHand" class="input">
-          <option value="right">بكتب بإيدي اليمين</option>
-          <option value="left">بكتب بإيدي الشمال</option>
-        </select>
-      </div>
+      <label class="label">٢. المساحة دي إيه؟</label>
+      <select id="spaceType" class="input"></select>
+      <p class="hint" id="spaceTypeHint">لو سيبتها على «اكتشف تلقائياً»، الموديل هيبص على الصورة ويعرف هي إيه ويكتب قواعد ترتيبها بنفسه.</p>
+      <input id="intent" class="input" type="text" maxlength="120" placeholder="عايز إيه من المساحة دي؟ (اختياري)">
+      <p class="hint">مثال: «عايزة أجهّز نفسي بسرعة الصبح» أو «عايز أحوّلها ركن مذاكرة»</p>
+      <select id="dominantHand" class="input">
+        <option value="right">بستخدم إيدي اليمين</option>
+        <option value="left">بستخدم إيدي الشمال</option>
+      </select>
     </div>
 
     <div class="field hidden" id="bagOpts">
@@ -98,6 +100,17 @@
     <button class="back" data-goto="capture">→ رجوع</button>
     <h2>راجع المقاسات</h2>
     <div id="scaleBanner" class="banner"></div>
+    <div id="detectedSpace" class="detected hidden">
+      <div class="detected-row">
+        <span>المساحة دي: <b id="detectedName">—</b></span>
+        <button id="btnChangeSpace" class="link-btn">غيّرها</button>
+      </div>
+      <div id="changeSpaceWrap" class="hidden">
+        <input id="adaptIntent" class="input" type="text" maxlength="120" placeholder="اكتب عايز إيه: «خليها ركن مذاكرة»">
+        <button id="btnAdapt" class="btn ghost">🤖 اعمل القواعد من تاني</button>
+      </div>
+      <ul id="rulesList" class="rules"></ul>
+    </div>
     <p class="hint">الأرقام دي محسوبة من مرجع القياس. لو حاجة غلط، عدّلها — الترتيب هيتحسب على اللي انت تأكده.</p>
     <div id="itemsList" class="items"></div>
     <button id="btnAddItem" class="btn ghost">+ ضيف حاجة بنفسك</button>
@@ -114,6 +127,12 @@
     <div id="aiNote" class="ai-note hidden"></div>
     <div id="notesView" class="notes"></div>
     <div id="stepsView" class="steps"></div>
+    <div class="ask">
+      <label class="label" for="askInput">💬 اسأل عن مساحتك</label>
+      <input id="askInput" class="input" type="text" maxlength="200" placeholder="مثال: ليه رقبتي بتوجعني؟ / إزاي أخليها أهدى؟">
+      <button id="btnAsk" class="btn ghost">اسأل</button>
+      <div id="askAnswer" class="ai-note hidden"></div>
+    </div>
     <div class="actions">
       <button id="btnAfterImage" class="btn ghost">🎨 ورّيني صورة "بعد الترتيب"</button>
       <button id="btnSave" class="btn ghost">💾 احفظ</button>
