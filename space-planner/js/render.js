@@ -38,7 +38,7 @@ const CATEGORY_COLORS = {
   other: '#64748b',
 };
 
-const colorFor = (c) => CATEGORY_COLORS[c] || CATEGORY_COLORS.other;
+export const colorFor = (c) => CATEGORY_COLORS[c] || CATEGORY_COLORS.other;
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

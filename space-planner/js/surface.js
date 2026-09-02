@@ -18,6 +18,25 @@ const EDGE_MARGIN = 4;          // هامش أمان من حافة السطح
 const BULKY_AREA_CM2 = 600;     // أكبر من كده ونادر الاستخدام = يتشال
 const HOT_CLEARANCE = 5;        // خلوص حوالين الحاجات السخنة
 
+/**
+ * السياق اللي دالة التكلفة بتشتغل جواه — السطح، القواعد، مكان القاعد، الضو.
+ * بيتبني مرة واحدة وبيتمرر لكل تقييم، عشان الترتيب المحسوب والترتيب اللي
+ * المستخدم عدّله بإيده يتقاسوا بنفس المسطرة بالظبط.
+ */
+export function layoutContext(surface, profile, opts = {}, placed = []) {
+  const W = surface.widthCm;
+  const D = surface.depthCm;
+  const dominant = opts.dominantHand === 'left' ? 'left' : 'right';
+  const seatX = Number.isFinite(opts.seatXCm) ? opts.seatXCm : W / 2;
+  return {
+    W, D, dominant, seatX,
+    placed,
+    reachOrigin: { x: seatX, y: -5 },
+    light: lightVector(opts.windowSide || 'none', W, D),
+    cats: profile.categories || {},
+  };
+}
+
 /** اتجاه الضو على السطح حسب مكان الشباك بالنسبة للشخص. */
 function lightVector(windowSide, W, D) {
   switch (windowSide) {
@@ -127,7 +146,7 @@ export function layoutSurface(surface, items, profile, opts = {}) {
       continue;
     }
     const rule = ruleFor(item.category);
-    const spot = findSpot(item, rule, { W, D, placed, reachOrigin, dominant, light, cats });
+    const spot = findSpot(item, rule, { W, D, placed, reachOrigin, dominant, light, cats, seatX });
     if (spot) {
       placed.push({ ...item, x: spot.x, y: spot.y, w: spot.w, d: spot.d, rotated: spot.rotated, reason: spot.reason });
     } else {
@@ -158,70 +177,101 @@ export function layoutSurface(surface, items, profile, opts = {}) {
   };
 }
 
+/**
+ * هل المكان ده مسموح أصلاً؟ (متداخلش، مش على الحرف، مش حاجب المرساة)
+ * منفصلة عن التكلفة عشان التعديل اليدوي يقدر يقول «ده مستحيل» بدل ما يديله رقم وحش.
+ * `ignoreId` بيخلي الحاجة نفسها متزحمش نفسها وهي بتتحرك.
+ */
+export function isLegalSpot(cand, item, rule, ctx, selfPad = null, ignoreId = null) {
+  const { D, placed, cats } = ctx;
+  const pad = selfPad ?? (rule.hot ? HOT_CLEARANCE : 1);
+  const frontAnchor = placed.find((p) => cats[p.category]?.anchor === 'front-center' && p.id !== ignoreId);
+  const backAnchor = placed.find((p) => cats[p.category]?.anchor === 'back-center' && p.id !== ignoreId);
+
+  if (cand.y < EDGE_MARGIN) return false;
+  if (cand.x < 0 || cand.y < 0 || cand.x + cand.w > ctx.W || cand.y + cand.d > D) return false;
+
+  const blocked = placed.some((p) => {
+    if (p.id === ignoreId) return false;
+    const other = Math.max(pad, cats[p.category]?.hot ? HOT_CLEARANCE : 1);
+    return rectsOverlap(cand, { x: p.x, y: p.y, w: p.w, d: p.d }, other);
+  });
+  if (blocked) return false;
+
+  // مساحة الشغل قدام المرساة القدامية تفضل فاضية
+  if (frontAnchor && cand.y < frontAnchor.y &&
+      rectsOverlap(cand, { x: frontAnchor.x - 4, y: 0, w: frontAnchor.w + 8, d: frontAnchor.y }, 0)) return false;
+
+  // الحاجات العالية ممنوعة تحجب المرساة الخلفية (شاشة/مراية)
+  if (backAnchor && item.h > 12 && cand.y + cand.d > backAnchor.y - 12 &&
+      rectsOverlap(cand, { x: backAnchor.x - 5, y: 0, w: backAnchor.w + 10, d: backAnchor.y }, 0)) return false;
+
+  return true;
+}
+
+/**
+ * تكلفة مكان واحد. الرقم ده هو كل «الرأي» اللي عند الخوارزمية:
+ * بُعد عن منطقة الوصول، ناحية الإيد، أمان السوايل، الضو، والعمق.
+ * أقل = أحسن. مفيش وحدة — بس ثابت، فالمقارنة بين ترتيبين ليها معنى.
+ */
+export function spotCost(cand, rule, ctx, target = null) {
+  const { D, placed, reachOrigin, dominant, light, cats } = ctx;
+  const tgt = target ?? (ZONES[rule.zone]?.targetCm ?? ZONES.secondary.targetCm);
+  const frontAnchor = placed.find((p) => cats[p.category]?.anchor === 'front-center');
+
+  const cx = cand.x + cand.w / 2;
+  const cy = cand.y + cand.d / 2;
+  const dist = Math.hypot(cx - reachOrigin.x, cy - reachOrigin.y);
+
+  let cost = Math.abs(dist - tgt);
+
+  const isDominantSide = dominant === 'right' ? cx > reachOrigin.x : cx < reachOrigin.x;
+  if (rule.side === 'dominant' && !isDominantSide) cost += 22;
+  if (rule.side === 'off' && isDominantSide) cost += 22;
+  if (rule.side === 'center') cost += Math.abs(cx - reachOrigin.x) * 0.8;
+
+  // سوايل: بعيد عن أي حاجة تتلف لو اتكبت
+  if (rule.keepDry) {
+    if (frontAnchor && cand.y < frontAnchor.y + frontAnchor.d + 6) cost += 30;
+    for (const e of placed) {
+      if (!cats[e.category]?.screen && !cats[e.category]?.anchor) continue;
+      const gap = Math.hypot(cx - (e.x + e.w / 2), cy - (e.y + e.d / 2));
+      if (gap < 25) cost += (25 - gap) * 1.2;
+    }
+  }
+
+  // الإضاءة: فيه حاجات بتبوظ في الشمس وفيه حاجات عايزاها
+  if (light) {
+    const toLight = Math.hypot(cx - light.x, cy - light.y);
+    if (rule.avoidLight) cost += Math.max(0, 70 - toLight) * 0.6;
+    if (rule.wantsLight) cost += toLight * 0.4;
+  }
+
+  if (rule.zone === 'far') cost += (D - (cand.y + cand.d)) * 0.5;
+
+  return { cost, dist };
+}
+
 function findSpot(item, rule, ctx) {
-  const { W, D, placed, reachOrigin, dominant, light, cats } = ctx;
+  const { W, D, dominant } = ctx;
   const target = ZONES[rule.zone]?.targetCm ?? ZONES.secondary.targetCm;
   const selfPad = rule.hot ? HOT_CLEARANCE : 1;
   let best = null;
 
+  // الحاجات العالية (شاشة، أباجورة، نبتة) مبتتقلبش على جنبها —
+  // اللف في المخطط معناه إنها اتحطت بالعرض، وده مالوش معنى لحاجة واقفة.
   const variants = [{ w: item.w, d: item.d, rotated: false }];
-  if (Math.abs(item.w - item.d) > 2) variants.push({ w: item.d, d: item.w, rotated: true });
-
-  const frontAnchor = placed.find((p) => cats[p.category]?.anchor === 'front-center');
-  const backAnchor = placed.find((p) => cats[p.category]?.anchor === 'back-center');
+  if (!rule.tall && item.h <= 15 && Math.abs(item.w - item.d) > 2) {
+    variants.push({ w: item.d, d: item.w, rotated: true });
+  }
 
   for (const v of variants) {
     for (let x = 0; x <= W - v.w; x += GRID) {
       for (let y = 0; y <= D - v.d; y += GRID) {
         const cand = { x, y, w: v.w, d: v.d };
-
-        if (cand.y < EDGE_MARGIN) continue;
-
-        const blocked = placed.some((p) => {
-          const pad = Math.max(selfPad, cats[p.category]?.hot ? HOT_CLEARANCE : 1);
-          return rectsOverlap(cand, { x: p.x, y: p.y, w: p.w, d: p.d }, pad);
-        });
-        if (blocked) continue;
-
-        // مساحة الشغل قدام المرساة القدامية تفضل فاضية
-        if (frontAnchor && cand.y < frontAnchor.y &&
-            rectsOverlap(cand, { x: frontAnchor.x - 4, y: 0, w: frontAnchor.w + 8, d: frontAnchor.y }, 0)) continue;
-
-        // الحاجات العالية ممنوعة تحجب المرساة الخلفية (شاشة/مراية)
-        if (backAnchor && item.h > 12 && cand.y + cand.d > backAnchor.y - 12 &&
-            rectsOverlap(cand, { x: backAnchor.x - 5, y: 0, w: backAnchor.w + 10, d: backAnchor.y }, 0)) continue;
-
-        const cx = cand.x + cand.w / 2;
-        const cy = cand.y + cand.d / 2;
-        const dist = Math.hypot(cx - reachOrigin.x, cy - reachOrigin.y);
-
-        let cost = Math.abs(dist - target);
-
-        const isDominantSide = dominant === 'right' ? cx > reachOrigin.x : cx < reachOrigin.x;
-        if (rule.side === 'dominant' && !isDominantSide) cost += 22;
-        if (rule.side === 'off' && isDominantSide) cost += 22;
-        if (rule.side === 'center') cost += Math.abs(cx - reachOrigin.x) * 0.8;
-
-        // سوايل: بعيد عن أي حاجة تتلف لو اتكبت
-        if (rule.keepDry) {
-          if (frontAnchor && cand.y < frontAnchor.y + frontAnchor.d + 6) cost += 30;
-          for (const e of placed) {
-            if (!cats[e.category]?.screen && !cats[e.category]?.anchor) continue;
-            const gap = Math.hypot(cx - (e.x + e.w / 2), cy - (e.y + e.d / 2));
-            if (gap < 25) cost += (25 - gap) * 1.2;
-          }
-        }
-
-        // الإضاءة: فيه حاجات بتبوظ في الشمس وفيه حاجات عايزاها
-        if (light) {
-          const toLight = Math.hypot(cx - light.x, cy - light.y);
-          if (rule.avoidLight) cost += Math.max(0, 70 - toLight) * 0.6;
-          if (rule.wantsLight) cost += toLight * 0.4;
-        }
-
-        if (rule.zone === 'far') cost += (D - (cand.y + cand.d)) * 0.5;
-
-        if (!best || cost < best.cost) best = { ...cand, rotated: v.rotated, cost, dist };
+        if (!isLegalSpot(cand, item, rule, ctx, selfPad)) continue;
+        const ev = spotCost(cand, rule, ctx, target);
+        if (!best || ev.cost < best.cost) best = { ...cand, rotated: v.rotated, cost: ev.cost, dist: ev.dist };
       }
     }
   }
@@ -287,4 +337,130 @@ function physicalNotes({ surface, windowSide, dominant, placed, offDesk, cats })
   }
 
   return out;
+}
+
+/**
+ * بيقيس ترتيب جاهز — سواء اللي الخوارزمية طلعته أو اللي المستخدم عدّله بإيده.
+ *
+ * ده مش تقييم تاني منفصل: بيستخدم نفس دالة التكلفة اللي البحث نفسه بيستخدمها.
+ * عشان كده «أحسن ولا أوحش» بيبقى إجابة حقيقية مش إحساس — الرقم اللي طلع
+ * الترتيب الأصلي هو نفس الرقم اللي بيتقاس بيه تعديلك.
+ *
+ * @returns {{total:number, perItem:Array, illegal:Array, reachTotalCm:number}}
+ */
+export function scoreLayout(surface, placed, profile, opts = {}) {
+  const ctx = layoutContext(surface, profile, opts, placed);
+  const cats = profile.categories || {};
+  const ruleFor = (c) => cats[c] || cats.other || { zone: 'secondary', side: 'any' };
+
+  const perItem = [];
+  const illegal = [];
+  let total = 0;
+  let reachTotalCm = 0;
+
+  for (const p of placed) {
+    const rule = ruleFor(p.category);
+    const box = { x: p.x, y: p.y, w: p.w, d: p.d };
+    const ev = spotCost(box, rule, ctx);
+    perItem.push({ id: p.id, cost: ev.cost, distCm: ev.dist });
+    total += ev.cost;
+
+    // الوصول المرجّح بالاستخدام: حاجة بتمد إيدك لها كتير وهي بعيدة أغلى من نادرة بعيدة
+    const weight = p.frequency === 'high' ? 3 : p.frequency === 'low' ? 0.5 : 1;
+    reachTotalCm += ev.dist * weight;
+
+    if (!isLegalSpot(box, p, rule, ctx, null, p.id)) illegal.push(p.id);
+  }
+
+  return {
+    total: Math.round(total),
+    perItem,
+    illegal,
+    reachTotalCm: Math.round(reachTotalCm),
+  };
+}
+
+/** مكان المرساة على السطح — نفس الحساب اللي layoutSurface بتعمله. */
+function anchorSpot(item, slot, ctx) {
+  const { W, D, seatX, dominant, placed, cats } = ctx;
+  // مكان المرساة مالوش لازمة لو الحاجة أصلاً أكبر من السطح
+  if (item.w > W || item.d > D) return null;
+  if (slot === 'back-center') {
+    return { x: clamp(seatX - item.w / 2, 0, W - item.w), y: Math.max(0, D - item.d - 2), w: item.w, d: item.d };
+  }
+  if (slot === 'front-center') {
+    return { x: clamp(seatX - item.w / 2, 0, W - item.w), y: FRONT_WORK_GAP, w: item.w, d: item.d };
+  }
+  if (slot === 'front-dominant') {
+    const fc = placed.find((p) => cats[p.category]?.anchor === 'front-center');
+    const y = fc ? fc.y : FRONT_WORK_GAP;
+    const x = dominant === 'right'
+      ? clamp((fc ? fc.x + fc.w : seatX + 10) + 3, 0, W - item.w)
+      : clamp((fc ? fc.x : seatX - 10) - item.w - 3, 0, W - item.w);
+    return { x, y, w: item.w, d: item.d };
+  }
+  return null;
+}
+
+/**
+ * بيجرب حاجة لسه متشترتش: هتدخل ولا لأ، وهتقع فين لو دخلت.
+ * الترتيب الحالي مابيتغيرش — بنسأل بس.
+ *
+ * @returns {{fits:boolean, spot:Object|null, cost:number, blockedBy:Array}}
+ */
+export function tryFit(surface, placed, profile, candidate, opts = {}) {
+  const cats = profile.categories || {};
+  const item = {
+    ...candidate,
+    w: Number(candidate.widthCm) || 0,
+    d: Number(candidate.depthCm) || 0,
+    h: Number(candidate.heightCm) || 0,
+    category: cats[candidate.category] ? candidate.category : 'other',
+    frequency: candidate.frequency || 'medium',
+  };
+  if (!(item.w > 0 && item.d > 0)) return { fits: false, spot: null, cost: 0, blockedBy: [] };
+
+  const ctx = layoutContext(surface, profile, opts, placed);
+  const rule = cats[item.category] || cats.other || { zone: 'secondary', side: 'any' };
+
+  // أكبر من السطح نفسه؟ يبقى المشكلة مش الزحمة، وده جواب مختلف تماماً.
+  // بنجرب الاتجاهين اللي مسموح بيهم بس — الحاجة العالية مبتتقلبش على جنبها.
+  const upright = item.w <= ctx.W && item.d <= ctx.D;
+  const canRotate = !rule.tall && item.h <= 15;
+  const sideways = canRotate && item.d <= ctx.W && item.w <= ctx.D;
+  if (!upright && !sideways) {
+    return {
+      fits: false, spot: null, cost: 0, blockedBy: [], tooBig: true,
+      shortBy: {
+        widthCm: Math.round(Math.max(0, item.w - ctx.W) * 10) / 10,
+        depthCm: Math.round(Math.max(0, item.d - ctx.D) * 10) / 10,
+      },
+    };
+  }
+
+  // حاجة ليها مرساة (شاشة، مراية، كيبورد) مكانها محدد سلفاً —
+  // بنجرب مكان مرساتها الأول قبل ما ندوّر بالشبكة، زي ما layoutSurface بتعمل بالظبط.
+  if (rule.anchor) {
+    const anchored = anchorSpot(item, rule.anchor, ctx);
+    if (anchored) {
+      const clash = placed.filter((p) => rectsOverlap(anchored, { x: p.x, y: p.y, w: p.w, d: p.d }, 1));
+      if (!clash.length) {
+        return { fits: true, spot: { ...anchored, rotated: false, reason: [{ key: 'r_anchor' + (rule.anchor === 'back-center' ? 'Back' : 'Front') }] }, cost: 0, blockedBy: [] };
+      }
+      // مكانها محجوز — بنقول محجوز بإيه بدل ما نحطها في مكان غلط
+      return { fits: false, spot: null, cost: 0, blockedBy: clash.map((p) => p.id), anchorTaken: true };
+    }
+  }
+
+  const spot = findSpot(item, rule, ctx);
+  if (spot) return { fits: true, spot, cost: Math.round(spot.cost), blockedBy: [] };
+
+  // مادخلش — نشوف مين الواقف في الطريق: مين لو اتشال يخليها تدخل
+  const blockedBy = [];
+  for (const p of placed) {
+    const without = placed.filter((x) => x.id !== p.id);
+    const ctx2 = layoutContext(surface, profile, opts, without);
+    if (findSpot(item, rule, ctx2)) blockedBy.push(p.id);
+  }
+  return { fits: false, spot: null, cost: 0, blockedBy };
 }
