@@ -217,6 +217,9 @@ padding:8px;overflow-x:auto;
 .banner{padding:10px 12px;border-radius:10px;font-size:12.5px;margin-bottom:12px;line-height:1.5}
 .banner.ok{background:var(--ok-soft);color:var(--ok)}
 .banner.warn{background:var(--mark-soft);color:var(--mark)}
+.skip-bar{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.skip-bar span{flex:1;min-width:60%}
+.skip-bar .link-btn{color:inherit}
 .ai-note{
 background:var(--accent-soft);border-radius:var(--r);padding:13px 14px;
 margin:14px 0;font-size:13.5px;line-height:1.65;
@@ -263,6 +266,8 @@ background:var(--card);color:var(--ink);box-shadow:var(--shadow-lift);
 }
 dialog::backdrop{background:rgba(20,24,29,.55);backdrop-filter:blur(2px)}
 dialog h2{margin-top:0}
+.check{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;margin-top:14px;cursor:pointer}
+.check input{width:17px;height:17px;accent-color:var(--accent);margin:0;flex:none}
 dialog .row{margin-top:16px}
 dialog .btn{margin-top:0}
 .toast{
@@ -366,6 +371,7 @@ font:inherit;font-size:14.5px;font-weight:700;cursor:pointer;transition:.16s;
       <label class="label"><span class="stepno">2</span> <span data-i18n="step1">المقاس</span></label>
       <p class="hint" data-i18n="sizeStepQ"></p>
       <select id="sizeMethod" class="input">
+        <option value="auto" data-i18n="methodAuto"></option>
         <option value="ref" data-i18n="methodRef"></option>
         <option value="known" data-i18n="methodKnown"></option>
       </select>
@@ -435,6 +441,7 @@ font:inherit;font-size:14.5px;font-weight:700;cursor:pointer;transition:.16s;
         <button id="btnAdapt" class="btn ghost" data-i18n="adaptBtn"></button>
       </div>
       <ul id="rulesList" class="rules"></ul>
+      <p id="handNote" class="hint hidden"></p>
     </div>
     <p class="hint" data-i18n="reviewHint"></p>
     <div id="itemsList" class="items"></div>
@@ -445,6 +452,11 @@ font:inherit;font-size:14.5px;font-weight:700;cursor:pointer;transition:.16s;
   <section class="screen" data-screen="result">
     <button class="back" data-goto="review" data-i18n="backToSizes"></button>
     <h2 id="resultTitle"></h2>
+    <div id="autoSkipBar" class="banner ok skip-bar hidden">
+      <span data-i18n="autoAccepted"></span>
+      <button id="btnOpenReview" class="link-btn" type="button" data-i18n="openReview"></button>
+      <button id="btnDismissSkip" class="link-btn" type="button" data-i18n="dismissBar"></button>
+    </div>
     <div id="statsRow" class="stats"></div>
     <div id="planView" class="plan"></div>
     <div id="legendView"></div>
@@ -484,6 +496,8 @@ font:inherit;font-size:14.5px;font-weight:700;cursor:pointer;transition:.16s;
     <p class="hint" data-i18n-html="aboutBody"></p>
     <p class="hint" data-i18n="aboutAccuracy"></p>
     <p class="hint" data-i18n="aboutPrivacy"></p>
+    <label class="check"><input type="checkbox" id="optAutoSkip" checked> <span data-i18n="optAutoSkip"></span></label>
+    <p class="hint" data-i18n="optAutoSkipHint"></p>
     <button id="btnInstall" type="button" class="btn ghost hidden" data-i18n="install"></button>
     <div class="row">
       <button value="ok" class="btn primary" data-i18n="ok"></button>
@@ -504,13 +518,17 @@ lead: 'مكتب، تسريحة، درج، شنطة، تلاجة... صوّرها 
 surfaces: 'حاجات بترتب عليها', containers: 'حاجات بترص جواها',
 step1: 'المقاس', step2: 'المساحة', step2Bag: 'الشنطة', step3: 'الصورة',
 sizeStepQ: 'نعرف السنتيمترات منين؟',
+methodAuto: 'لاقيها إنت',
 methodRef: 'في الصورة حاجة أنا عارف مقاسها',
 methodKnown: 'أنا هكتب مقاس المساحة نفسها',
+methodAutoHint: 'الموديل يدوّر بنفسه في الصورة على حاجة مقاسها الحقيقي معروف ويقولنا هي إيه — والقياس بيتحسب من المقاس الموثّق عندنا، مش من كلامه. لو مالقاش حاجة هيقولك.',
 methodRefHint: 'التطبيق يلاقي الحاجة دي في الصورة ويقيس عليها كل حاجة تانية.',
 methodKnownHint: 'اكتب مقاس المساحة تقريبي براحتك — التطبيق يعاير الصورة عليه ويقيس اللي فيها.',
 refGroupExact: 'مقاسات قياسية (دقيقة)',
 refGroupCommon: 'حاجات يومية (تقريبية)',
 approxNote: 'المقاس ده تقريبي — النتيجة هتقرب من الحقيقة لكن مش مضمونة بالمليمتر.',
+refExact: 'مقاس قياسي موثّق',
+refApprox: 'حاجة يومية — مقاسها تقريبي',
 customRefName: 'الحاجة دي إيه؟',
 sizeW: 'العرض', sizeD: 'العمق', sizeH: 'الارتفاع',
 unitCm: 'بالسنتيمتر', unitSpan: 'بالشبر', unitInch: 'بالبوصة',
@@ -542,16 +560,20 @@ privacy: 'الصورة بتتبعت لـClaude عشان يحللها بس، وم
 reviewTitle: 'راجع المقاسات',
 reviewHint: 'الأرقام محسوبة من مرجع القياس. لو حاجة غلط عدّلها — الترتيب هيتحسب على اللي تأكده.',
 spaceIs: 'المساحة دي:', changeIt: 'غيّرها',
+handDetected: '🤖 الموديل استنتج من الصورة إنك بتستخدم إيدك ال{hand} وغيّرنا الاختيار. لو ده غلط رجّعه من شاشة التصوير.',
 adaptPlaceholder: 'اكتب عايز إيه: «خليها ركن مذاكرة»',
 adaptBtn: 'اعمل القواعد من تاني',
 surfaceSize: 'مقاس السطح',
 surfaceSizeHint: 'التقدير من الصورة بيقل عن الحقيقة. لو تعرف المقاس اكتبه — ده أهم رقم في الحسبة.',
-width: 'عرض', depth: 'عمق', height: 'ارتفاع',
+width: 'عرض', depth: 'عمق', height: 'ارتفاع', weight: 'وزن كجم',
+weightHint: 'الوزن تقدير — عدّله لو تعرف الرقم الحقيقي. الحد بيتحسب منه.',
 addItem: '+ ضيف حاجة', calc: 'احسب الترتيب',
 itemName: 'اسم الحاجة', kind: 'النوع', usage: 'الاستخدام', del: 'امسح',
 newItem: 'حاجة جديدة',
 freqHigh: 'بستخدمها كتير', freqMedium: 'أحياناً', freqLow: 'نادراً',
 resultTitle: 'الترتيب المقترح', arrangeOf: 'ترتيب',
+autoAccepted: '✅ الثقة في القياس كانت عالية، فقبلنا الأرقام على طول ومروّحناش على المراجعة.',
+openReview: 'راجع الأرقام', dismissBar: 'اقفل',
 bagResult: 'رص الشنطة',
 back: 'رجوع', backToSizes: 'رجوع للمقاسات',
 statOnSurface: 'على السطح', statFree: 'فاضي', statRemoved: 'اتشالت',
@@ -571,6 +593,8 @@ about: 'عن التطبيق',
 aboutBody: '<b>الذكاء بيشوف بس.</b> الموديل بيتعرّف على الحاجات ونوع المساحة ويكتب قواعدها ويشرح — لكن <b>المقاسات بتتحسب بالرياضة</b> من مرجع القياس، و<b>الترتيب بتقرره خوارزمية</b>، والمخطط مرسوم من الأرقام دي. عشان كده المخطط مستحيل يهلوس.',
 aboutAccuracy: 'المقاسات تقديرية: حط مرجع قياس، صوّر من فوق، وراجع الأرقام قبل الحساب. الارتفاع تقدير مش قياس.',
 aboutPrivacy: 'محفوظاتك وإعداداتك بتتخزن في متصفحك انت بس.',
+optAutoSkip: 'تخطّي المراجعة لما الثقة تبقى عالية',
+optAutoSkipHint: 'لما يبقى مرجع القياس قياسي وظاهر كويس والموديل واثق في كل حاجة شافها، بنروح على النتيجة على طول — وتقدر ترجع تراجع من شاشة النتيجة.',
 ok: 'تمام', install: 'ثبّته على موبايلك',
 installIOS: '📲 للتثبيت: زرار المشاركة ← «إضافة إلى الشاشة الرئيسية»',
 youAreHere: 'انت هنا', reachRings: 'الدواير = مدى وصول إيدك',
@@ -604,7 +628,7 @@ n_lamp: 'الإضاءة على ناحية إيدك ال{hand} — عشان إي�
 n_liquids: 'السوايل اتحطت بعيد — لو اتكبت مش هتوصل للحاجات اللي بتتلف.',
 n_hot: 'الحاجات اللي بتسخن سيبنا حواليها خلوص عشان متقربش من حاجة تتأثر بالحرارة.',
 n_removed: 'شيلنا {n} حاجة من على السطح. المساحة الفاضية بتقلل التشتت، ومكانها الأنسب درج أو رف.',
-n_overweight: 'الوزن عدّى الحد المسموح للشنطة دي.',
+n_overweight: 'وزن اللي عايز تشيله {total} كجم والحد المسموح {limit} كجم — اللي زوّد الوزن مدخلش.',
 p_atBottom: 'في القاع', p_atHeight: 'على ارتفاع {n} سم',
 p_back: 'ناحية الضهر', p_front: 'قدام',
 p_stuff: 'احشرها في الفراغات اللي فضلت بين الحاجات',
@@ -633,11 +657,14 @@ t_noOriginal: 'مفيش صورة أصلية',
 t_noRules: 'الموديل مرجعش قواعد صالحة — جرب صياغة تانية',
 t_noAnswer: 'مالقيتش إجابة — جرب صياغة تانية',
 t_refNotFound: 'مالقيناش {what} في الصورة. حطه في مكان واضح وصوّر تاني.',
+t_autoRefNone: 'الموديل مالقاش في الصورة أي حاجة مقاسها معروف يعاير عليها. اختار مرجع قياس من الليستة، أو اكتب مقاس المساحة بنفسك.',
+t_autoRefUnknown: 'الموديل شاف «{what}» بس مقاسه الحقيقي مش موثّق عندنا، ومش هنصدّق رقم من عنده. اختار مرجع من الليستة أو اكتب المقاس بنفسك.',
 t_noObjects: 'مالقيناش حاجات في الصورة. جرب صورة أوضح أو ضيف الحاجات بنفسك.',
 t_analyzing: 'الموديل بيبص على الصورة...',
 t_rewriting: 'بكتب القواعد من تاني...',
 t_drawing: 'برسم صورة «بعد الترتيب»...',
 b_scaleOk: '✅ لقينا مرجع القياس ({what}). دقة القياس: <b>{level}</b>',
+b_scaleAuto: '🤖 الموديل اختار مرجع القياس بنفسه: <b>{what}</b> — {kind}. القياس اتحسب من المقاس الموثّق عندنا. دقة القياس: <b>{level}</b>',
 b_scaleWarn: '⚠️ دقة القياس <b>{level}</b> — المرجع صغير أو متصوّر بزاوية مايلة. راجع الأرقام أو صوّر تاني من فوق.',
 b_known: 'المقاس من عندك: {w}×{d} سم — كل حاجة في الصورة اتقاست عليه.',
 b_manual: '✍️ إدخال يدوي — اكتب المقاسات بالمسطرة. الحساب والترتيب هيشتغلوا من غير أي AI.',
@@ -652,13 +679,17 @@ lead: 'Desk, dresser, drawer, bag, fridge — photograph it and the app works ou
 surfaces: 'Things you arrange on', containers: 'Things you pack into',
 step1: 'Size', step2: 'The space', step2Bag: 'The bag', step3: 'Photo',
 sizeStepQ: 'Where do the centimetres come from?',
+methodAuto: 'Find it yourself',
 methodRef: 'Something in the photo whose size I know',
 methodKnown: "I'll type the size of the space itself",
+methodAutoHint: 'The model hunts the photo for an object whose real size is reliably known and tells us which one — the measurement then comes from our documented size for it, not from anything it says. If it finds nothing, it says so.',
 methodRefHint: 'The app finds that object in the photo and measures everything else against it.',
 methodKnownHint: 'Type the size of the space, roughly is fine — the app calibrates the photo from it.',
 refGroupExact: 'Standard sizes (exact)',
 refGroupCommon: 'Everyday objects (approximate)',
 approxNote: 'This size is approximate — the result will be close, but not millimetre-accurate.',
+refExact: 'a documented standard size',
+refApprox: 'an everyday object — its size is approximate',
 customRefName: 'What is it?',
 sizeW: 'Width', sizeD: 'Depth', sizeH: 'Height',
 unitCm: 'in centimetres', unitSpan: 'in hand spans', unitInch: 'in inches',
@@ -690,16 +721,20 @@ privacy: 'The photo goes to Claude for analysis only and is never stored.',
 reviewTitle: 'Check the measurements',
 reviewHint: 'These come from the scale reference. Fix anything wrong — the layout uses what you confirm.',
 spaceIs: 'This space is:', changeIt: 'Change',
+handDetected: '🤖 From the photo the model worked out you are {hand}-handed, and we changed the setting. If that is wrong, set it back on the photo screen.',
 adaptPlaceholder: 'Say what you want: "make it a study corner"',
 adaptBtn: 'Rewrite the rules',
 surfaceSize: 'Surface size',
 surfaceSizeHint: 'A photo taken at an angle under-reads depth. If you know the real size, type it — this is the most important number here.',
-width: 'Width', depth: 'Depth', height: 'Height',
+width: 'Width', depth: 'Depth', height: 'Height', weight: 'Weight kg',
+weightHint: 'Weight is an estimate — correct it if you know the real number. The limit is computed from it.',
 addItem: '+ Add item', calc: 'Compute layout',
 itemName: 'Item name', kind: 'Type', usage: 'Usage', del: 'Delete',
 newItem: 'New item',
 freqHigh: 'Constantly', freqMedium: 'Sometimes', freqLow: 'Rarely',
 resultTitle: 'Suggested layout', arrangeOf: '',
+autoAccepted: '✅ Measurement confidence was high, so we accepted the numbers and skipped the review step.',
+openReview: 'Check the numbers', dismissBar: 'Dismiss',
 bagResult: 'Bag packing',
 back: 'Back', backToSizes: 'Back to measurements',
 statOnSurface: 'on the surface', statFree: 'free space', statRemoved: 'removed',
@@ -719,6 +754,8 @@ about: 'About',
 aboutBody: '<b>The AI only looks.</b> It recognises the items, identifies the space, writes its rules and explains — but <b>the measurements are arithmetic</b> from the scale reference, <b>the layout is decided by an algorithm</b>, and the plan is drawn from those numbers. That is why the plan cannot hallucinate.',
 aboutAccuracy: 'Measurements are estimates: include a scale reference, shoot from above, and check the numbers before computing. Height is estimated, not measured.',
 aboutPrivacy: 'Your saved layouts and settings stay in your own browser.',
+optAutoSkip: 'Skip the review step when confidence is high',
+optAutoSkipHint: 'When the scale reference is a documented standard, clearly visible, and the model is confident about everything it saw, we go straight to the result — you can still open the review from there.',
 ok: 'Got it', install: 'Install on your phone',
 installIOS: '📲 To install: Share button → "Add to Home Screen"',
 youAreHere: 'you are here', reachRings: 'rings = your reach',
@@ -752,7 +789,7 @@ n_lamp: 'The light is on your {hand} side — so your hand does not cast a shado
 n_liquids: 'Liquids are placed clear of everything a spill would ruin.',
 n_hot: 'Items that heat up have clearance around them, away from anything heat affects.',
 n_removed: 'We took {n} item(s) off the surface. Clear space cuts distraction — a drawer or shelf suits them better.',
-n_overweight: 'The weight exceeds this bag\'s limit.',
+n_overweight: 'What you want to carry weighs {total} kg and the limit is {limit} kg — whatever pushed it over was left out.',
 p_atBottom: 'at the bottom', p_atHeight: 'at {n} cm height',
 p_back: 'toward the back', p_front: 'at the front',
 p_stuff: 'stuff these into the gaps left between things',
@@ -781,11 +818,14 @@ t_noOriginal: 'No original photo',
 t_noRules: 'The model returned no valid rules — try rephrasing',
 t_noAnswer: 'No answer — try rephrasing',
 t_refNotFound: 'We could not find {what} in the photo. Put it somewhere clear and shoot again.',
+t_autoRefNone: 'The model found nothing in the photo whose real size is reliably known. Pick a scale reference from the list, or type the size of the space yourself.',
+t_autoRefUnknown: 'The model spotted "{what}", but we have no documented size for it — and we will not take a number from the model. Pick a reference from the list, or type the size yourself.',
 t_noObjects: 'We found no items in the photo. Try a clearer shot, or add items yourself.',
 t_analyzing: 'The model is looking at the photo...',
 t_rewriting: 'Rewriting the rules...',
 t_drawing: 'Drawing the "after" image...',
 b_scaleOk: '✅ Scale reference found ({what}). Measurement confidence: <b>{level}</b>',
+b_scaleAuto: '🤖 The model picked the scale reference itself: <b>{what}</b> — {kind}. The measurement came from our documented size for it. Measurement confidence: <b>{level}</b>',
 b_scaleWarn: '⚠️ Measurement confidence <b>{level}</b> — the reference is small or shot at an angle. Check the numbers, or reshoot from above.',
 b_known: 'Your own measurement: {w}×{d} cm — everything in the photo was measured against it.',
 b_manual: '✍️ Manual entry — measure with a ruler. Layout and plans work with no AI at all.',
@@ -1483,6 +1523,7 @@ weightKg: Number(it.weightKg) || 0,
 if (norm.w <= 0 || norm.d <= 0 || norm.h <= 0) continue;
 (it.compressible ? soft : rigid).push(norm);
 }
+const requestedWeight = [...rigid, ...soft].reduce((sum, it) => sum + it.weightKg, 0);
 rigid.sort((a, b) => {
 if (!!a.fragile !== !!b.fragile) return a.fragile ? 1 : -1;
 const volA = a.w * a.d * a.h;
@@ -1561,7 +1602,8 @@ binVolumeCm3: Math.round(binVolume),
 usedVolumeCm3: Math.round(finalUsed),
 fillPercent: Math.round((finalUsed / binVolume) * 100),
 totalWeightKg: Math.round(usedWeight * 100) / 100,
-overWeight: bin.maxWeightKg ? usedWeight > bin.maxWeightKg : false,
+requestedWeightKg: Math.round(requestedWeight * 100) / 100,
+overWeight: bin.maxWeightKg ? requestedWeight > bin.maxWeightKg + EPS : false,
 placedCount: placed.length,
 unplacedCount: unplaced.length,
 },
@@ -1607,6 +1649,19 @@ const FRONT_WORK_GAP = 10;      // مساحة الرسغين/الشغل قدام
 const EDGE_MARGIN = 4;          // هامش أمان من حافة السطح
 const BULKY_AREA_CM2 = 600;     // أكبر من كده ونادر الاستخدام = يتشال
 const HOT_CLEARANCE = 5;        // خلوص حوالين الحاجات السخنة
+function layoutContext(surface, profile, opts = {}, placed = []) {
+const W = surface.widthCm;
+const D = surface.depthCm;
+const dominant = opts.dominantHand === 'left' ? 'left' : 'right';
+const seatX = Number.isFinite(opts.seatXCm) ? opts.seatXCm : W / 2;
+return {
+W, D, dominant, seatX,
+placed,
+reachOrigin: { x: seatX, y: -5 },
+light: lightVector(opts.windowSide || 'none', W, D),
+cats: profile.categories || {},
+};
+}
 function lightVector(windowSide, W, D) {
 switch (windowSide) {
 case 'left':  return { x: 0, y: D / 2 };
@@ -1695,7 +1750,7 @@ reason: [{ key: 'off_bulky', params: { n: Math.round(item.w * item.d) } }],
 continue;
 }
 const rule = ruleFor(item.category);
-const spot = findSpot(item, rule, { W, D, placed, reachOrigin, dominant, light, cats });
+const spot = findSpot(item, rule, { W, D, placed, reachOrigin, dominant, light, cats, seatX });
 if (spot) {
 placed.push({ ...item, x: spot.x, y: spot.y, w: spot.w, d: spot.d, rotated: spot.rotated, reason: spot.reason });
 } else {
@@ -1723,33 +1778,33 @@ removed: offDesk.length,
 },
 };
 }
-function findSpot(item, rule, ctx) {
-const { W, D, placed, reachOrigin, dominant, light, cats } = ctx;
-const target = ZONES[rule.zone]?.targetCm ?? ZONES.secondary.targetCm;
-const selfPad = rule.hot ? HOT_CLEARANCE : 1;
-let best = null;
-const variants = [{ w: item.w, d: item.d, rotated: false }];
-if (Math.abs(item.w - item.d) > 2) variants.push({ w: item.d, d: item.w, rotated: true });
-const frontAnchor = placed.find((p) => cats[p.category]?.anchor === 'front-center');
-const backAnchor = placed.find((p) => cats[p.category]?.anchor === 'back-center');
-for (const v of variants) {
-for (let x = 0; x <= W - v.w; x += GRID) {
-for (let y = 0; y <= D - v.d; y += GRID) {
-const cand = { x, y, w: v.w, d: v.d };
-if (cand.y < EDGE_MARGIN) continue;
+function isLegalSpot(cand, item, rule, ctx, selfPad = null, ignoreId = null) {
+const { D, placed, cats } = ctx;
+const pad = selfPad ?? (rule.hot ? HOT_CLEARANCE : 1);
+const frontAnchor = placed.find((p) => cats[p.category]?.anchor === 'front-center' && p.id !== ignoreId);
+const backAnchor = placed.find((p) => cats[p.category]?.anchor === 'back-center' && p.id !== ignoreId);
+if (cand.y < EDGE_MARGIN) return false;
+if (cand.x < 0 || cand.y < 0 || cand.x + cand.w > ctx.W || cand.y + cand.d > D) return false;
 const blocked = placed.some((p) => {
-const pad = Math.max(selfPad, cats[p.category]?.hot ? HOT_CLEARANCE : 1);
-return rectsOverlap(cand, { x: p.x, y: p.y, w: p.w, d: p.d }, pad);
+if (p.id === ignoreId) return false;
+const other = Math.max(pad, cats[p.category]?.hot ? HOT_CLEARANCE : 1);
+return rectsOverlap(cand, { x: p.x, y: p.y, w: p.w, d: p.d }, other);
 });
-if (blocked) continue;
+if (blocked) return false;
 if (frontAnchor && cand.y < frontAnchor.y &&
-rectsOverlap(cand, { x: frontAnchor.x - 4, y: 0, w: frontAnchor.w + 8, d: frontAnchor.y }, 0)) continue;
+rectsOverlap(cand, { x: frontAnchor.x - 4, y: 0, w: frontAnchor.w + 8, d: frontAnchor.y }, 0)) return false;
 if (backAnchor && item.h > 12 && cand.y + cand.d > backAnchor.y - 12 &&
-rectsOverlap(cand, { x: backAnchor.x - 5, y: 0, w: backAnchor.w + 10, d: backAnchor.y }, 0)) continue;
+rectsOverlap(cand, { x: backAnchor.x - 5, y: 0, w: backAnchor.w + 10, d: backAnchor.y }, 0)) return false;
+return true;
+}
+function spotCost(cand, rule, ctx, target = null) {
+const { D, placed, reachOrigin, dominant, light, cats } = ctx;
+const tgt = target ?? (ZONES[rule.zone]?.targetCm ?? ZONES.secondary.targetCm);
+const frontAnchor = placed.find((p) => cats[p.category]?.anchor === 'front-center');
 const cx = cand.x + cand.w / 2;
 const cy = cand.y + cand.d / 2;
 const dist = Math.hypot(cx - reachOrigin.x, cy - reachOrigin.y);
-let cost = Math.abs(dist - target);
+let cost = Math.abs(dist - tgt);
 const isDominantSide = dominant === 'right' ? cx > reachOrigin.x : cx < reachOrigin.x;
 if (rule.side === 'dominant' && !isDominantSide) cost += 22;
 if (rule.side === 'off' && isDominantSide) cost += 22;
@@ -1768,7 +1823,24 @@ if (rule.avoidLight) cost += Math.max(0, 70 - toLight) * 0.6;
 if (rule.wantsLight) cost += toLight * 0.4;
 }
 if (rule.zone === 'far') cost += (D - (cand.y + cand.d)) * 0.5;
-if (!best || cost < best.cost) best = { ...cand, rotated: v.rotated, cost, dist };
+return { cost, dist };
+}
+function findSpot(item, rule, ctx) {
+const { W, D, dominant } = ctx;
+const target = ZONES[rule.zone]?.targetCm ?? ZONES.secondary.targetCm;
+const selfPad = rule.hot ? HOT_CLEARANCE : 1;
+let best = null;
+const variants = [{ w: item.w, d: item.d, rotated: false }];
+if (!rule.tall && item.h <= 15 && Math.abs(item.w - item.d) > 2) {
+variants.push({ w: item.d, d: item.w, rotated: true });
+}
+for (const v of variants) {
+for (let x = 0; x <= W - v.w; x += GRID) {
+for (let y = 0; y <= D - v.d; y += GRID) {
+const cand = { x, y, w: v.w, d: v.d };
+if (!isLegalSpot(cand, item, rule, ctx, selfPad)) continue;
+const ev = spotCost(cand, rule, ctx, target);
+if (!best || ev.cost < best.cost) best = { ...cand, rotated: v.rotated, cost: ev.cost, dist: ev.dist };
 }
 }
 }
@@ -1819,6 +1891,95 @@ if (offDesk.length) {
 out.push({ level: 'tip', text: { key: 'n_removed', params: { n: offDesk.length } } });
 }
 return out;
+}
+function scoreLayout(surface, placed, profile, opts = {}) {
+const ctx = layoutContext(surface, profile, opts, placed);
+const cats = profile.categories || {};
+const ruleFor = (c) => cats[c] || cats.other || { zone: 'secondary', side: 'any' };
+const perItem = [];
+const illegal = [];
+let total = 0;
+let reachTotalCm = 0;
+for (const p of placed) {
+const rule = ruleFor(p.category);
+const box = { x: p.x, y: p.y, w: p.w, d: p.d };
+const ev = spotCost(box, rule, ctx);
+perItem.push({ id: p.id, cost: ev.cost, distCm: ev.dist });
+total += ev.cost;
+const weight = p.frequency === 'high' ? 3 : p.frequency === 'low' ? 0.5 : 1;
+reachTotalCm += ev.dist * weight;
+if (!isLegalSpot(box, p, rule, ctx, null, p.id)) illegal.push(p.id);
+}
+return {
+total: Math.round(total),
+perItem,
+illegal,
+reachTotalCm: Math.round(reachTotalCm),
+};
+}
+function anchorSpot(item, slot, ctx) {
+const { W, D, seatX, dominant, placed, cats } = ctx;
+if (item.w > W || item.d > D) return null;
+if (slot === 'back-center') {
+return { x: clamp(seatX - item.w / 2, 0, W - item.w), y: Math.max(0, D - item.d - 2), w: item.w, d: item.d };
+}
+if (slot === 'front-center') {
+return { x: clamp(seatX - item.w / 2, 0, W - item.w), y: FRONT_WORK_GAP, w: item.w, d: item.d };
+}
+if (slot === 'front-dominant') {
+const fc = placed.find((p) => cats[p.category]?.anchor === 'front-center');
+const y = fc ? fc.y : FRONT_WORK_GAP;
+const x = dominant === 'right'
+? clamp((fc ? fc.x + fc.w : seatX + 10) + 3, 0, W - item.w)
+: clamp((fc ? fc.x : seatX - 10) - item.w - 3, 0, W - item.w);
+return { x, y, w: item.w, d: item.d };
+}
+return null;
+}
+function tryFit(surface, placed, profile, candidate, opts = {}) {
+const cats = profile.categories || {};
+const item = {
+...candidate,
+w: Number(candidate.widthCm) || 0,
+d: Number(candidate.depthCm) || 0,
+h: Number(candidate.heightCm) || 0,
+category: cats[candidate.category] ? candidate.category : 'other',
+frequency: candidate.frequency || 'medium',
+};
+if (!(item.w > 0 && item.d > 0)) return { fits: false, spot: null, cost: 0, blockedBy: [] };
+const ctx = layoutContext(surface, profile, opts, placed);
+const rule = cats[item.category] || cats.other || { zone: 'secondary', side: 'any' };
+const upright = item.w <= ctx.W && item.d <= ctx.D;
+const canRotate = !rule.tall && item.h <= 15;
+const sideways = canRotate && item.d <= ctx.W && item.w <= ctx.D;
+if (!upright && !sideways) {
+return {
+fits: false, spot: null, cost: 0, blockedBy: [], tooBig: true,
+shortBy: {
+widthCm: Math.round(Math.max(0, item.w - ctx.W) * 10) / 10,
+depthCm: Math.round(Math.max(0, item.d - ctx.D) * 10) / 10,
+},
+};
+}
+if (rule.anchor) {
+const anchored = anchorSpot(item, rule.anchor, ctx);
+if (anchored) {
+const clash = placed.filter((p) => rectsOverlap(anchored, { x: p.x, y: p.y, w: p.w, d: p.d }, 1));
+if (!clash.length) {
+return { fits: true, spot: { ...anchored, rotated: false, reason: [{ key: 'r_anchor' + (rule.anchor === 'back-center' ? 'Back' : 'Front') }] }, cost: 0, blockedBy: [] };
+}
+return { fits: false, spot: null, cost: 0, blockedBy: clash.map((p) => p.id), anchorTaken: true };
+}
+}
+const spot = findSpot(item, rule, ctx);
+if (spot) return { fits: true, spot, cost: Math.round(spot.cost), blockedBy: [] };
+const blockedBy = [];
+for (const p of placed) {
+const without = placed.filter((x) => x.id !== p.id);
+const ctx2 = layoutContext(surface, profile, opts, without);
+if (findSpot(item, rule, ctx2)) blockedBy.push(p.id);
+}
+return { fits: false, spot: null, cost: 0, blockedBy };
 }
 
 /* js/render.js */
@@ -1985,6 +2146,7 @@ dominantHand: 'right',
 windowSide: 'none',
 scaleRef: 'card',
 customRefCm: 0,
+autoSkip: true,
 }),
 setPrefs: (p) => safeSet(KEY_PREFS, { ...store.getPrefs(), ...p }),
 getScans: () => safeGet(KEY_SCANS, []),
@@ -2031,6 +2193,10 @@ const labelOf = (v) => (v && typeof v === 'object' ? v.ar || v.en : v) || '';
 const ZONE_ENUM = ['front', 'primary', 'secondary', 'back', 'far'];
 const SIDE_ENUM = ['dominant', 'off', 'center', 'any'];
 const ANCHOR_ENUM = ['back-center', 'front-center', 'front-dominant', 'none'];
+const AUTO_REF_CATALOG = Object.values(SCALE_REFERENCES)
+.filter((r) => r.id !== 'custom')
+.map((r) => `${r.id} (${labelOf(r.labelAr)})`)
+.join(' · ');
 const BAG_CATS_LIST = [
 'laptop', 'electronics', 'camera', 'glass', 'shoes', 'clothes',
 'toiletries', 'book', 'food', 'other',
@@ -2105,8 +2271,17 @@ async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, sampl
 const isBag = mode === 'bag';
 const generateProfile = !isBag && !profile;
 const known = sizeMethod === 'known';
+const auto = sizeMethod === 'auto';
 const calibLine = known
 ? `حدد مربع المساحة نفسها (${scaleRefLabel}) بدقة عالية جداً — كل الحسابات معتمدة على المربع ده. وحط في scaleReference نفس المربع.`
+: auto
+? `دوّر بنفسك في الصورة على أي حاجة مقاسها الحقيقي معروف وثابت (مواصفة قياسية أو حاجة يومية مقاسها معروف).
+اختار أوضحهم وأقربهم للحاجات اللي هتتقاس، وحدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.
+لو طابق واحد من دول حط مفتاحه في refId: ${AUTO_REF_CATALOG}
+لو اللي لقيته مش في الليستة دي، حط refId:"" واكتب اسمه في whatAr.
+متقولش مقاسه بالسنتيمتر — إحنا عندنا المقاس الموثّق، انت قول لقيت إيه وفين بس.
+ولو مفيش في الصورة أي حاجة مقاسها معروف فعلاً، رجّع found:false — ده رد صح ومقبول، متخترعش مرجع.
+وحط في confidence رقم من 0 لـ 1 يقول انت متأكد قد إيه إن ده الحاجة دي فعلاً.`
 : `دوّر على مرجع القياس في الصورة: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.`;
 let prompt = `انت بتحلل صورة ${isBag ? 'حاجات هتترص في شنطة' : 'مساحة عشان ترتّبها'}.
 رد بـ JSON بس، من غير أي كلام قبله أو بعده.
@@ -2128,19 +2303,23 @@ ${RULES_BRIEF}
 {"spaceTypeAr":"...","profile":{"spaceTypeAr":"...","spaceKind":"surface|container","defaultSizeCm":{"width":0,"depth":0,"height":0},
 "categories":[{"key":"...","labelAr":"...","zone":"...","side":"...","anchor":"...","tall":false,"keepDry":false,"avoidLight":false,"wantsLight":false,"hot":false,"screen":false,"keepUpright":false,"compressible":false}],
 "tipsAr":["..."]},
-"scaleReference":{"found":true,"whatAr":"...","box":[0,0,0,0]},
+"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
 "surface":{"box":[0,0,0,0]},
 "windowSide":"left|right|front|back|none",
+"dominantHand":"right|left|unknown",
 "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
 } else if (isBag) {
 prompt += `المطلوب:
 1) ${calibLine}
 2) حدد مربع الحاوية نفسها (الشنطة/الدرج/الرف) لو ظاهرة.
 3) اعمل ليستة بكل حاجة ظاهرة هتترص. الفئات المسموحة: ${BAG_CATS_LIST.join('، ')}
+4) قدّر وزن كل حاجة بالكيلوجرام في weightKg — تقدير تقريبي معقول لنوعها ومقاسها.
+ده الرقم الوحيد اللي إحنا مش بنحسبه، وحد وزن شركة الطيران بيتبني عليه، فخليه واقعي.
 الصيغة:
-{"scaleReference":{"found":true,"whatAr":"...","box":[0,0,0,0]},
+{"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
 "surface":{"box":[0,0,0,0]},
-"objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
+"dominantHand":"right|left|unknown",
+"objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"weightKg":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
 } else {
 const catList = Object.entries(profile.categories).map(([k, v]) => `${k} (${v.labelAr})`).join('، ');
 prompt += `دي صورة ${profile.spaceTypeAr}.
@@ -2150,9 +2329,10 @@ prompt += `دي صورة ${profile.spaceTypeAr}.
 3) اعمل ليستة بكل حاجة عليه. الفئات المسموحة: ${catList}
 4) الشباك فين بالنسبة للشخص؟
 الصيغة:
-{"scaleReference":{"found":true,"whatAr":"...","box":[0,0,0,0]},
+{"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
 "surface":{"box":[0,0,0,0]},
 "windowSide":"left|right|front|back|none",
+"dominantHand":"right|left|unknown",
 "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
 }
 if (intent) prompt += `\n\nصاحب المساحة عايز: "${intent}" — خلي التصنيف والقواعد تخدم الهدف ده.`;
@@ -2161,7 +2341,10 @@ prompt += `
 - المربعات بصيغة [ymin, xmin, ymax, xmax] بمقياس من 0 لـ 1000.
 - الأسماء ${lang === 'en' ? 'بالإنجليزي' : 'بالعربي المصري'}، قصيرة وواضحة.
 - متخترعش حاجات مش ظاهرة في الصورة.
-- متحاولش تحسب العرض أو العمق بالسنتيمتر — إحنا هنحسبهم من مرجع القياس. قدّر الارتفاع بس.${LANG_NOTE[lang]}`;
+- متحاولش تحسب العرض أو العمق بالسنتيمتر — إحنا هنحسبهم من مرجع القياس. قدّر الارتفاع بس.
+- dominantHand: استنتج من الصورة نفسها الشخص بيستخدم أنهي إيد. الأدلة: الماوس على أنهي ناحية،
+الحاجات مكوّمة ناحية مين، النوتة أو الكوباية على أنهي جنب من الكيبورد، الأباجورة على عكس إيد الكتابة.
+لو الأدلة مش واضحة رجّع "unknown" — ده أحسن بكتير من تخمين، لأن الترتيب كله بينقلب عليه.${LANG_NOTE[lang]}`;
 let json;
 try {
 json = await sample.json(prompt, { images: image.blob, modelTier: 'complex' });
@@ -2259,7 +2442,18 @@ maxWeightKg: 0,
 airlineId: '',
 plan: null,
 bin: null,
+handDetected: null,
+autoRef: null,
+autoAccepted: false,
 };
+const AUTO_SKIP_THRESHOLD = 0.8;
+const autoSkipOn = () => store.getPrefs().autoSkip !== false;
+function overallConfidence({ scaleScore, approxRef, items }) {
+if (!items.length) return 0;
+const mean = items.reduce((sum, i) => sum + i.confidence, 0) / items.length;
+if (Math.min(...items.map((i) => i.confidence)) < 0.5) return 0;
+return scaleScore * mean * (approxRef ? 0.85 : 1);
+}
 const isBag = () => isContainer(state.profile);
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -2321,7 +2515,8 @@ $('#sizeH').classList.toggle('hidden', !container);
 }
 function updateSizeMethod() {
 const method = $('#sizeMethod').value;
-$('#sizeMethodHint').textContent = t(method === 'ref' ? 'methodRefHint' : 'methodKnownHint');
+$('#sizeMethodHint').textContent = t(
+method === 'auto' ? 'methodAutoHint' : method === 'ref' ? 'methodRefHint' : 'methodKnownHint');
 $('#refWrap').classList.toggle('hidden', method !== 'ref');
 $('#knownWrap').classList.toggle('hidden', method !== 'known');
 $('#spanWrap').classList.toggle('hidden', $('#sizeUnit').value !== 'span');
@@ -2340,7 +2535,8 @@ initLang();
 const prefs = store.getPrefs();
 applyLang();
 $('#dominantHand').value = prefs.dominantHand || 'right';
-$('#sizeMethod').value = prefs.sizeMethod || 'ref';
+$('#sizeMethod').value = prefs.sizeMethod || 'auto';
+$('#optAutoSkip').checked = autoSkipOn();
 $('#sizeUnit').value = prefs.sizeUnit || 'cm';
 $('#spanCm').value = prefs.spanCm || 22;
 updateSizeMethod();
@@ -2368,7 +2564,13 @@ $('#btnChangeSpace').addEventListener('click', () => $('#changeSpaceWrap').class
 $('#btnAdapt').addEventListener('click', onAdaptProfile);
 $('#btnAsk').addEventListener('click', onAsk);
 $('#btnAddItem').addEventListener('click', () => { addItem(); renderItems(); });
-$('#btnPlan').addEventListener('click', onPlan);
+$('#btnPlan').addEventListener('click', () => { state.autoAccepted = false; onPlan(); });
+$('#btnOpenReview').addEventListener('click', () => {
+$('#autoSkipBar').classList.add('hidden');
+showScreen('review');
+});
+$('#btnDismissSkip').addEventListener('click', () => $('#autoSkipBar').classList.add('hidden'));
+$('#optAutoSkip').addEventListener('change', () => store.setPrefs({ autoSkip: $('#optAutoSkip').checked }));
 $('#btnAfterImage').addEventListener('click', onAfterImage);
 $('#btnSave').addEventListener('click', onSave);
 $('#btnSettings').addEventListener('click', () => $('#settingsDialog').showModal());
@@ -2419,7 +2621,9 @@ const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
 const analysis = await analyzeScene({
 image: state.image,
 mode: isBag() ? 'bag' : 'surface',
-scaleRefLabel: method === 'known'
+scaleRefLabel: method === 'auto'
+? ''
+: method === 'known'
 ? `the space itself (${known.widthCm} cm wide)`
 : refId === 'custom'
 ? `${customName || 'reference object'} (${customCm} cm wide)`
@@ -2441,32 +2645,54 @@ state.profile = GENERIC_PROFILE;
 }
 const surfBox = analysis.surface?.box ? normalizeBox(analysis.surface.box) : null;
 let scale, refBox;
+let scaleScore = 1, approxRef = false;
 if (method === 'known') {
 if (!surfBox) throw new Error(t('t_spaceNotFound'));
 const k = known.widthCm / surfBox.w;
 scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
 refBox = surfBox;
 state.userSize = { ...known };
+state.autoRef = null;
 $('#scaleBanner').className = 'banner ok';
 $('#scaleBanner').textContent = t('b_known', { w: known.widthCm, d: known.depthCm });
 } else {
 refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
+let usedRef = ref;
+if (method === 'auto') {
+const rid = analysis.scaleReference?.refId;
+const picked = typeof rid === 'string' && rid !== 'custom' ? SCALE_REFERENCES[rid] : null;
+if (!refBox) throw new Error(t('t_autoRefNone'));
+if (!picked) throw new Error(t('t_autoRefUnknown', { what: analysis.scaleReference?.whatAr || '—' }));
+usedRef = picked;
+state.autoRef = picked;
+} else {
+state.autoRef = null;
 if (!refBox) {
 throw new Error(t('t_refNotFound', {
 what: refId === 'custom' ? (customName || t('scaleRef')) : tx(ref.labelAr),
 }));
 }
-if (refId === 'custom') {
+}
+if (method === 'ref' && refId === 'custom') {
 const k = customCm / refBox.w;
 scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
+approxRef = true;
 } else {
-scale = computeScale(refBox, ref.widthCm, ref.heightCm);
+scale = computeScale(refBox, usedRef.widthCm, usedRef.heightCm);
+approxRef = !!usedRef.approx;
 }
 state.userSize = null;
 const conf = scaleConfidence(scale, refBox);
+scaleScore = conf.score;
 $('#scaleBanner').className = `banner ${conf.score > 0.45 ? 'ok' : 'warn'}`;
 const level = t(conf.score > 0.75 ? 'conf_high' : conf.score > 0.45 ? 'conf_mid' : 'conf_low');
-$('#scaleBanner').innerHTML = conf.score > 0.45
+$('#scaleBanner').innerHTML = method === 'auto'
+? t('b_scaleAuto', {
+what: escHtml(tx(usedRef.labelAr)),
+kind: t(usedRef.approx ? 'refApprox' : 'refExact'),
+level,
+})
+: conf.score > 0.45
 ? t('b_scaleOk', { what: escHtml(analysis.scaleReference.whatAr || tx(ref.labelAr)), level })
 : t('b_scaleWarn', { level });
 }
@@ -2489,6 +2715,14 @@ heightCm: state.profile?.defaultSizeCm?.height || 30,
 applyProfileSize();
 }
 if (analysis.windowSide) store.setPrefs({ windowSide: analysis.windowSide });
+const hand = analysis.dominantHand;
+state.handDetected = hand === 'right' || hand === 'left' ? hand : null;
+if (state.handDetected) {
+const changed = $('#dominantHand').value !== state.handDetected;
+$('#dominantHand').value = state.handDetected;
+store.setPrefs({ dominantHand: state.handDetected });
+if (changed) toast(t('handDetected', { hand: t(state.handDetected) }));
+}
 state.items = analysis.objects.map((o, i) => {
 const box = normalizeBox(o.box);
 const dims = boxToCm(box, scale);
@@ -2500,14 +2734,20 @@ category: o.category || 'other',
 widthCm: clampCm(dims.widthCm * corr, 0.5, 300),
 depthCm: clampCm(dims.depthCm * corr, 0.5, 300),
 heightCm: clampCm(Number(o.heightCm) || 5, 0.2, 200),
+weightKg: clampCm(o.weightKg, 0, 30),
 frequency: o.frequency || 'medium',
 fragile: !!o.fragile,
-confidence: Number(o.confidence) || 0.6,
+confidence: Math.max(0, Math.min(1, Number(o.confidence) || 0.6)),
 };
 });
 if (!state.items.length) throw new Error(t('t_noObjects'));
 renderDetectedSpace();
 renderItems();
+const refSure = method !== 'auto' || (Number(analysis.scaleReference?.confidence) || 0) >= 0.6;
+state.autoAccepted = autoSkipOn() && refSure &&
+overallConfidence({ scaleScore, approxRef, items: state.items }) >= AUTO_SKIP_THRESHOLD;
+if (state.autoAccepted && await onPlan()) return;
+state.autoAccepted = false;
 showScreen('review');
 } catch (err) {
 toast(err.message);
@@ -2518,6 +2758,9 @@ loading(false);
 function onManual() {
 state.items = [];
 state.scale = null;
+state.handDetected = null;
+state.autoRef = null;
+state.autoAccepted = false;
 const chosen = $('#spaceType').value;
 state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
 const known = $('#sizeMethod').value === 'known' ? readKnownSize() : null;
@@ -2535,7 +2778,7 @@ function addItem() {
 state.items.push({
 id: `it${Date.now()}`, nameAr: t('newItem'),
 category: 'other',
-widthCm: 10, depthCm: 10, heightCm: 10,
+widthCm: 10, depthCm: 10, heightCm: 10, weightKg: 0,
 frequency: 'medium', fragile: false, confidence: 1,
 });
 }
@@ -2551,6 +2794,7 @@ ${CABIN_BAGS.filter((b) => b.w).map((b) => `<option value="${b.id}" ${state.airl
 </select>
 </label>
 <p class="hint wide">${escHtml(t('airlineWarn'))}</p>` : '';
+const weightHint = bag ? `<p class="hint">${escHtml(t('weightHint'))}</p>` : '';
 const spaceEditor = `
 <div class="item space-size">
 <div>
@@ -2564,7 +2808,7 @@ ${airline}
 </div>
 </div>
 </div>`;
-$('#itemsList').innerHTML = spaceEditor + state.items.map((it) => `
+$('#itemsList').innerHTML = spaceEditor + weightHint + state.items.map((it) => `
 <div class="item ${it.confidence < 0.5 ? 'conf-low' : ''}" data-id="${it.id}">
 <div>
 <input class="item-name" data-f="nameAr" value="${escHtml(it.nameAr)}" aria-label="${escHtml(t('itemName'))}">
@@ -2572,6 +2816,7 @@ $('#itemsList').innerHTML = spaceEditor + state.items.map((it) => `
 <label>${escHtml(t('width'))}<input type="number" data-f="widthCm" value="${it.widthCm}" step="0.5" min="0.5"></label>
 <label>${escHtml(t('depth'))}<input type="number" data-f="depthCm" value="${it.depthCm}" step="0.5" min="0.5"></label>
 <label>${escHtml(t('height'))}<input type="number" data-f="heightCm" value="${it.heightCm}" step="0.5" min="0.2"></label>
+${bag ? `<label>${escHtml(t('weight'))}<input type="number" data-f="weightKg" value="${it.weightKg || 0}" step="0.1" min="0" max="30"></label>` : ''}
 </div>
 <select data-f="category" aria-label="${escHtml(t('kind'))}">
 ${catOptions.map(([k, v]) => `<option value="${k}" ${it.category === k ? 'selected' : ''}>${v}</option>`).join('')}
@@ -2595,7 +2840,7 @@ const f = e.target.dataset.f;
 if (!row || !f) return;
 const it = state.items.find((x) => x.id === row.dataset.id);
 if (!it) return;
-it[f] = ['widthCm', 'depthCm', 'heightCm'].includes(f) ? Number(e.target.value) || 0 : e.target.value;
+it[f] = ['widthCm', 'depthCm', 'heightCm', 'weightKg'].includes(f) ? Number(e.target.value) || 0 : e.target.value;
 };
 $('#itemsList').onchange = (e) => {
 if (e.target.dataset.airline === undefined) return;
@@ -2673,8 +2918,10 @@ renderBagResult();
 }
 $('#askAnswer').classList.add('hidden');
 $('#askInput').value = '';
+$('#autoSkipBar').classList.toggle('hidden', !state.autoAccepted);
 showScreen('result');
 maybeExplain();
+return true;
 }
 function renderDeskResult() {
 const p = state.plan;
@@ -2702,11 +2949,13 @@ $('#statsRow').innerHTML = `
 <div class="stat"><b>${p.stats.placedCount}</b><span>${escHtml(t('statFits'))}</span></div>
 <div class="stat"><b>${p.stats.unplacedCount}</b><span>${escHtml(t('statNoFit'))}</span></div>
 <div class="stat"><b>${p.stats.fillPercent}%</b><span>${escHtml(t('statFill'))}</span></div>
-${p.stats.totalWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${escHtml(t('statKg'))}</span></div>` : ''}`;
+${p.stats.requestedWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${escHtml(t('statKg'))}</span></div>` : ''}`;
 $('#planView').innerHTML = renderBagPlan(state.bin, p.placed);
 $('#legendView').innerHTML = renderLegend(p.placed);
 $('#notesView').innerHTML = p.stats.overWeight
-? `<div class="note warn"><span>⚠️</span><span>${escHtml(t('n_overweight'))}</span></div>` : '';
+? `<div class="note warn"><span>⚠️</span><span>${escHtml(t('n_overweight', {
+total: p.stats.requestedWeightKg, limit: state.bin?.maxWeightKg || 0,
+}))}</span></div>` : '';
 $('#stepsView').innerHTML = `
 <h3>${escHtml(t('packOrder'))}</h3>
 <ol>${p.steps.map((st) => `<li><b>${escHtml(st.nameAr)}</b>${st.rotated ? ` <span class="pos">${escHtml(t('rotate'))}</span>` : ''}${st.fragile ? ' ⚠️' : ''}<br><span class="pos">${escHtml(tr(st.position))}</span></li>`).join('')}</ol>
@@ -2803,6 +3052,9 @@ const flags = [c.keepDry && '💧', c.avoidLight && '🌑', c.wantsLight && '☀
 .filter(Boolean).join('');
 return `<li>${escHtml(tx(c.labelAr))} → ${escHtml(zone)} ${flags}</li>`;
 }).join('');
+const handNote = $('#handNote');
+handNote.classList.toggle('hidden', !state.handDetected);
+if (state.handDetected) handNote.textContent = t('handDetected', { hand: t(state.handDetected) });
 }
 async function onAdaptProfile() {
 const sample = await aiReady();

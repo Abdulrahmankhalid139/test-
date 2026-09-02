@@ -8,6 +8,8 @@
  * نفس الحدود بالظبط: الموديل بيشوف ويقترح، والرياضة والخوارزمية بيقرروا.
  */
 
+import { SCALE_REFERENCES } from './geometry.js';
+
 /** الرد بيتكتب باللغة اللي المستخدم مختارها. */
 const LANG_NOTE = {
   ar: '',
@@ -20,6 +22,17 @@ const labelOf = (v) => (v && typeof v === 'object' ? v.ar || v.en : v) || '';
 const ZONE_ENUM = ['front', 'primary', 'secondary', 'back', 'far'];
 const SIDE_ENUM = ['dominant', 'off', 'center', 'any'];
 const ANCHOR_ENUM = ['back-center', 'front-center', 'front-dominant', 'none'];
+
+/**
+ * كتالوج مراجع القياس اللي التطبيق عنده مقاسها الموثّق.
+ * في وضع «لاقيها إنت» بنوري الموديل الليستة دي عشان يرجّع refId منها.
+ * هو بيقول «لقيت ده، وده مربعه» — والمقاس بالسنتيمتر بييجي من geometry.js،
+ * مش من كلامه، عشان مايعايرش الصورة على رقم مخترع.
+ */
+const AUTO_REF_CATALOG = Object.values(SCALE_REFERENCES)
+  .filter((r) => r.id !== 'custom')
+  .map((r) => `${r.id} (${labelOf(r.labelAr)})`)
+  .join(' · ');
 
 const BAG_CATS_LIST = [
   'laptop', 'electronics', 'camera', 'glass', 'shoes', 'clothes',
@@ -110,9 +123,20 @@ export async function analyzeScene({ image, mode, scaleRefLabel, profile, intent
   const generateProfile = !isBag && !profile;
   // في وضع «أنا كاتب المقاس» المسطرة هي المساحة نفسها، فالموديل بيدوّر عليها هي.
   const known = sizeMethod === 'known';
+  // في وضع «لاقيها إنت» إحنا مش قايلين له المسطرة إيه — هو اللي بيلاقيها ويسمّيها،
+  // وإحنا بنجيب مقاسها من الكتالوج. لو لقى حاجة مش عندنا مقاسها، الأمانة أحسن من رقم مخترع.
+  const auto = sizeMethod === 'auto';
   const calibLine = known
     ? `حدد مربع المساحة نفسها (${scaleRefLabel}) بدقة عالية جداً — كل الحسابات معتمدة على المربع ده. وحط في scaleReference نفس المربع.`
-    : `دوّر على مرجع القياس في الصورة: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.`;
+    : auto
+      ? `دوّر بنفسك في الصورة على أي حاجة مقاسها الحقيقي معروف وثابت (مواصفة قياسية أو حاجة يومية مقاسها معروف).
+   اختار أوضحهم وأقربهم للحاجات اللي هتتقاس، وحدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.
+   لو طابق واحد من دول حط مفتاحه في refId: ${AUTO_REF_CATALOG}
+   لو اللي لقيته مش في الليستة دي، حط refId:"" واكتب اسمه في whatAr.
+   متقولش مقاسه بالسنتيمتر — إحنا عندنا المقاس الموثّق، انت قول لقيت إيه وفين بس.
+   ولو مفيش في الصورة أي حاجة مقاسها معروف فعلاً، رجّع found:false — ده رد صح ومقبول، متخترعش مرجع.
+   وحط في confidence رقم من 0 لـ 1 يقول انت متأكد قد إيه إن ده الحاجة دي فعلاً.`
+      : `دوّر على مرجع القياس في الصورة: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.`;
 
   let prompt = `انت بتحلل صورة ${isBag ? 'حاجات هتترص في شنطة' : 'مساحة عشان ترتّبها'}.
 رد بـ JSON بس، من غير أي كلام قبله أو بعده.
@@ -137,20 +161,24 @@ ${RULES_BRIEF}
 {"spaceTypeAr":"...","profile":{"spaceTypeAr":"...","spaceKind":"surface|container","defaultSizeCm":{"width":0,"depth":0,"height":0},
  "categories":[{"key":"...","labelAr":"...","zone":"...","side":"...","anchor":"...","tall":false,"keepDry":false,"avoidLight":false,"wantsLight":false,"hot":false,"screen":false,"keepUpright":false,"compressible":false}],
  "tipsAr":["..."]},
- "scaleReference":{"found":true,"whatAr":"...","box":[0,0,0,0]},
+ "scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
  "surface":{"box":[0,0,0,0]},
  "windowSide":"left|right|front|back|none",
+ "dominantHand":"right|left|unknown",
  "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
   } else if (isBag) {
     prompt += `المطلوب:
 1) ${calibLine}
 2) حدد مربع الحاوية نفسها (الشنطة/الدرج/الرف) لو ظاهرة.
 3) اعمل ليستة بكل حاجة ظاهرة هتترص. الفئات المسموحة: ${BAG_CATS_LIST.join('، ')}
+4) قدّر وزن كل حاجة بالكيلوجرام في weightKg — تقدير تقريبي معقول لنوعها ومقاسها.
+   ده الرقم الوحيد اللي إحنا مش بنحسبه، وحد وزن شركة الطيران بيتبني عليه، فخليه واقعي.
 
 الصيغة:
-{"scaleReference":{"found":true,"whatAr":"...","box":[0,0,0,0]},
+{"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
  "surface":{"box":[0,0,0,0]},
- "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
+ "dominantHand":"right|left|unknown",
+ "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"weightKg":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
   } else {
     const catList = Object.entries(profile.categories).map(([k, v]) => `${k} (${v.labelAr})`).join('، ');
     prompt += `دي صورة ${profile.spaceTypeAr}.
@@ -162,9 +190,10 @@ ${RULES_BRIEF}
 4) الشباك فين بالنسبة للشخص؟
 
 الصيغة:
-{"scaleReference":{"found":true,"whatAr":"...","box":[0,0,0,0]},
+{"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
  "surface":{"box":[0,0,0,0]},
  "windowSide":"left|right|front|back|none",
+ "dominantHand":"right|left|unknown",
  "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
   }
 
@@ -176,7 +205,10 @@ ${RULES_BRIEF}
 - المربعات بصيغة [ymin, xmin, ymax, xmax] بمقياس من 0 لـ 1000.
 - الأسماء ${lang === 'en' ? 'بالإنجليزي' : 'بالعربي المصري'}، قصيرة وواضحة.
 - متخترعش حاجات مش ظاهرة في الصورة.
-- متحاولش تحسب العرض أو العمق بالسنتيمتر — إحنا هنحسبهم من مرجع القياس. قدّر الارتفاع بس.${LANG_NOTE[lang]}`;
+- متحاولش تحسب العرض أو العمق بالسنتيمتر — إحنا هنحسبهم من مرجع القياس. قدّر الارتفاع بس.
+- dominantHand: استنتج من الصورة نفسها الشخص بيستخدم أنهي إيد. الأدلة: الماوس على أنهي ناحية،
+  الحاجات مكوّمة ناحية مين، النوتة أو الكوباية على أنهي جنب من الكيبورد، الأباجورة على عكس إيد الكتابة.
+  لو الأدلة مش واضحة رجّع "unknown" — ده أحسن بكتير من تخمين، لأن الترتيب كله بينقلب عليه.${LANG_NOTE[lang]}`;
 
   let json;
   try {

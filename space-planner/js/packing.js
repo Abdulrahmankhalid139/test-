@@ -135,6 +135,11 @@ export function pack3D(bin, items) {
     (it.compressible ? soft : rigid).push(norm);
   }
 
+  // وزن كل اللي المستخدم عايز يشيله — مش اللي دخل بس.
+  // الرص بيرفض أي قطعة هتعدّي الحد، فالوزن الداخل عمره ما يعدّي الحد،
+  // ولو حسبنا عليه هيبقى overWeight دايماً false والحد ميبانش أبداً.
+  const requestedWeight = [...rigid, ...soft].reduce((sum, it) => sum + it.weightKg, 0);
+
   // الترتيب: الحاجات الجامدة الأكبر الأول (عشان تلاقي مكانها قبل ما الفاضي يتفتت)،
   // والقابل للكسر يتأجل للآخر عشان يستقر فوق مش تحت التقيل.
   rigid.sort((a, b) => {
@@ -228,7 +233,8 @@ export function pack3D(bin, items) {
       usedVolumeCm3: Math.round(finalUsed),
       fillPercent: Math.round((finalUsed / binVolume) * 100),
       totalWeightKg: Math.round(usedWeight * 100) / 100,
-      overWeight: bin.maxWeightKg ? usedWeight > bin.maxWeightKg : false,
+      requestedWeightKg: Math.round(requestedWeight * 100) / 100,
+      overWeight: bin.maxWeightKg ? requestedWeight > bin.maxWeightKg + EPS : false,
       placedCount: placed.length,
       unplacedCount: unplaced.length,
     },

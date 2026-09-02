@@ -254,6 +254,10 @@ select.input{appearance:none;background-image:none;padding-inline-end:13px}
 .banner{padding:10px 12px;border-radius:10px;font-size:12.5px;margin-bottom:12px;line-height:1.5}
 .banner.ok{background:var(--ok-soft);color:var(--ok)}
 .banner.warn{background:var(--mark-soft);color:var(--mark)}
+/* شريط «قبلنا الأرقام لوحدنا» — الجملة وزراريها في سطر واحد بيلف */
+.skip-bar{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.skip-bar span{flex:1;min-width:60%}
+.skip-bar .link-btn{color:inherit}
 
 .ai-note{
   background:var(--accent-soft);border-radius:var(--r);padding:13px 14px;
@@ -308,6 +312,9 @@ dialog{
 }
 dialog::backdrop{background:rgba(20,24,29,.55);backdrop-filter:blur(2px)}
 dialog h2{margin-top:0}
+/* مفتاح إعداد بمربع اختيار — النص جنبه مش تحته */
+.check{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;margin-top:14px;cursor:pointer}
+.check input{width:17px;height:17px;accent-color:var(--accent);margin:0;flex:none}
 dialog .row{margin-top:16px}
 dialog .btn{margin-top:0}
 

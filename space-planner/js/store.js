@@ -34,6 +34,9 @@ export const store = {
     windowSide: 'none',
     scaleRef: 'card',
     customRefCm: 0,
+    // تخطي المراجعة شغال افتراضياً. القراية بتتعمل بـ !== false عشان
+    // اللي عنده تفضيلات محفوظة من قبل الميزة دي ميلاقيش undefined = مقفول.
+    autoSkip: true,
   }),
   setPrefs: (p) => safeSet(KEY_PREFS, { ...store.getPrefs(), ...p }),
 

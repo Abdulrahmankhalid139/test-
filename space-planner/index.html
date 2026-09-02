@@ -66,6 +66,7 @@
       <label class="label"><span class="stepno">2</span> <span data-i18n="step1">المقاس</span></label>
       <p class="hint" data-i18n="sizeStepQ"></p>
       <select id="sizeMethod" class="input">
+        <option value="auto" data-i18n="methodAuto"></option>
         <option value="ref" data-i18n="methodRef"></option>
         <option value="known" data-i18n="methodKnown"></option>
       </select>
@@ -135,6 +136,7 @@
         <button id="btnAdapt" class="btn ghost" data-i18n="adaptBtn"></button>
       </div>
       <ul id="rulesList" class="rules"></ul>
+      <p id="handNote" class="hint hidden"></p>
     </div>
     <p class="hint" data-i18n="reviewHint"></p>
     <div id="itemsList" class="items"></div>
@@ -145,6 +147,11 @@
   <section class="screen" data-screen="result">
     <button class="back" data-goto="review" data-i18n="backToSizes"></button>
     <h2 id="resultTitle"></h2>
+    <div id="autoSkipBar" class="banner ok skip-bar hidden">
+      <span data-i18n="autoAccepted"></span>
+      <button id="btnOpenReview" class="link-btn" type="button" data-i18n="openReview"></button>
+      <button id="btnDismissSkip" class="link-btn" type="button" data-i18n="dismissBar"></button>
+    </div>
     <div id="statsRow" class="stats"></div>
     <div id="planView" class="plan"></div>
     <div id="legendView"></div>
@@ -184,6 +191,8 @@
     <p class="hint" data-i18n-html="aboutBody"></p>
     <p class="hint" data-i18n="aboutAccuracy"></p>
     <p class="hint" data-i18n="aboutPrivacy"></p>
+    <label class="check"><input type="checkbox" id="optAutoSkip" checked> <span data-i18n="optAutoSkip"></span></label>
+    <p class="hint" data-i18n="optAutoSkipHint"></p>
     <button id="btnInstall" type="button" class="btn ghost hidden" data-i18n="install"></button>
     <div class="row">
       <button value="ok" class="btn primary" data-i18n="ok"></button>

@@ -28,7 +28,36 @@ const state = {
   airlineId: '',
   plan: null,
   bin: null,
+  // إيد المستخدم اللي الموديل استنتجها من الصورة — null يعني اختياره هو اللي ساري
+  handDetected: null,
+  // المرجع اللي الموديل لقاه بنفسه في وضع «لاقيها إنت»
+  autoRef: null,
+  // إحنا اللي عدّينا المراجعة؟ الشريط في شاشة النتيجة بيتعلق على ده
+  autoAccepted: false,
 };
+
+/**
+ * عتبة تخطي المراجعة.
+ *
+ * الثقة الإجمالية = ثقة القياس × متوسط ثقة الموديل في الحاجات × (0.85 لو المرجع تقريبي).
+ * اخترنا 0.8 لأن أصغر خصم في scaleConfidence هو 0.2 — يعني أي عيب في المرجع
+ * (صغير في الصورة أو متصوّر بزاوية مايلة) بينزّل الحاصل تحت العتبة على طول.
+ * والمرجع التقريبي بيتضرب في 0.85 فوحده كفاية إنه يمنع التخطي مهما كان الباقي.
+ * النتيجة: مبنعديش المراجعة غير لما المرجع قياسي وظاهر كويس والموديل واثق
+ * في كل حاجة شافها (متوسط ≥ 0.8) — وأي حاجة ثقتها تحت 0.5 بتوقّف التخطي لوحدها،
+ * لأن دي بالظبط اللي الواجهة بتعلّمها conf-low عشان المستخدم يبص عليها.
+ */
+const AUTO_SKIP_THRESHOLD = 0.8;
+
+/** إعداد التخطي — الافتراضي شغال، والقراية بـ !== false عشان التفضيلات القديمة. */
+const autoSkipOn = () => store.getPrefs().autoSkip !== false;
+
+function overallConfidence({ scaleScore, approxRef, items }) {
+  if (!items.length) return 0;
+  const mean = items.reduce((sum, i) => sum + i.confidence, 0) / items.length;
+  if (Math.min(...items.map((i) => i.confidence)) < 0.5) return 0;
+  return scaleScore * mean * (approxRef ? 0.85 : 1);
+}
 
 /** الوضع مشتق: مفيش حالة منفصلة تتعارض مع البروفايل. */
 const isBag = () => isContainer(state.profile);
@@ -110,10 +139,11 @@ function updateHints() {
   $('#sizeH').classList.toggle('hidden', !container);
 }
 
-/** طريقتين للمقاس: حاجة معروفة في الصورة، أو مقاس المساحة نفسها. */
+/** تلات طرق للمقاس: الموديل يلاقي المسطرة، حاجة إحنا مختارينها، أو مقاس المساحة نفسها. */
 function updateSizeMethod() {
   const method = $('#sizeMethod').value;
-  $('#sizeMethodHint').textContent = t(method === 'ref' ? 'methodRefHint' : 'methodKnownHint');
+  $('#sizeMethodHint').textContent = t(
+    method === 'auto' ? 'methodAutoHint' : method === 'ref' ? 'methodRefHint' : 'methodKnownHint');
   $('#refWrap').classList.toggle('hidden', method !== 'ref');
   $('#knownWrap').classList.toggle('hidden', method !== 'known');
   $('#spanWrap').classList.toggle('hidden', $('#sizeUnit').value !== 'span');
@@ -136,7 +166,9 @@ function init() {
   const prefs = store.getPrefs();
   applyLang();
   $('#dominantHand').value = prefs.dominantHand || 'right';
-  $('#sizeMethod').value = prefs.sizeMethod || 'ref';
+  // «لاقيها إنت» هي الافتراضي — أقل خطوة على المستخدم
+  $('#sizeMethod').value = prefs.sizeMethod || 'auto';
+  $('#optAutoSkip').checked = autoSkipOn();
   $('#sizeUnit').value = prefs.sizeUnit || 'cm';
   $('#spanCm').value = prefs.spanCm || 22;
   updateSizeMethod();
@@ -166,7 +198,14 @@ function init() {
   $('#btnAdapt').addEventListener('click', onAdaptProfile);
   $('#btnAsk').addEventListener('click', onAsk);
   $('#btnAddItem').addEventListener('click', () => { addItem(); renderItems(); });
-  $('#btnPlan').addEventListener('click', onPlan);
+  // الضغط على «احسب» بإيده معناها إنه راجع بنفسه — الشريط مالوش لازمة وقتها
+  $('#btnPlan').addEventListener('click', () => { state.autoAccepted = false; onPlan(); });
+  $('#btnOpenReview').addEventListener('click', () => {
+    $('#autoSkipBar').classList.add('hidden');
+    showScreen('review');
+  });
+  $('#btnDismissSkip').addEventListener('click', () => $('#autoSkipBar').classList.add('hidden'));
+  $('#optAutoSkip').addEventListener('change', () => store.setPrefs({ autoSkip: $('#optAutoSkip').checked }));
   $('#btnAfterImage').addEventListener('click', onAfterImage);
   $('#btnSave').addEventListener('click', onSave);
 
@@ -216,6 +255,7 @@ async function onAnalyze() {
   const customName = $('#customRefName').value.trim();
   const known = readKnownSize();
 
+  // وضع «لاقيها إنت» مش بياخد مدخلات — الموديل هو اللي هيدوّر
   if (method === 'ref' && refId === 'custom' && !(customCm > 0)) return toast(t('t_needRefCm'));
   if (method === 'known' && !(known.widthCm > 0 && known.depthCm > 0)) return toast(t('t_needKnownSize'));
 
@@ -231,11 +271,13 @@ async function onAnalyze() {
     const analysis = await analyzeScene({
       image: state.image,
       mode: isBag() ? 'bag' : 'surface',
-      scaleRefLabel: method === 'known'
-        ? `the space itself (${known.widthCm} cm wide)`
-        : refId === 'custom'
-          ? `${customName || 'reference object'} (${customCm} cm wide)`
-          : tx(ref.labelAr),
+      scaleRefLabel: method === 'auto'
+        ? ''
+        : method === 'known'
+          ? `the space itself (${known.widthCm} cm wide)`
+          : refId === 'custom'
+            ? `${customName || 'reference object'} (${customCm} cm wide)`
+            : tx(ref.labelAr),
       profile: chosenProfile,
       intent,
       sample,
@@ -259,6 +301,8 @@ async function onAnalyze() {
     // في الحالتين الرياضة واحدة — اللي بيختلف هو مين المسطرة.
     const surfBox = analysis.surface?.box ? normalizeBox(analysis.surface.box) : null;
     let scale, refBox;
+    // مدخلات حساب الثقة الإجمالية بعدين
+    let scaleScore = 1, approxRef = false;
 
     if (method === 'known') {
       if (!surfBox) throw new Error(t('t_spaceNotFound'));
@@ -267,29 +311,58 @@ async function onAnalyze() {
       scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
       refBox = surfBox;
       state.userSize = { ...known };
+      // المقاس ده من المستخدم نفسه، مش من الصورة — مفيش خصم ثقة عليه
+      state.autoRef = null;
       $('#scaleBanner').className = 'banner ok';
       $('#scaleBanner').textContent = t('b_known', { w: known.widthCm, d: known.depthCm });
     } else {
       refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
-      if (!refBox) {
-        throw new Error(t('t_refNotFound', {
-          what: refId === 'custom' ? (customName || t('scaleRef')) : tx(ref.labelAr),
-        }));
+
+      // «لاقيها إنت»: الموديل بيقول لقى إيه وفين بس. المقاس بالسنتيمتر بييجي من
+      // SCALE_REFERENCES — مش من كلامه. حاجة مش في الكتالوج = مبنقيسش عليها خالص.
+      let usedRef = ref;
+      if (method === 'auto') {
+        const rid = analysis.scaleReference?.refId;
+        const picked = typeof rid === 'string' && rid !== 'custom' ? SCALE_REFERENCES[rid] : null;
+        if (!refBox) throw new Error(t('t_autoRefNone'));
+        if (!picked) throw new Error(t('t_autoRefUnknown', { what: analysis.scaleReference?.whatAr || '—' }));
+        usedRef = picked;
+        state.autoRef = picked;
+      } else {
+        state.autoRef = null;
+        if (!refBox) {
+          throw new Error(t('t_refNotFound', {
+            what: refId === 'custom' ? (customName || t('scaleRef')) : tx(ref.labelAr),
+          }));
+        }
       }
-      if (refId === 'custom') {
+
+      if (method === 'ref' && refId === 'custom') {
         const k = customCm / refBox.w;
         scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
+        // مرجع كتبه المستخدم بنفسه مش مواصفة موثّقة — بيتعامل كتقريبي
+        approxRef = true;
       } else {
-        scale = computeScale(refBox, ref.widthCm, ref.heightCm);
+        scale = computeScale(refBox, usedRef.widthCm, usedRef.heightCm);
+        approxRef = !!usedRef.approx;
       }
       state.userSize = null;
 
       const conf = scaleConfidence(scale, refBox);
+      scaleScore = conf.score;
       $('#scaleBanner').className = `banner ${conf.score > 0.45 ? 'ok' : 'warn'}`;
       const level = t(conf.score > 0.75 ? 'conf_high' : conf.score > 0.45 ? 'conf_mid' : 'conf_low');
-      $('#scaleBanner').innerHTML = conf.score > 0.45
-        ? t('b_scaleOk', { what: esc(analysis.scaleReference.whatAr || tx(ref.labelAr)), level })
-        : t('b_scaleWarn', { level });
+      // في وضع «لاقيها إنت» بنقول للمستخدم إن الموديل هو اللي اختار المرجع،
+      // وهل ده مقاس قياسي موثّق ولا حاجة يومية تقريبية.
+      $('#scaleBanner').innerHTML = method === 'auto'
+        ? t('b_scaleAuto', {
+          what: esc(tx(usedRef.labelAr)),
+          kind: t(usedRef.approx ? 'refApprox' : 'refExact'),
+          level,
+        })
+        : conf.score > 0.45
+          ? t('b_scaleOk', { what: esc(analysis.scaleReference.whatAr || tx(ref.labelAr)), level })
+          : t('b_scaleWarn', { level });
     }
     state.scale = scale;
 
@@ -313,6 +386,19 @@ async function onAnalyze() {
     }
     if (analysis.windowSide) store.setPrefs({ windowSide: analysis.windowSide });
 
+    // إيد المستخدم: بنقبل "right" أو "left" بس. "unknown" أو أي حاجة تانية
+    // معناها سيب اختياره زي ما هو — التخمين هنا بيقلب الترتيب كله.
+    const hand = analysis.dominantHand;
+    state.handDetected = hand === 'right' || hand === 'left' ? hand : null;
+    if (state.handDetected) {
+      const changed = $('#dominantHand').value !== state.handDetected;
+      $('#dominantHand').value = state.handDetected;
+      store.setPrefs({ dominantHand: state.handDetected });
+      // ممنوع نغيّر اختياره من ورا ضهره — لو اتغيّر فعلاً بنقوله على طول،
+      // والملاحظة بتفضل ظاهرة في المراجعة كمان
+      if (changed) toast(t('handDetected', { hand: t(state.handDetected) }));
+    }
+
     // الحاجات: الموديل حدد المربعات، والرياضة حسبت السنتيمترات
     state.items = analysis.objects.map((o, i) => {
       const box = normalizeBox(o.box);
@@ -325,9 +411,11 @@ async function onAnalyze() {
         widthCm: clampCm(dims.widthCm * corr, 0.5, 300),
         depthCm: clampCm(dims.depthCm * corr, 0.5, 300),
         heightCm: clampCm(Number(o.heightCm) || 5, 0.2, 200),
+        // الوزن رقم من الموديل زي أي رقم تاني — بيتقصّ قبل ما يوصل لحد الطيران
+        weightKg: clampCm(o.weightKg, 0, 30),
         frequency: o.frequency || 'medium',
         fragile: !!o.fragile,
-        confidence: Number(o.confidence) || 0.6,
+        confidence: Math.max(0, Math.min(1, Number(o.confidence) || 0.6)),
       };
     });
 
@@ -335,6 +423,14 @@ async function onAnalyze() {
 
     renderDetectedSpace();
     renderItems();
+
+    // ثقة عالية = مفيش داعي نوقّفه على المراجعة. وفي وضع «لاقيها إنت» زيادة:
+    // لو الموديل نفسه مش واثق إنه عرف المرجع صح، بنراجع مهما كان الباقي.
+    const refSure = method !== 'auto' || (Number(analysis.scaleReference?.confidence) || 0) >= 0.6;
+    state.autoAccepted = autoSkipOn() && refSure &&
+      overallConfidence({ scaleScore, approxRef, items: state.items }) >= AUTO_SKIP_THRESHOLD;
+    if (state.autoAccepted && await onPlan()) return;
+    state.autoAccepted = false;
     showScreen('review');
   } catch (err) {
     toast(err.message);
@@ -347,6 +443,10 @@ async function onAnalyze() {
 function onManual() {
   state.items = [];
   state.scale = null;
+  // مفيش صورة ومفيش موديل — فمفيش إيد متستنتجة ولا تخطي مراجعة
+  state.handDetected = null;
+  state.autoRef = null;
+  state.autoAccepted = false;
   const chosen = $('#spaceType').value;
   state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
   // لو كتب المقاس في خطوة المقاس، منستهبلش ونرجّعه للمقاس النموذجي
@@ -368,7 +468,7 @@ function addItem() {
   state.items.push({
     id: `it${Date.now()}`, nameAr: t('newItem'),
     category: 'other',
-    widthCm: 10, depthCm: 10, heightCm: 10,
+    widthCm: 10, depthCm: 10, heightCm: 10, weightKg: 0,
     frequency: 'medium', fragile: false, confidence: 1,
   });
 }
@@ -388,6 +488,8 @@ function renderItems() {
           </select>
         </label>
         <p class="hint wide">${esc(t('airlineWarn'))}</p>` : '';
+  // الوزن بيتعرض في الحاويات بس — السطح مالوش حد وزن فالخانة هتزحمه على الفاضي
+  const weightHint = bag ? `<p class="hint">${esc(t('weightHint'))}</p>` : '';
 
   const spaceEditor = `
     <div class="item space-size">
@@ -403,7 +505,7 @@ function renderItems() {
       </div>
     </div>`;
 
-  $('#itemsList').innerHTML = spaceEditor + state.items.map((it) => `
+  $('#itemsList').innerHTML = spaceEditor + weightHint + state.items.map((it) => `
     <div class="item ${it.confidence < 0.5 ? 'conf-low' : ''}" data-id="${it.id}">
       <div>
         <input class="item-name" data-f="nameAr" value="${esc(it.nameAr)}" aria-label="${esc(t('itemName'))}">
@@ -411,6 +513,7 @@ function renderItems() {
           <label>${esc(t('width'))}<input type="number" data-f="widthCm" value="${it.widthCm}" step="0.5" min="0.5"></label>
           <label>${esc(t('depth'))}<input type="number" data-f="depthCm" value="${it.depthCm}" step="0.5" min="0.5"></label>
           <label>${esc(t('height'))}<input type="number" data-f="heightCm" value="${it.heightCm}" step="0.5" min="0.2"></label>
+          ${bag ? `<label>${esc(t('weight'))}<input type="number" data-f="weightKg" value="${it.weightKg || 0}" step="0.1" min="0" max="30"></label>` : ''}
         </div>
         <select data-f="category" aria-label="${esc(t('kind'))}">
           ${catOptions.map(([k, v]) => `<option value="${k}" ${it.category === k ? 'selected' : ''}>${v}</option>`).join('')}
@@ -435,7 +538,7 @@ function renderItems() {
     if (!row || !f) return;
     const it = state.items.find((x) => x.id === row.dataset.id);
     if (!it) return;
-    it[f] = ['widthCm', 'depthCm', 'heightCm'].includes(f) ? Number(e.target.value) || 0 : e.target.value;
+    it[f] = ['widthCm', 'depthCm', 'heightCm', 'weightKg'].includes(f) ? Number(e.target.value) || 0 : e.target.value;
   };
   $('#itemsList').onchange = (e) => {
     if (e.target.dataset.airline === undefined) return;
@@ -531,8 +634,11 @@ async function onPlan() {
 
   $('#askAnswer').classList.add('hidden');
   $('#askInput').value = '';
+  // الشريط بيظهر بس لما إحنا اللي عدّينا المراجعة، مش لما هو ضغط «احسب»
+  $('#autoSkipBar').classList.toggle('hidden', !state.autoAccepted);
   showScreen('result');
   maybeExplain();
+  return true;
 }
 
 function renderDeskResult() {
@@ -562,11 +668,13 @@ function renderBagResult() {
     <div class="stat"><b>${p.stats.placedCount}</b><span>${esc(t('statFits'))}</span></div>
     <div class="stat"><b>${p.stats.unplacedCount}</b><span>${esc(t('statNoFit'))}</span></div>
     <div class="stat"><b>${p.stats.fillPercent}%</b><span>${esc(t('statFill'))}</span></div>
-    ${p.stats.totalWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${esc(t('statKg'))}</span></div>` : ''}`;
+    ${p.stats.requestedWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${esc(t('statKg'))}</span></div>` : ''}`;
   $('#planView').innerHTML = renderBagPlan(state.bin, p.placed);
   $('#legendView').innerHTML = renderLegend(p.placed);
   $('#notesView').innerHTML = p.stats.overWeight
-    ? `<div class="note warn"><span>⚠️</span><span>${esc(t('n_overweight'))}</span></div>` : '';
+    ? `<div class="note warn"><span>⚠️</span><span>${esc(t('n_overweight', {
+      total: p.stats.requestedWeightKg, limit: state.bin?.maxWeightKg || 0,
+    }))}</span></div>` : '';
   $('#stepsView').innerHTML = `
     <h3>${esc(t('packOrder'))}</h3>
     <ol>${p.steps.map((st) => `<li><b>${esc(st.nameAr)}</b>${st.rotated ? ` <span class="pos">${esc(t('rotate'))}</span>` : ''}${st.fragile ? ' ⚠️' : ''}<br><span class="pos">${esc(tr(st.position))}</span></li>`).join('')}</ol>
@@ -679,6 +787,11 @@ function renderDetectedSpace() {
         .filter(Boolean).join('');
       return `<li>${esc(tx(c.labelAr))} → ${esc(zone)} ${flags}</li>`;
     }).join('');
+
+  // ملاحظة الإيد بتفضل ظاهرة هنا — التوست بيروح، وده اللي المستخدم يرجعله
+  const handNote = $('#handNote');
+  handNote.classList.toggle('hidden', !state.handDetected);
+  if (state.handDetected) handNote.textContent = t('handDetected', { hand: t(state.handDetected) });
 }
 
 /* ═══════════ ٦: التوجيه بالكلام ═══════════ */
