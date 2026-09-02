@@ -403,7 +403,21 @@ export function tr(reason) {
   if (!reason) return '';
   if (typeof reason === 'string') return reason;
   if (Array.isArray(reason)) return reason.map(tr).join('');
-  return t(reason.key, reason.params);
+  return t(reason.key, resolveParams(reason.params));
+}
+
+/**
+ * البارامتر نفسه ممكن يكون كلمة محتاجة ترجمة، مش رقم — زي «يمين/شمال».
+ * الخوارزمية بتبعتها كـ {key} وإحنا بنترجمها وقت العرض، عشان تبديل اللغة
+ * يغيّرها هي كمان بدل ما تفضل بالإنجليزي جوه جملة عربي.
+ */
+function resolveParams(params) {
+  if (!params) return params;
+  const out = {};
+  for (const [k, v] of Object.entries(params)) {
+    out[k] = v && typeof v === 'object' && v.key ? t(v.key) : v;
+  }
+  return out;
 }
 
 export const LANGS = Object.keys(STRINGS);

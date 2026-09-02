@@ -30,10 +30,11 @@ const state = {
   bin: null,
   // إيد المستخدم اللي الموديل استنتجها من الصورة — null يعني اختياره هو اللي ساري
   handDetected: null,
-  // المرجع اللي الموديل لقاه بنفسه في وضع «لاقيها إنت»
-  autoRef: null,
   // إحنا اللي عدّينا المراجعة؟ الشريط في شاشة النتيجة بيتعلق على ده
   autoAccepted: false,
+  // مصدر المقاس متخزن كوصف مش كجملة جاهزة — عشان تبديل اللغة يعيد كتابة
+  // البانر زي أي حاجة تانية في الشاشة بدل ما يفضل باللغة القديمة
+  scaleInfo: null,
 };
 
 /**
@@ -125,6 +126,7 @@ function applyLang() {
   updateSizeMethod();
 
   // اللي معروض دلوقتي يتعاد رسمه باللغة الجديدة
+  renderScaleBanner();
   if (state.profile) renderDetectedSpace();
   if (state.items.length) renderItems();
   if (state.plan) (isBag() ? renderBagResult : renderDeskResult)();
@@ -148,6 +150,42 @@ function updateSizeMethod() {
   $('#knownWrap').classList.toggle('hidden', method !== 'known');
   $('#spanWrap').classList.toggle('hidden', $('#sizeUnit').value !== 'span');
   store.setPrefs({ sizeMethod: method });
+}
+
+/**
+ * بيكتب بانر المقاس من state.scaleInfo.
+ * الرقم اتحسب مرة واحدة، والجملة بتتكتب كل مرة — فتبديل اللغة مبيغيّرش أي حساب.
+ */
+function renderScaleBanner() {
+  const el = $('#scaleBanner');
+  const info = state.scaleInfo;
+  if (!info) { el.className = 'banner'; el.textContent = ''; return; }
+
+  if (info.kind === 'manual') {
+    el.className = 'banner warn';
+    el.textContent = t('b_manual');
+    return;
+  }
+  if (info.kind === 'known') {
+    el.className = 'banner ok';
+    el.textContent = t('b_known', { w: info.widthCm, d: info.depthCm });
+    return;
+  }
+
+  const ref = SCALE_REFERENCES[info.refId];
+  const level = t(info.score > 0.75 ? 'conf_high' : info.score > 0.45 ? 'conf_mid' : 'conf_low');
+  el.className = `banner ${info.score > 0.45 ? 'ok' : 'warn'}`;
+  // «لاقيها إنت»: بنقول إن الموديل هو اللي اختار المرجع، وهل ده مقاس
+  // قياسي موثّق ولا حاجة يومية تقريبية — عشان يعرف يثق في الرقم قد إيه.
+  el.innerHTML = info.kind === 'auto'
+    ? t('b_scaleAuto', {
+      what: esc(tx(ref.labelAr)),
+      kind: t(ref.approx ? 'refApprox' : 'refExact'),
+      level,
+    })
+    : info.score > 0.45
+      ? t('b_scaleOk', { what: esc(info.whatAr || (ref ? tx(ref.labelAr) : t('scaleRef'))), level })
+      : t('b_scaleWarn', { level });
 }
 
 /** بيقرا المقاس اللي المستخدم كتبه ويحوّله لسنتيمترات مهما كانت وحدته. */
@@ -312,9 +350,8 @@ async function onAnalyze() {
       refBox = surfBox;
       state.userSize = { ...known };
       // المقاس ده من المستخدم نفسه، مش من الصورة — مفيش خصم ثقة عليه
-      state.autoRef = null;
-      $('#scaleBanner').className = 'banner ok';
-      $('#scaleBanner').textContent = t('b_known', { w: known.widthCm, d: known.depthCm });
+      state.scaleInfo = { kind: 'known', widthCm: known.widthCm, depthCm: known.depthCm };
+      renderScaleBanner();
     } else {
       refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
 
@@ -327,9 +364,7 @@ async function onAnalyze() {
         if (!refBox) throw new Error(t('t_autoRefNone'));
         if (!picked) throw new Error(t('t_autoRefUnknown', { what: analysis.scaleReference?.whatAr || '—' }));
         usedRef = picked;
-        state.autoRef = picked;
       } else {
-        state.autoRef = null;
         if (!refBox) {
           throw new Error(t('t_refNotFound', {
             what: refId === 'custom' ? (customName || t('scaleRef')) : tx(ref.labelAr),
@@ -350,19 +385,13 @@ async function onAnalyze() {
 
       const conf = scaleConfidence(scale, refBox);
       scaleScore = conf.score;
-      $('#scaleBanner').className = `banner ${conf.score > 0.45 ? 'ok' : 'warn'}`;
-      const level = t(conf.score > 0.75 ? 'conf_high' : conf.score > 0.45 ? 'conf_mid' : 'conf_low');
-      // في وضع «لاقيها إنت» بنقول للمستخدم إن الموديل هو اللي اختار المرجع،
-      // وهل ده مقاس قياسي موثّق ولا حاجة يومية تقريبية.
-      $('#scaleBanner').innerHTML = method === 'auto'
-        ? t('b_scaleAuto', {
-          what: esc(tx(usedRef.labelAr)),
-          kind: t(usedRef.approx ? 'refApprox' : 'refExact'),
-          level,
-        })
-        : conf.score > 0.45
-          ? t('b_scaleOk', { what: esc(analysis.scaleReference.whatAr || tx(ref.labelAr)), level })
-          : t('b_scaleWarn', { level });
+      state.scaleInfo = {
+        kind: method === 'auto' ? 'auto' : 'ref',
+        refId: usedRef.id,
+        whatAr: analysis.scaleReference.whatAr,
+        score: conf.score,
+      };
+      renderScaleBanner();
     }
     state.scale = scale;
 
@@ -445,7 +474,6 @@ function onManual() {
   state.scale = null;
   // مفيش صورة ومفيش موديل — فمفيش إيد متستنتجة ولا تخطي مراجعة
   state.handDetected = null;
-  state.autoRef = null;
   state.autoAccepted = false;
   const chosen = $('#spaceType').value;
   state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
@@ -455,8 +483,8 @@ function onManual() {
   applyProfileSize();
   addItem();
   renderDetectedSpace();
-  $('#scaleBanner').className = 'banner warn';
-  $('#scaleBanner').textContent = t('b_manual');
+  state.scaleInfo = { kind: 'manual' };
+  renderScaleBanner();
   renderItems();
   showScreen('review');
 }

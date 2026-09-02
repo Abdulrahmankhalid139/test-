@@ -129,7 +129,7 @@ export function layoutSurface(surface, items, profile, opts = {}) {
     const x = dominant === 'right'
       ? clamp((fc ? fc.x + fc.w : seatX + 10) + 3, 0, W - frontDominant.w)
       : clamp((fc ? fc.x : seatX - 10) - frontDominant.w - 3, 0, W - frontDominant.w);
-    placed.push({ ...frontDominant, x, y, rotated: false, reason: [{ key: 'r_anchorSide', params: { hand: HAND } }] });
+    placed.push({ ...frontDominant, x, y, rotated: false, reason: [{ key: 'r_anchorSide', params: { hand: { key: HAND } } }] });
   }
 
   // ٢) الباقي: بحث على شبكة بدالة تكلفة
@@ -291,8 +291,8 @@ function describeReason(rule, spot, dominant) {
   const parts = [{ key: 'zone_' + rule.zone }];
   const HAND = dominant === 'right' ? 'right' : 'left';
   const OFF = dominant === 'right' ? 'left' : 'right';
-  if (rule.side === 'dominant') parts.push({ key: 'r_sideDominant', params: { hand: HAND } });
-  else if (rule.side === 'off') parts.push({ key: 'r_sideOff', params: { hand: OFF } });
+  if (rule.side === 'dominant') parts.push({ key: 'r_sideDominant', params: { hand: { key: HAND } } });
+  else if (rule.side === 'off') parts.push({ key: 'r_sideOff', params: { hand: { key: OFF } } });
   if (rule.keepDry) parts.push({ key: 'r_keepDry' });
   if (rule.avoidLight) parts.push({ key: 'r_avoidLight' });
   if (rule.wantsLight) parts.push({ key: 'r_wantsLight' });
@@ -320,7 +320,7 @@ function physicalNotes({ surface, windowSide, dominant, placed, offDesk, cats })
       ? lamp.x + lamp.w / 2 > surface.widthCm / 2
       : lamp.x + lamp.w / 2 < surface.widthCm / 2;
     if (!onDominant) {
-      out.push({ level: 'ok', text: { key: 'n_lamp', params: { hand: dominant === 'right' ? 'left' : 'right' } } });
+      out.push({ level: 'ok', text: { key: 'n_lamp', params: { hand: { key: dominant === 'right' ? 'left' : 'right' } } } });
     }
   }
 

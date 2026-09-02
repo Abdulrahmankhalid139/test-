@@ -63,7 +63,9 @@
 }
 
 *,*::before,*::after{box-sizing:border-box}
-html,body{direction:rtl}
+/* الاتجاه بييجي من خاصية dir على <html> اللي setLang بيغيّرها —
+   مش متثبّت هنا، وإلا الإنجليزي بيتصف على اليمين. */
+body{direction:inherit}
 body{
   margin:0;background:var(--paper);color:var(--ink);
   font-family:var(--sans);line-height:1.6;-webkit-text-size-adjust:100%;

@@ -65,7 +65,7 @@
 --shadow-lift:0 2px 4px rgba(0,0,0,.4),0 12px 28px rgba(0,0,0,.35);
 }
 *,*::before,*::after{box-sizing:border-box}
-html,body{direction:rtl}
+body{direction:inherit}
 body{
 margin:0;background:var(--paper);color:var(--ink);
 font-family:var(--sans);line-height:1.6;-webkit-text-size-adjust:100%;
@@ -882,7 +882,15 @@ function tr(reason) {
 if (!reason) return '';
 if (typeof reason === 'string') return reason;
 if (Array.isArray(reason)) return reason.map(tr).join('');
-return t(reason.key, reason.params);
+return t(reason.key, resolveParams(reason.params));
+}
+function resolveParams(params) {
+if (!params) return params;
+const out = {};
+for (const [k, v] of Object.entries(params)) {
+out[k] = v && typeof v === 'object' && v.key ? t(v.key) : v;
+}
+return out;
 }
 const LANGS = Object.keys(STRINGS);
 
@@ -1756,7 +1764,7 @@ const y = fc ? fc.y : FRONT_WORK_GAP;
 const x = dominant === 'right'
 ? clamp((fc ? fc.x + fc.w : seatX + 10) + 3, 0, W - frontDominant.w)
 : clamp((fc ? fc.x : seatX - 10) - frontDominant.w - 3, 0, W - frontDominant.w);
-placed.push({ ...frontDominant, x, y, rotated: false, reason: [{ key: 'r_anchorSide', params: { hand: HAND } }] });
+placed.push({ ...frontDominant, x, y, rotated: false, reason: [{ key: 'r_anchorSide', params: { hand: { key: HAND } } }] });
 }
 const rest = norm.filter((i) => !placed.some((p) => p.id === i.id));
 const freqRank = { high: 0, medium: 1, low: 2 };
@@ -1873,8 +1881,8 @@ function describeReason(rule, spot, dominant) {
 const parts = [{ key: 'zone_' + rule.zone }];
 const HAND = dominant === 'right' ? 'right' : 'left';
 const OFF = dominant === 'right' ? 'left' : 'right';
-if (rule.side === 'dominant') parts.push({ key: 'r_sideDominant', params: { hand: HAND } });
-else if (rule.side === 'off') parts.push({ key: 'r_sideOff', params: { hand: OFF } });
+if (rule.side === 'dominant') parts.push({ key: 'r_sideDominant', params: { hand: { key: HAND } } });
+else if (rule.side === 'off') parts.push({ key: 'r_sideOff', params: { hand: { key: OFF } } });
 if (rule.keepDry) parts.push({ key: 'r_keepDry' });
 if (rule.avoidLight) parts.push({ key: 'r_avoidLight' });
 if (rule.wantsLight) parts.push({ key: 'r_wantsLight' });
@@ -1898,7 +1906,7 @@ const onDominant = dominant === 'right'
 ? lamp.x + lamp.w / 2 > surface.widthCm / 2
 : lamp.x + lamp.w / 2 < surface.widthCm / 2;
 if (!onDominant) {
-out.push({ level: 'ok', text: { key: 'n_lamp', params: { hand: dominant === 'right' ? 'left' : 'right' } } });
+out.push({ level: 'ok', text: { key: 'n_lamp', params: { hand: { key: dominant === 'right' ? 'left' : 'right' } } } });
 }
 }
 if (placed.some((p) => cats[p.category]?.keepDry)) {
@@ -2463,8 +2471,8 @@ airlineId: '',
 plan: null,
 bin: null,
 handDetected: null,
-autoRef: null,
 autoAccepted: false,
+scaleInfo: null,
 };
 const AUTO_SKIP_THRESHOLD = 0.8;
 const autoSkipOn = () => store.getPrefs().autoSkip !== false;
@@ -2523,6 +2531,7 @@ g.items.map((p) => `<option value="${p.id}">${escHtml(tx(p.labelAr))}</option>`)
 $('#spaceType').value = keepType || 'auto';
 updateHints();
 updateSizeMethod();
+renderScaleBanner();
 if (state.profile) renderDetectedSpace();
 if (state.items.length) renderItems();
 if (state.plan) (isBag() ? renderBagResult : renderDeskResult)();
@@ -2541,6 +2550,33 @@ $('#refWrap').classList.toggle('hidden', method !== 'ref');
 $('#knownWrap').classList.toggle('hidden', method !== 'known');
 $('#spanWrap').classList.toggle('hidden', $('#sizeUnit').value !== 'span');
 store.setPrefs({ sizeMethod: method });
+}
+function renderScaleBanner() {
+const el = $('#scaleBanner');
+const info = state.scaleInfo;
+if (!info) { el.className = 'banner'; el.textContent = ''; return; }
+if (info.kind === 'manual') {
+el.className = 'banner warn';
+el.textContent = t('b_manual');
+return;
+}
+if (info.kind === 'known') {
+el.className = 'banner ok';
+el.textContent = t('b_known', { w: info.widthCm, d: info.depthCm });
+return;
+}
+const ref = SCALE_REFERENCES[info.refId];
+const level = t(info.score > 0.75 ? 'conf_high' : info.score > 0.45 ? 'conf_mid' : 'conf_low');
+el.className = `banner ${info.score > 0.45 ? 'ok' : 'warn'}`;
+el.innerHTML = info.kind === 'auto'
+? t('b_scaleAuto', {
+what: escHtml(tx(ref.labelAr)),
+kind: t(ref.approx ? 'refApprox' : 'refExact'),
+level,
+})
+: info.score > 0.45
+? t('b_scaleOk', { what: escHtml(info.whatAr || (ref ? tx(ref.labelAr) : t('scaleRef'))), level })
+: t('b_scaleWarn', { level });
 }
 function readKnownSize() {
 const unit = $('#sizeUnit').value;
@@ -2672,9 +2708,8 @@ const k = known.widthCm / surfBox.w;
 scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
 refBox = surfBox;
 state.userSize = { ...known };
-state.autoRef = null;
-$('#scaleBanner').className = 'banner ok';
-$('#scaleBanner').textContent = t('b_known', { w: known.widthCm, d: known.depthCm });
+state.scaleInfo = { kind: 'known', widthCm: known.widthCm, depthCm: known.depthCm };
+renderScaleBanner();
 } else {
 refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
 let usedRef = ref;
@@ -2684,9 +2719,7 @@ const picked = typeof rid === 'string' && rid !== 'custom' ? SCALE_REFERENCES[ri
 if (!refBox) throw new Error(t('t_autoRefNone'));
 if (!picked) throw new Error(t('t_autoRefUnknown', { what: analysis.scaleReference?.whatAr || '—' }));
 usedRef = picked;
-state.autoRef = picked;
 } else {
-state.autoRef = null;
 if (!refBox) {
 throw new Error(t('t_refNotFound', {
 what: refId === 'custom' ? (customName || t('scaleRef')) : tx(ref.labelAr),
@@ -2704,17 +2737,13 @@ approxRef = !!usedRef.approx;
 state.userSize = null;
 const conf = scaleConfidence(scale, refBox);
 scaleScore = conf.score;
-$('#scaleBanner').className = `banner ${conf.score > 0.45 ? 'ok' : 'warn'}`;
-const level = t(conf.score > 0.75 ? 'conf_high' : conf.score > 0.45 ? 'conf_mid' : 'conf_low');
-$('#scaleBanner').innerHTML = method === 'auto'
-? t('b_scaleAuto', {
-what: escHtml(tx(usedRef.labelAr)),
-kind: t(usedRef.approx ? 'refApprox' : 'refExact'),
-level,
-})
-: conf.score > 0.45
-? t('b_scaleOk', { what: escHtml(analysis.scaleReference.whatAr || tx(ref.labelAr)), level })
-: t('b_scaleWarn', { level });
+state.scaleInfo = {
+kind: method === 'auto' ? 'auto' : 'ref',
+refId: usedRef.id,
+whatAr: analysis.scaleReference.whatAr,
+score: conf.score,
+};
+renderScaleBanner();
 }
 state.scale = scale;
 if (state.userSize) {
@@ -2779,7 +2808,6 @@ function onManual() {
 state.items = [];
 state.scale = null;
 state.handDetected = null;
-state.autoRef = null;
 state.autoAccepted = false;
 const chosen = $('#spaceType').value;
 state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
@@ -2788,8 +2816,8 @@ state.userSize = known && known.widthCm > 0 && known.depthCm > 0 ? known : null;
 applyProfileSize();
 addItem();
 renderDetectedSpace();
-$('#scaleBanner').className = 'banner warn';
-$('#scaleBanner').textContent = t('b_manual');
+state.scaleInfo = { kind: 'manual' };
+renderScaleBanner();
 renderItems();
 showScreen('review');
 }
