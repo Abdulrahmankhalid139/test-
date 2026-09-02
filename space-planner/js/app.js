@@ -30,7 +30,21 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 /* ═══════════ أدوات واجهة ═══════════ */
 function showScreen(name) {
   $$('.screen').forEach((s) => s.classList.toggle('active', s.dataset.screen === name));
+  syncActionBar(name);
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/**
+ * الإجراء الأساسي بيفضل ثابت تحت زي أي تطبيق موبايل، وبيتغير حسب الشاشة:
+ * التصوير → «حلّل» و«أدخل يدوي» · المراجعة → «احسب» · النتيجة → مفيش.
+ */
+function syncActionBar(screen) {
+  const onCapture = screen === 'capture';
+  const onReview = screen === 'review';
+  $('#btnAnalyze').classList.toggle('hidden', !onCapture);
+  $('#btnManual').classList.toggle('hidden', !onCapture);
+  $('#btnPlan').classList.toggle('hidden', !onReview);
+  $('#actionbar').classList.toggle('hidden', !onCapture && !onReview);
 }
 function toast(msg, ms = 3600) {
   const t = $('#toast');
@@ -96,6 +110,7 @@ function init() {
   applyLang();
   $('#dominantHand').value = prefs.dominantHand || 'right';
   setMode('surface');
+  syncActionBar('capture');
   onScaleRefChange();
   renderSaved();
 

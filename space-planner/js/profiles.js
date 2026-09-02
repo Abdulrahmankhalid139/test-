@@ -76,8 +76,10 @@ export const BUILT_IN_PROFILES = {
       other:      { labelAr: { ar: 'حاجة تانية', en: 'Something else' },   zone: 'secondary', side: 'any' },
     },
     tipsAr: [
-      { ar: '      ', en: '      ' },
-      { ar: '      ', en: '      ' },
+      { ar: 'الإضاءة الأحسن للمكياج بتيجي من قدامك على مستوى الوش — مش من فوق، عشان متعملش ضل تحت العين.',
+        en: 'The best make-up light comes from in front at face level, not from above, so it casts no shadow under the eyes.' },
+      { ar: 'البرفانات والسيرومات بتبوظ بسرعة في الشمس والحرارة — خليها في ركن مظلل أو في درج.',
+        en: 'Perfumes and serums spoil fast in sun and heat — keep them in a shaded corner or a drawer.' },
     ],
   },
 
@@ -100,8 +102,10 @@ export const BUILT_IN_PROFILES = {
       other:      { labelAr: { ar: 'حاجة تانية', en: 'Something else' },   zone: 'secondary', side: 'any' },
     },
     tipsAr: [
-      { ar: '      ', en: '      ' },
-      { ar: '      ', en: '      ' },
+      { ar: 'سيب مساحة فاضية قدام تختة التقطيع — دي أهم مساحة في المطبخ وأكتر حاجة بتضيع.',
+        en: 'Keep clear space in front of the chopping board — the most valuable and most often lost space in a kitchen.' },
+      { ar: 'البهارات والزيوت بتبوظ جنب البوتاجاز من الحرارة، حتى لو ده أقرب مكان.',
+        en: 'Spices and oils degrade next to the hob from the heat, even though it is the closest spot.' },
     ],
   },
 
@@ -123,8 +127,10 @@ export const BUILT_IN_PROFILES = {
       other:      { labelAr: { ar: 'حاجة تانية', en: 'Something else' },   zone: 'secondary', side: 'any' },
     },
     tipsAr: [
-      { ar: '      ', en: '      ' },
-      { ar: '      ', en: '      ' },
+      { ar: 'العدة اللي بتستخدمها كل شوية لازم تتمسك من غير ما تبص — ثبّت مكانها ومتغيرهوش.',
+        en: 'Tools you reach for constantly should be findable without looking — fix their place and keep it.' },
+      { ar: 'سيب نص المساحة على الأقل فاضية: الترابيزة المليانة بتوقّف الشغل.',
+        en: 'Keep at least half the bench clear: a full bench stops the work.' },
     ],
   },
 
@@ -144,8 +150,10 @@ export const BUILT_IN_PROFILES = {
       other:      { labelAr: { ar: 'حاجة تانية', en: 'Something else' },   zone: 'secondary', side: 'any' },
     },
     tipsAr: [
-      { ar: '      ', en: '      ' },
-      { ar: '      ', en: '      ' },
+      { ar: 'المية والدوا لازم توصلهم في الضلمة من غير ما تقوم — خليهم في نفس المكان دايماً.',
+        en: 'You must reach water and medicine in the dark without getting up — keep them in the same place always.' },
+      { ar: 'الكومودينو الصغير بيمتلي بسرعة: أي حاجة مش بتستخدمها قبل النوم أو بعد الصحيان مكانها مش هنا.',
+        en: 'A small bedside table fills fast: anything you do not use before sleeping or after waking does not belong here.' },
     ],
   },
 
@@ -166,8 +174,10 @@ export const BUILT_IN_PROFILES = {
       other:      { labelAr: { ar: 'حاجة تانية', en: 'Something else' },   zone: 'secondary', side: 'any' },
     },
     tipsAr: [
-      { ar: '      ', en: '      ' },
-      { ar: '      ', en: '      ' },
+      { ar: 'الموبايل مكانه بعيد عن متناول إيدك عن قصد — لو في متناولك هتمسكه.',
+        en: 'The phone sits out of reach deliberately — within reach, you will pick it up.' },
+      { ar: 'الأباجورة على عكس إيد الكتابة عشان إيدك متعملش ضل على الورقة.',
+        en: 'The lamp goes opposite your writing hand so your hand casts no shadow on the page.' },
     ],
   },
 };

@@ -65,7 +65,7 @@ export function renderDeskPlan(layout) {
   const parts = [];
 
   parts.push(`<rect x="${pad}" y="${pad}" width="${W}" height="${D}" rx="2"
-    fill="var(--surface)" stroke="var(--line)" stroke-width="0.6"/>`);
+    fill="var(--card)" stroke="var(--line)" stroke-width="0.6"/>`);
 
   // أقواس الوصول من مكان قعدتك
   const sx = pad + seatXCm;
@@ -93,7 +93,7 @@ export function renderDeskPlan(layout) {
   }
 
   // علامة مكان قعدتك
-  parts.push(`<path d="M ${sx - 6} ${ty(-2)} a 6 6 0 0 1 12 0" fill="var(--seat)" opacity="0.5"/>`);
+  parts.push(`<path d="M ${sx - 6} ${ty(-2)} a 6 6 0 0 1 12 0" fill="var(--accent)" opacity="0.5"/>`);
   parts.push(`<text x="${sx}" y="${ty(-8)}" font-size="3.6" fill="var(--dim)" text-anchor="middle">انت هنا</text>`);
 
   // مسطرة العرض
@@ -127,7 +127,7 @@ export function renderBagPlan(bin, placed) {
     const vbW = bin.widthCm + pad * 2;
     const vbH = bin.depthCm + pad * 2 + 10;
     const parts = [`<rect x="${pad}" y="${pad}" width="${bin.widthCm}" height="${bin.depthCm}"
-      rx="2" fill="var(--surface)" stroke="var(--line)" stroke-width="0.6"/>`];
+      rx="2" fill="var(--card)" stroke="var(--line)" stroke-width="0.6"/>`];
 
     // الطبقات اللي تحت بتبان باهتة كمرجع
     for (const p of boxed.filter((q) => Math.round(q.box.z) < z)) {
@@ -162,7 +162,7 @@ export function renderBagPlan(bin, placed) {
 
   // منظر جانبي: بيوري التستيف من الجنب
   const sideParts = [`<rect x="${pad}" y="${pad}" width="${bin.widthCm}" height="${bin.heightCm}"
-    rx="2" fill="var(--surface)" stroke="var(--line)" stroke-width="0.6"/>`];
+    rx="2" fill="var(--card)" stroke="var(--line)" stroke-width="0.6"/>`];
   for (const p of boxed) {
     const c = colorFor(p.category);
     const y = pad + bin.heightCm - p.box.z - p.box.h; // بنقلب المحور الرأسي
