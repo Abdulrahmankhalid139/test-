@@ -105,9 +105,14 @@ fragile (قابلة للكسر فبتترص فوق) · compressible (لينة ف
 
 /* ═══════════ ١+٤+٥: الرؤية وتعرّف المساحة وتوليد القواعد ═══════════ */
 
-export async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, sample, lang = 'ar' }) {
+export async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, sample, lang = 'ar', sizeMethod = 'ref' }) {
   const isBag = mode === 'bag';
   const generateProfile = !isBag && !profile;
+  // في وضع «أنا كاتب المقاس» المسطرة هي المساحة نفسها، فالموديل بيدوّر عليها هي.
+  const known = sizeMethod === 'known';
+  const calibLine = known
+    ? `حدد مربع المساحة نفسها (${scaleRefLabel}) بدقة عالية جداً — كل الحسابات معتمدة على المربع ده. وحط في scaleReference نفس المربع.`
+    : `دوّر على مرجع القياس في الصورة: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.`;
 
   let prompt = `انت بتحلل صورة ${isBag ? 'حاجات هتترص في شنطة' : 'مساحة عشان ترتّبها'}.
 رد بـ JSON بس، من غير أي كلام قبله أو بعده.
@@ -123,7 +128,7 @@ export async function analyzeScene({ image, mode, scaleRefLabel, profile, intent
 2) اكتب قواعد ترتيب النوع ده من المساحات: الفئات اللي بتتحط عليه، وكل فئة تروح فين وليه.
    فكّر زي متخصص: إيه اللي لازم يبقى في متناول الإيد، إيه اللي بيبوظ في الشمس، إيه اللي بيسخن، وإيه اللي بيحجب.
 ${RULES_BRIEF}
-3) دوّر على مرجع القياس في الصورة: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.
+3) ${calibLine}
 4) حدد سطح المساحة نفسه بمربع، وقدّر مقاسه الحقيقي.
 5) اعمل ليستة بكل حاجة على السطح.
 6) الشباك أو مصدر الضو فين بالنسبة للشخص؟
@@ -138,18 +143,20 @@ ${RULES_BRIEF}
  "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
   } else if (isBag) {
     prompt += `المطلوب:
-1) دوّر على مرجع القياس: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً.
-2) اعمل ليستة بكل حاجة ظاهرة هتترص. الفئات المسموحة: ${BAG_CATS_LIST.join('، ')}
+1) ${calibLine}
+2) حدد مربع الحاوية نفسها (الشنطة/الدرج/الرف) لو ظاهرة.
+3) اعمل ليستة بكل حاجة ظاهرة هتترص. الفئات المسموحة: ${BAG_CATS_LIST.join('، ')}
 
 الصيغة:
 {"scaleReference":{"found":true,"whatAr":"...","box":[0,0,0,0]},
+ "surface":{"box":[0,0,0,0]},
  "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
   } else {
     const catList = Object.entries(profile.categories).map(([k, v]) => `${k} (${v.labelAr})`).join('، ');
     prompt += `دي صورة ${profile.spaceTypeAr}.
 
 المطلوب:
-1) دوّر على مرجع القياس: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً.
+1) ${calibLine}
 2) حدد سطح المساحة بمربع.
 3) اعمل ليستة بكل حاجة عليه. الفئات المسموحة: ${catList}
 4) الشباك فين بالنسبة للشخص؟

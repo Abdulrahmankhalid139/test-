@@ -209,6 +209,12 @@ select.input{appearance:none;background-image:none;padding-inline-end:13px}
   font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:center;
 }
 .item-dims input:focus{outline:none;border-color:var(--accent);background:var(--card)}
+/* مقاس المساحة أول كارت في المراجعة — بيتميّز عن الحاجات نفسها */
+.space-size{border-color:var(--accent);background:var(--card)}
+.item-dims .wide{flex-basis:100%;align-items:stretch;text-align:start}
+.item-dims .wide select{width:100%;margin-top:3px}
+.item-dims p.wide{flex-basis:100%;margin:2px 0 0;font-size:10.5px}
+.label.sub{font-size:11px;margin-top:8px}
 .item select{
   padding:6px 9px;border:1px solid var(--line);border-radius:7px;
   background:var(--paper);color:var(--dim);font:inherit;font-size:12.5px;

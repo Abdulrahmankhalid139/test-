@@ -178,6 +178,11 @@ background:var(--paper);color:var(--ink);
 font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:center;
 }
 .item-dims input:focus{outline:none;border-color:var(--accent);background:var(--card)}
+.space-size{border-color:var(--accent);background:var(--card)}
+.item-dims .wide{flex-basis:100%;align-items:stretch;text-align:start}
+.item-dims .wide select{width:100%;margin-top:3px}
+.item-dims p.wide{flex-basis:100%;margin:2px 0 0;font-size:10.5px}
+.label.sub{font-size:11px;margin-top:8px}
 .item select{
 padding:6px 9px;border:1px solid var(--line);border-radius:7px;
 background:var(--paper);color:var(--dim);font:inherit;font-size:12.5px;
@@ -358,15 +363,44 @@ font:inherit;font-size:14.5px;font-weight:700;cursor:pointer;transition:.16s;
 
 
     <div class="field">
-      <label class="label"><span class="stepno">2</span> <span data-i18n="step1">مرجع القياس</span></label>
-      <p class="hint" id="scaleHint"></p>
-      <select id="scaleRef" class="input"></select>
-      <div id="customRefWrap" class="hidden">
-        <input id="customRefCm" class="input" type="number" min="1" step="0.1" data-i18n-ph="customRefCm" placeholder="">
+      <label class="label"><span class="stepno">2</span> <span data-i18n="step1">المقاس</span></label>
+      <p class="hint" data-i18n="sizeStepQ"></p>
+      <select id="sizeMethod" class="input">
+        <option value="ref" data-i18n="methodRef"></option>
+        <option value="known" data-i18n="methodKnown"></option>
+      </select>
+      <p class="hint" id="sizeMethodHint"></p>
+
+      <div id="refWrap">
+        <select id="scaleRef" class="input"></select>
+        <p class="hint" id="scaleHint"></p>
+        <div id="customRefWrap" class="row hidden">
+          <input id="customRefName" class="input" type="text" maxlength="40" data-i18n-ph="customRefName" placeholder="">
+          <input id="customRefCm" class="input" type="number" min="0.5" step="0.1" data-i18n-ph="customRefCm" placeholder="">
+        </div>
+      </div>
+
+      <div id="knownWrap" class="hidden">
+        <div class="row">
+          <input id="sizeW" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeW" placeholder="">
+          <input id="sizeD" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeD" placeholder="">
+          <input id="sizeH" class="input hidden" type="number" min="1" step="0.5" data-i18n-ph="sizeH" placeholder="">
+        </div>
+        <select id="sizeUnit" class="input">
+          <option value="cm" data-i18n="unitCm"></option>
+          <option value="span" data-i18n="unitSpan"></option>
+          <option value="inch" data-i18n="unitInch"></option>
+        </select>
+        <div id="spanWrap" class="hidden">
+          <label class="label sub" data-i18n="spanIs"></label>
+          <input id="spanCm" class="input" type="number" min="10" max="35" step="0.5" value="22">
+          <p class="hint" data-i18n="spanHint"></p>
+        </div>
+        <p class="hint" data-i18n="knownHint"></p>
       </div>
     </div>
 
-    <div class="field" id="deskOpts">
+    <div class="field">
       <label class="label"><span class="stepno">3</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
       <select id="spaceType" class="input"></select>
       <p class="hint" id="spaceTypeHint"></p>
@@ -376,17 +410,6 @@ font:inherit;font-size:14.5px;font-weight:700;cursor:pointer;transition:.16s;
         <option value="right" data-i18n="handRight"></option>
         <option value="left" data-i18n="handLeft"></option>
       </select>
-    </div>
-
-    <div class="field hidden" id="bagOpts">
-      <label class="label"><span class="stepno">3</span> <span data-i18n="step2Bag">الشنطة</span></label>
-      <select id="bagPreset" class="input"></select>
-      <div id="customBagWrap" class="row hidden">
-        <input id="bagW" class="input" type="number" data-i18n-ph="bagW" placeholder="">
-        <input id="bagD" class="input" type="number" data-i18n-ph="bagD" placeholder="">
-        <input id="bagH" class="input" type="number" data-i18n-ph="bagH" placeholder="">
-      </div>
-      <p class="hint" data-i18n="airlineWarn"></p>
     </div>
 
     <p class="hint center" data-i18n="privacy"></p>
@@ -479,7 +502,26 @@ dir: 'rtl', langName: 'العربية', switchTo: 'English',
 appName: 'مرتّب المساحة',
 lead: 'مكتب، تسريحة، درج، شنطة، تلاجة... صوّرها والتطبيق يعرف هي إيه ويرتّبها.',
 surfaces: 'حاجات بترتب عليها', containers: 'حاجات بترص جواها',
-step1: 'مرجع القياس', step2: 'المساحة', step2Bag: 'الشنطة', step3: 'الصورة',
+step1: 'المقاس', step2: 'المساحة', step2Bag: 'الشنطة', step3: 'الصورة',
+sizeStepQ: 'نعرف السنتيمترات منين؟',
+methodRef: 'في الصورة حاجة أنا عارف مقاسها',
+methodKnown: 'أنا هكتب مقاس المساحة نفسها',
+methodRefHint: 'التطبيق يلاقي الحاجة دي في الصورة ويقيس عليها كل حاجة تانية.',
+methodKnownHint: 'اكتب مقاس المساحة تقريبي براحتك — التطبيق يعاير الصورة عليه ويقيس اللي فيها.',
+refGroupExact: 'مقاسات قياسية (دقيقة)',
+refGroupCommon: 'حاجات يومية (تقريبية)',
+approxNote: 'المقاس ده تقريبي — النتيجة هتقرب من الحقيقة لكن مش مضمونة بالمليمتر.',
+customRefName: 'الحاجة دي إيه؟',
+sizeW: 'العرض', sizeD: 'العمق', sizeH: 'الارتفاع',
+unitCm: 'بالسنتيمتر', unitSpan: 'بالشبر', unitInch: 'بالبوصة',
+spanIs: 'شبري بيطلع كام سنتيمتر؟',
+spanHint: 'شبر الكبير حوالي 20–23 سم. قيسه مرة بالمسطرة واكتبه هنا.',
+knownHint: 'تقريبي كفاية. تقدر تعدّل الأرقام في الخطوة اللي بعدها.',
+sizeSummary: 'المقاس اللي كتبته: {w}×{d} سم',
+sizeSummary3: 'المقاس اللي كتبته: {w}×{d}×{h} سم',
+spaceSize: 'مقاس المساحة',
+containerSizeHint: 'العرض × العمق × الارتفاع من جوه.',
+airlinePreset: 'مقاس جاهز من شركة طيران',
 scaleHintSurface: 'حط كارت بنك أو ورقة جنب الحاجات — من غيره المقاسات هتبقى تخمين.',
 scaleHintBag: 'حط كارت بنك جنب الحاجات، وافردهم وصوّرهم من فوق.',
 customRefCm: 'العرض الحقيقي بالسنتيمتر',
@@ -575,6 +617,8 @@ t_needSize: 'اكتب مقاس السطح الأول',
 t_needBagSize: 'اكتب مقاس الشنطة',
 t_needItems: 'محتاجين حاجة واحدة على الأقل بمقاسات صحيحة',
 t_needRefCm: 'اكتب عرض مرجع القياس بالسنتيمتر',
+t_needKnownSize: 'اكتب عرض وعمق المساحة الأول',
+t_spaceNotFound: 'مالقيناش المساحة نفسها في الصورة. صوّرها كاملة في الكادر وحاول تاني.',
 t_noAI: 'الميزة دي محتاجة Claude — مش متاحة في العرض ده',
 t_noAIphoto: 'تحليل الصور مش متاح هنا — استخدم «أدخل الحاجات بنفسك»',
 t_noImages: 'العرض ده مش بيسمح ببعت صور — استخدم «أدخل الحاجات بنفسك»',
@@ -595,6 +639,7 @@ t_rewriting: 'بكتب القواعد من تاني...',
 t_drawing: 'برسم صورة «بعد الترتيب»...',
 b_scaleOk: '✅ لقينا مرجع القياس ({what}). دقة القياس: <b>{level}</b>',
 b_scaleWarn: '⚠️ دقة القياس <b>{level}</b> — المرجع صغير أو متصوّر بزاوية مايلة. راجع الأرقام أو صوّر تاني من فوق.',
+b_known: 'المقاس من عندك: {w}×{d} سم — كل حاجة في الصورة اتقاست عليه.',
 b_manual: '✍️ إدخال يدوي — اكتب المقاسات بالمسطرة. الحساب والترتيب هيشتغلوا من غير أي AI.',
 conf_high: 'عالية', conf_mid: 'متوسطة', conf_low: 'منخفضة',
 scaleRef: 'مرجع القياس',
@@ -605,7 +650,26 @@ dir: 'ltr', langName: 'English', switchTo: 'العربية',
 appName: 'Space Planner',
 lead: 'Desk, dresser, drawer, bag, fridge — photograph it and the app works out what it is and arranges it.',
 surfaces: 'Things you arrange on', containers: 'Things you pack into',
-step1: 'Scale reference', step2: 'The space', step2Bag: 'The bag', step3: 'Photo',
+step1: 'Size', step2: 'The space', step2Bag: 'The bag', step3: 'Photo',
+sizeStepQ: 'Where do the centimetres come from?',
+methodRef: 'Something in the photo whose size I know',
+methodKnown: "I'll type the size of the space itself",
+methodRefHint: 'The app finds that object in the photo and measures everything else against it.',
+methodKnownHint: 'Type the size of the space, roughly is fine — the app calibrates the photo from it.',
+refGroupExact: 'Standard sizes (exact)',
+refGroupCommon: 'Everyday objects (approximate)',
+approxNote: 'This size is approximate — the result will be close, but not millimetre-accurate.',
+customRefName: 'What is it?',
+sizeW: 'Width', sizeD: 'Depth', sizeH: 'Height',
+unitCm: 'in centimetres', unitSpan: 'in hand spans', unitInch: 'in inches',
+spanIs: 'How many centimetres is your hand span?',
+spanHint: 'An adult span is about 20–23 cm. Measure it once with a ruler and type it here.',
+knownHint: 'Roughly is enough. You can correct the numbers in the next step.',
+sizeSummary: 'Size you typed: {w}×{d} cm',
+sizeSummary3: 'Size you typed: {w}×{d}×{h} cm',
+spaceSize: 'Space size',
+containerSizeHint: 'Width × depth × height, measured inside.',
+airlinePreset: 'Ready-made airline size',
 scaleHintSurface: 'Put a bank card or sheet of paper next to your things — without one, every measurement is a guess.',
 scaleHintBag: 'Put a bank card next to the items, lay them out, and shoot from above.',
 customRefCm: 'Real width in centimetres',
@@ -701,6 +765,8 @@ t_needSize: 'Enter the surface size first',
 t_needBagSize: 'Enter the bag size',
 t_needItems: 'Need at least one item with valid measurements',
 t_needRefCm: 'Enter the reference width in centimetres',
+t_needKnownSize: 'Type the width and depth of the space first',
+t_spaceNotFound: 'We could not find the space itself in the photo. Fit all of it in frame and try again.',
 t_noAI: 'This feature needs Claude — not available in this view',
 t_noAIphoto: 'Photo analysis is not available here — use "Enter items yourself"',
 t_noImages: 'This view cannot send images — use "Enter items yourself"',
@@ -721,6 +787,7 @@ t_rewriting: 'Rewriting the rules...',
 t_drawing: 'Drawing the "after" image...',
 b_scaleOk: '✅ Scale reference found ({what}). Measurement confidence: <b>{level}</b>',
 b_scaleWarn: '⚠️ Measurement confidence <b>{level}</b> — the reference is small or shot at an angle. Check the numbers, or reshoot from above.',
+b_known: 'Your own measurement: {w}×{d} cm — everything in the photo was measured against it.',
 b_manual: '✍️ Manual entry — measure with a ruler. Layout and plans work with no AI at all.',
 conf_high: 'high', conf_mid: 'medium', conf_low: 'low',
 scaleRef: 'the scale reference',
@@ -762,41 +829,132 @@ const LANGS = Object.keys(STRINGS);
 /* js/geometry.js */
 const SCALE_REFERENCES = {
 card: {
-id: 'card',
-labelAr: 'كارت بنك / بطاقة هوية',
-hintAr: 'أي كارت بمقاس البطاقة البنكية (ISO ID-1)',
-widthCm: 8.56,
-heightCm: 5.398,
+id: 'card', group: 'exact',
+labelAr: { ar: 'كارت بنك / بطاقة هوية', en: 'Bank or ID card' },
+hintAr: { ar: 'أي كارت بمقاس البطاقة البنكية (ISO ID-1)', en: 'Any card in ISO ID-1 format' },
+widthCm: 8.56, heightCm: 5.398,
 },
 a4: {
-id: 'a4',
-labelAr: 'ورقة A4',
-hintAr: 'ورقة الطباعة العادية',
-widthCm: 21.0,
-heightCm: 29.7,
+id: 'a4', group: 'exact',
+labelAr: { ar: 'ورقة A4', en: 'A4 sheet' },
+hintAr: { ar: 'ورقة الطباعة العادية', en: 'Standard printer paper' },
+widthCm: 21.0, heightCm: 29.7,
 },
 a5: {
-id: 'a5',
-labelAr: 'ورقة A5',
-hintAr: 'نص ورقة A4',
-widthCm: 14.8,
-heightCm: 21.0,
+id: 'a5', group: 'exact',
+labelAr: { ar: 'ورقة A5', en: 'A5 sheet' },
+hintAr: { ar: 'نص ورقة A4', en: 'Half an A4' },
+widthCm: 14.8, heightCm: 21.0,
+},
+letter: {
+id: 'letter', group: 'exact',
+labelAr: { ar: 'ورقة Letter (أمريكية)', en: 'US Letter sheet' },
+hintAr: { ar: '8.5×11 بوصة', en: '8.5×11 inches' },
+widthCm: 21.6, heightCm: 27.9,
 },
 ruler30: {
-id: 'ruler30',
-labelAr: 'مسطرة 30 سم',
-hintAr: 'المسطرة المدرسية',
-widthCm: 30.0,
-heightCm: 3.5,
+id: 'ruler30', group: 'exact',
+labelAr: { ar: 'مسطرة 30 سم', en: '30 cm ruler' },
+hintAr: { ar: 'المسطرة المدرسية', en: 'The school ruler' },
+widthCm: 30.0, heightCm: 3.5,
+},
+cd: {
+id: 'cd', group: 'exact',
+labelAr: { ar: 'اسطوانة CD / DVD', en: 'CD or DVD disc' },
+hintAr: { ar: 'قطرها 12 سم بالظبط', en: 'Exactly 12 cm across' },
+widthCm: 12.0, heightCm: 12.0,
+},
+can330: {
+id: 'can330', group: 'exact',
+labelAr: { ar: 'علبة مشروب 330 مل', en: '330 ml drink can' },
+hintAr: { ar: 'العلبة المعدنية العادية', en: 'The standard aluminium can' },
+widthCm: 6.6, heightCm: 11.5,
+},
+phone: {
+id: 'phone', group: 'common', approx: true,
+labelAr: { ar: 'موبايل عادي', en: 'A typical phone' },
+hintAr: { ar: 'حوالي 7 سم عرض — بيختلف من موديل للتاني', en: 'About 7 cm wide — varies by model' },
+widthCm: 7.2, heightCm: 14.8,
+},
+pen: {
+id: 'pen', group: 'common', approx: true,
+labelAr: { ar: 'قلم جاف', en: 'A ballpoint pen' },
+hintAr: { ar: 'حوالي 14.5 سم طول', en: 'About 14.5 cm long' },
+widthCm: 1.1, heightCm: 14.5,
+},
+penHolder: {
+id: 'penHolder', group: 'common', approx: true,
+labelAr: { ar: 'علبة أقلام مكتب', en: 'A desk pen holder' },
+hintAr: { ar: 'الكوباية اللي بتتحط فيها الأقلام والهايلايتر', en: 'The cup that holds pens and highlighters' },
+widthCm: 8.5, heightCm: 10.0,
+},
+mug: {
+id: 'mug', group: 'common', approx: true,
+labelAr: { ar: 'مج قهوة', en: 'A coffee mug' },
+hintAr: { ar: 'حوالي 8 سم قطر', en: 'About 8 cm across' },
+widthCm: 8.2, heightCm: 9.5,
+},
+bottle500: {
+id: 'bottle500', group: 'common', approx: true,
+labelAr: { ar: 'ازازة مية نص لتر', en: 'A 500 ml water bottle' },
+hintAr: { ar: 'حوالي 21 سم طول', en: 'About 21 cm tall' },
+widthCm: 6.5, heightCm: 21.0,
+},
+tissueBox: {
+id: 'tissueBox', group: 'common', approx: true,
+labelAr: { ar: 'علبة مناديل مكعبة', en: 'A cube tissue box' },
+hintAr: { ar: 'حوالي 11 سم ضلع', en: 'About 11 cm a side' },
+widthCm: 11.0, heightCm: 11.0,
+},
+mouse: {
+id: 'mouse', group: 'common', approx: true,
+labelAr: { ar: 'ماوس كمبيوتر', en: 'A computer mouse' },
+hintAr: { ar: 'حوالي 6×11.5 سم', en: 'About 6×11.5 cm' },
+widthCm: 6.2, heightCm: 11.5,
+},
+keyboard: {
+id: 'keyboard', group: 'common', approx: true,
+labelAr: { ar: 'كيبورد عادي', en: 'A full-size keyboard' },
+hintAr: { ar: 'حوالي 44 سم عرض', en: 'About 44 cm wide' },
+widthCm: 44.0, heightCm: 13.0,
+},
+laptop14: {
+id: 'laptop14', group: 'common', approx: true,
+labelAr: { ar: 'لابتوب 14 بوصة', en: 'A 14-inch laptop' },
+hintAr: { ar: 'حوالي 32 سم عرض وهو مقفول', en: 'About 32 cm wide when closed' },
+widthCm: 32.3, heightCm: 22.6,
+},
+hand: {
+id: 'hand', group: 'common', approx: true,
+labelAr: { ar: 'كف إيدك (شبر)', en: 'Your hand span' },
+hintAr: { ar: 'افرد إيدك جنب الحاجات — الشبر حوالي 22 سم', en: 'Spread your hand next to the things — a span is about 22 cm' },
+widthCm: 22.0, heightCm: 9.0,
 },
 custom: {
-id: 'custom',
-labelAr: 'حاجة تانية (أدخل المقاس)',
-hintAr: 'اكتب العرض بالسنتيمتر',
-widthCm: null,
-heightCm: null,
+id: 'custom', group: 'common',
+labelAr: { ar: 'حاجة تانية — أكتب مقاسها', en: 'Something else — I will type its size' },
+hintAr: { ar: 'اكتب اسمها وعرضها بالسنتيمتر', en: 'Type what it is and how wide it is' },
+widthCm: null, heightCm: null,
 },
 };
+function scaleRefGroups() {
+const all = Object.values(SCALE_REFERENCES);
+return [
+{ group: 'refGroupExact', items: all.filter((r) => r.group === 'exact') },
+{ group: 'refGroupCommon', items: all.filter((r) => r.group === 'common') },
+];
+}
+const LENGTH_UNITS = {
+cm: { id: 'cm', cm: 1 },
+span: { id: 'span', cm: 22 },
+inch: { id: 'inch', cm: 2.54 },
+};
+function toCm(value, unit, spanCm = 22) {
+const n = Number(value);
+if (!Number.isFinite(n) || n <= 0) return 0;
+if (unit === 'span') return round1(n * (Number(spanCm) > 0 ? Number(spanCm) : 22));
+return round1(n * (LENGTH_UNITS[unit]?.cm || 1));
+}
 function normalizeBox(box) {
 if (!Array.isArray(box) || box.length !== 4) return null;
 const [ymin, xmin, ymax, xmax] = box.map(Number);
@@ -1943,9 +2101,13 @@ wantsLight (محتاجة ضو) · hot (بتسخن) · screen (شاشة).
 fragile (قابلة للكسر فبتترص فوق) · compressible (لينة فبتتحشر في الفراغات).
 والمناطق والنواحي مش مهمة في الحالة دي.
 `;
-async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, sample, lang = 'ar' }) {
+async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, sample, lang = 'ar', sizeMethod = 'ref' }) {
 const isBag = mode === 'bag';
 const generateProfile = !isBag && !profile;
+const known = sizeMethod === 'known';
+const calibLine = known
+? `حدد مربع المساحة نفسها (${scaleRefLabel}) بدقة عالية جداً — كل الحسابات معتمدة على المربع ده. وحط في scaleReference نفس المربع.`
+: `دوّر على مرجع القياس في الصورة: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.`;
 let prompt = `انت بتحلل صورة ${isBag ? 'حاجات هتترص في شنطة' : 'مساحة عشان ترتّبها'}.
 رد بـ JSON بس، من غير أي كلام قبله أو بعده.
 `;
@@ -1958,7 +2120,7 @@ prompt += `المطلوب:
 2) اكتب قواعد ترتيب النوع ده من المساحات: الفئات اللي بتتحط عليه، وكل فئة تروح فين وليه.
 فكّر زي متخصص: إيه اللي لازم يبقى في متناول الإيد، إيه اللي بيبوظ في الشمس، إيه اللي بيسخن، وإيه اللي بيحجب.
 ${RULES_BRIEF}
-3) دوّر على مرجع القياس في الصورة: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً — كل الحسابات معتمدة عليه.
+3) ${calibLine}
 4) حدد سطح المساحة نفسه بمربع، وقدّر مقاسه الحقيقي.
 5) اعمل ليستة بكل حاجة على السطح.
 6) الشباك أو مصدر الضو فين بالنسبة للشخص؟
@@ -1972,16 +2134,18 @@ ${RULES_BRIEF}
 "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
 } else if (isBag) {
 prompt += `المطلوب:
-1) دوّر على مرجع القياس: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً.
-2) اعمل ليستة بكل حاجة ظاهرة هتترص. الفئات المسموحة: ${BAG_CATS_LIST.join('، ')}
+1) ${calibLine}
+2) حدد مربع الحاوية نفسها (الشنطة/الدرج/الرف) لو ظاهرة.
+3) اعمل ليستة بكل حاجة ظاهرة هتترص. الفئات المسموحة: ${BAG_CATS_LIST.join('، ')}
 الصيغة:
 {"scaleReference":{"found":true,"whatAr":"...","box":[0,0,0,0]},
+"surface":{"box":[0,0,0,0]},
 "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
 } else {
 const catList = Object.entries(profile.categories).map(([k, v]) => `${k} (${v.labelAr})`).join('، ');
 prompt += `دي صورة ${profile.spaceTypeAr}.
 المطلوب:
-1) دوّر على مرجع القياس: ${scaleRefLabel}. حدد مربعه بدقة عالية جداً.
+1) ${calibLine}
 2) حدد سطح المساحة بمربع.
 3) اعمل ليستة بكل حاجة عليه. الفئات المسموحة: ${catList}
 4) الشباك فين بالنسبة للشخص؟
@@ -2090,6 +2254,9 @@ image: null,
 items: [],
 scale: null,
 surface: { widthCm: 140, depthCm: 70, heightCm: 30 },
+userSize: null,
+maxWeightKg: 0,
+airlineId: '',
 plan: null,
 bin: null,
 };
@@ -2128,19 +2295,20 @@ for (const el of $$('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
 for (const el of $$('[data-i18n-ph]')) el.placeholder = t(el.dataset.i18nPh);
 $('#btnLang').textContent = getLang() === 'ar' ? 'EN' : 'ع';
 $('#btnLang').title = t('switchTo');
-$('#scaleRef').innerHTML = Object.values(SCALE_REFERENCES)
-.map((r) => `<option value="${r.id}">${escHtml(r.labelAr)}</option>`).join('');
-$('#scaleRef').value = store.getPrefs().scaleRef || 'card';
-const groups = profileOptions();
+const keepRef = $('#scaleRef').value;
+$('#scaleRef').innerHTML = scaleRefGroups().map((g) => `<optgroup label="${escHtml(t(g.group))}">${
+g.items.map((r) => `<option value="${r.id}">${escHtml(tx(r.labelAr))}</option>`).join('')
+}</optgroup>`).join('');
+$('#scaleRef').value = keepRef || store.getPrefs().scaleRef || 'card';
+const keepType = $('#spaceType').value;
 $('#spaceType').innerHTML =
 `<option value="auto">${escHtml(t('autoDetect'))}</option>` +
-groups.map((g) => `<optgroup label="${escHtml(t(g.group))}">${
+profileOptions().map((g) => `<optgroup label="${escHtml(t(g.group))}">${
 g.items.map((p) => `<option value="${p.id}">${escHtml(tx(p.labelAr))}</option>`).join('')
 }</optgroup>`).join('');
-$('#spaceType').value = store.getPrefs().spaceType || 'auto';
-$('#bagPreset').innerHTML = CABIN_BAGS
-.map((b) => `<option value="${b.id}">${escHtml(b.nameAr)}${b.w ? ` — ${b.w}×${b.d}×${b.h}` : ''}</option>`).join('');
+$('#spaceType').value = keepType || 'auto';
 updateHints();
+updateSizeMethod();
 if (state.profile) renderDetectedSpace();
 if (state.items.length) renderItems();
 if (state.plan) (isBag() ? renderBagResult : renderDeskResult)();
@@ -2149,14 +2317,33 @@ function updateHints() {
 const picked = $('#spaceType').value;
 $('#spaceTypeHint').textContent = t(picked === 'auto' ? 'autoHint' : 'pickedHint');
 const container = picked !== 'auto' && isContainer(getProfile(picked));
-$('#bagOpts').classList.toggle('hidden', !container);
-$('#deskOpts').classList.remove('hidden');
+$('#sizeH').classList.toggle('hidden', !container);
+}
+function updateSizeMethod() {
+const method = $('#sizeMethod').value;
+$('#sizeMethodHint').textContent = t(method === 'ref' ? 'methodRefHint' : 'methodKnownHint');
+$('#refWrap').classList.toggle('hidden', method !== 'ref');
+$('#knownWrap').classList.toggle('hidden', method !== 'known');
+$('#spanWrap').classList.toggle('hidden', $('#sizeUnit').value !== 'span');
+store.setPrefs({ sizeMethod: method });
+}
+function readKnownSize() {
+const unit = $('#sizeUnit').value;
+const span = parseFloat($('#spanCm').value) || 22;
+const w = toCm($('#sizeW').value, unit, span);
+const d = toCm($('#sizeD').value, unit, span);
+const h = toCm($('#sizeH').value, unit, span);
+return { widthCm: w, depthCm: d, heightCm: h };
 }
 function init() {
 initLang();
 const prefs = store.getPrefs();
 applyLang();
 $('#dominantHand').value = prefs.dominantHand || 'right';
+$('#sizeMethod').value = prefs.sizeMethod || 'ref';
+$('#sizeUnit').value = prefs.sizeUnit || 'cm';
+$('#spanCm').value = prefs.spanCm || 22;
+updateSizeMethod();
 syncActionBar('capture');
 onScaleRefChange();
 renderSaved();
@@ -2166,17 +2353,17 @@ applyLang();
 });
 $$('[data-goto]').forEach((b) => b.addEventListener('click', () => showScreen(b.dataset.goto)));
 $('#scaleRef').addEventListener('change', onScaleRefChange);
-$('#bagPreset').addEventListener('change', () => {
-$('#customBagWrap').classList.toggle('hidden', $('#bagPreset').value !== 'custom');
+$('#sizeMethod').addEventListener('change', updateSizeMethod);
+$('#sizeUnit').addEventListener('change', () => {
+store.setPrefs({ sizeUnit: $('#sizeUnit').value });
+updateSizeMethod();
 });
+$('#spanCm').addEventListener('change', () => store.setPrefs({ spanCm: +$('#spanCm').value || 22 }));
 $('#btnPick').addEventListener('click', () => $('#fileInput').click());
 $('#fileInput').addEventListener('change', onFilePicked);
 $('#btnAnalyze').addEventListener('click', onAnalyze);
 $('#btnManual').addEventListener('click', onManual);
-$('#spaceType').addEventListener('change', () => {
-store.setPrefs({ spaceType: $('#spaceType').value });
-updateHints();
-});
+$('#spaceType').addEventListener('change', updateHints);
 $('#btnChangeSpace').addEventListener('click', () => $('#changeSpaceWrap').classList.toggle('hidden'));
 $('#btnAdapt').addEventListener('click', onAdaptProfile);
 $('#btnAsk').addEventListener('click', onAsk);
@@ -2191,9 +2378,11 @@ navigator.serviceWorker.register('sw.js').catch(() => { /* بيشتغل عادي
 }
 }
 function onScaleRefChange() {
-const isCustom = $('#scaleRef').value === 'custom';
-$('#customRefWrap').classList.toggle('hidden', !isCustom);
-store.setPrefs({ scaleRef: $('#scaleRef').value });
+const ref = SCALE_REFERENCES[$('#scaleRef').value] || SCALE_REFERENCES.card;
+$('#customRefWrap').classList.toggle('hidden', ref.id !== 'custom');
+$('#scaleHint').textContent = ref.id === 'custom' ? tx(ref.hintAr)
+: `${tx(ref.hintAr)}${ref.approx ? ' · ' + t('approxNote') : ''}`;
+store.setPrefs({ scaleRef: ref.id });
 }
 async function onFilePicked(e) {
 const file = e.target.files?.[0];
@@ -2213,10 +2402,14 @@ const sample = await aiReady();
 if (!sample) return toast(t('t_noAIphoto'));
 if (!state.image) return toast(t('t_pickPhoto'));
 if (!(await canSendImages(sample))) return toast(t('t_noImages'));
+const method = $('#sizeMethod').value;
 const refId = $('#scaleRef').value;
-const ref = SCALE_REFERENCES[refId];
+const ref = SCALE_REFERENCES[refId] || SCALE_REFERENCES.card;
 const customCm = parseFloat($('#customRefCm').value);
-if (refId === 'custom' && !(customCm > 0)) return toast(t('t_needRefCm'));
+const customName = $('#customRefName').value.trim();
+const known = readKnownSize();
+if (method === 'ref' && refId === 'custom' && !(customCm > 0)) return toast(t('t_needRefCm'));
+if (method === 'known' && !(known.widthCm > 0 && known.depthCm > 0)) return toast(t('t_needKnownSize'));
 store.setPrefs({ dominantHand: $('#dominantHand').value, customRefCm: customCm || 0 });
 loading(true, t('t_analyzing'));
 try {
@@ -2226,11 +2419,16 @@ const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
 const analysis = await analyzeScene({
 image: state.image,
 mode: isBag() ? 'bag' : 'surface',
-scaleRefLabel: refId === 'custom' ? `${customCm} cm wide object` : ref.labelAr,
+scaleRefLabel: method === 'known'
+? `the space itself (${known.widthCm} cm wide)`
+: refId === 'custom'
+? `${customName || 'reference object'} (${customCm} cm wide)`
+: tx(ref.labelAr),
 profile: chosenProfile,
 intent,
 sample,
 lang: getLang(),
+sizeMethod: method,
 });
 if (chosenProfile) {
 state.profile = chosenProfile;
@@ -2241,30 +2439,52 @@ kind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
 } else {
 state.profile = GENERIC_PROFILE;
 }
-const refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
+const surfBox = analysis.surface?.box ? normalizeBox(analysis.surface.box) : null;
+let scale, refBox;
+if (method === 'known') {
+if (!surfBox) throw new Error(t('t_spaceNotFound'));
+const k = known.widthCm / surfBox.w;
+scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
+refBox = surfBox;
+state.userSize = { ...known };
+$('#scaleBanner').className = 'banner ok';
+$('#scaleBanner').textContent = t('b_known', { w: known.widthCm, d: known.depthCm });
+} else {
+refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
 if (!refBox) {
-throw new Error(t('t_refNotFound', { what: refId === 'custom' ? t('scaleRef') : ref.labelAr }));
+throw new Error(t('t_refNotFound', {
+what: refId === 'custom' ? (customName || t('scaleRef')) : tx(ref.labelAr),
+}));
 }
-let scale;
 if (refId === 'custom') {
 const k = customCm / refBox.w;
 scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
 } else {
 scale = computeScale(refBox, ref.widthCm, ref.heightCm);
 }
-state.scale = scale;
+state.userSize = null;
 const conf = scaleConfidence(scale, refBox);
 $('#scaleBanner').className = `banner ${conf.score > 0.45 ? 'ok' : 'warn'}`;
 const level = t(conf.score > 0.75 ? 'conf_high' : conf.score > 0.45 ? 'conf_mid' : 'conf_low');
 $('#scaleBanner').innerHTML = conf.score > 0.45
-? t('b_scaleOk', { what: escHtml(analysis.scaleReference.whatAr || ref.labelAr), level })
+? t('b_scaleOk', { what: escHtml(analysis.scaleReference.whatAr || tx(ref.labelAr)), level })
 : t('b_scaleWarn', { level });
-if (!isBag() && analysis.surface?.box) {
-const sBox = normalizeBox(analysis.surface.box);
-if (sBox) {
-const d = boxToCm(sBox, scale);
-state.surface = { widthCm: clampCm(d.widthCm, 40, 400), depthCm: clampCm(d.depthCm, 30, 200) };
 }
+state.scale = scale;
+if (state.userSize) {
+const def = state.profile?.defaultSizeCm || {};
+state.surface = {
+widthCm: known.widthCm,
+depthCm: known.depthCm,
+heightCm: known.heightCm || def.height || 30,
+};
+} else if (surfBox && !isBag()) {
+const d = boxToCm(surfBox, scale);
+state.surface = {
+widthCm: clampCm(d.widthCm, 40, 400),
+depthCm: clampCm(d.depthCm, 30, 200),
+heightCm: state.profile?.defaultSizeCm?.height || 30,
+};
 } else {
 applyProfileSize();
 }
@@ -2300,6 +2520,8 @@ state.items = [];
 state.scale = null;
 const chosen = $('#spaceType').value;
 state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
+const known = $('#sizeMethod').value === 'known' ? readKnownSize() : null;
+state.userSize = known && known.widthCm > 0 && known.depthCm > 0 ? known : null;
 applyProfileSize();
 addItem();
 renderDetectedSpace();
@@ -2320,18 +2542,29 @@ frequency: 'medium', fragile: false, confidence: 1,
 function renderItems() {
 const cats = state.profile?.categories || GENERIC_PROFILE.categories;
 const catOptions = Object.entries(cats).map(([k, v]) => [k, tx(v.labelAr)]);
-const surfaceEditor = !isBag() ? `
-<div class="item">
+const bag = isBag();
+const airline = bag && state.profile?.usesAirlinePresets ? `
+<label class="wide">${escHtml(t('airlinePreset'))}
+<select data-airline>
+<option value="">—</option>
+${CABIN_BAGS.filter((b) => b.w).map((b) => `<option value="${b.id}" ${state.airlineId === b.id ? 'selected' : ''}>${escHtml(b.nameAr)} — ${b.w}×${b.d}×${b.h}</option>`).join('')}
+</select>
+</label>
+<p class="hint wide">${escHtml(t('airlineWarn'))}</p>` : '';
+const spaceEditor = `
+<div class="item space-size">
 <div>
-<strong>${escHtml(t('surfaceSize'))}</strong>
-<p class="hint">${escHtml(t('surfaceSizeHint'))}</p>
+<strong>${escHtml(bag ? t('spaceSize') : t('surfaceSize'))}</strong>
+<p class="hint">${escHtml(bag ? t('containerSizeHint') : t('surfaceSizeHint'))}</p>
 <div class="item-dims">
-<label>${escHtml(t('width'))}<input type="number" data-surface="widthCm" value="${state.surface.widthCm}" step="1"></label>
-<label>${escHtml(t('depth'))}<input type="number" data-surface="depthCm" value="${state.surface.depthCm}" step="1"></label>
+<label>${escHtml(t('width'))}<input type="number" data-surface="widthCm" value="${state.surface.widthCm}" step="1" min="1"></label>
+<label>${escHtml(t('depth'))}<input type="number" data-surface="depthCm" value="${state.surface.depthCm}" step="1" min="1"></label>
+${bag ? `<label>${escHtml(t('height'))}<input type="number" data-surface="heightCm" value="${state.surface.heightCm || 30}" step="1" min="1"></label>` : ''}
+${airline}
 </div>
 </div>
-</div>` : '';
-$('#itemsList').innerHTML = surfaceEditor + state.items.map((it) => `
+</div>`;
+$('#itemsList').innerHTML = spaceEditor + state.items.map((it) => `
 <div class="item ${it.confidence < 0.5 ? 'conf-low' : ''}" data-id="${it.id}">
 <div>
 <input class="item-name" data-f="nameAr" value="${escHtml(it.nameAr)}" aria-label="${escHtml(t('itemName'))}">
@@ -2352,13 +2585,27 @@ ${Object.entries(FREQ_KEYS).map(([k, key]) => `<option value="${k}" ${it.frequen
 </div>`).join('');
 $('#itemsList').oninput = (e) => {
 const surfaceField = e.target.dataset.surface;
-if (surfaceField) { state.surface[surfaceField] = Number(e.target.value) || 0; return; }
+if (surfaceField) {
+state.surface[surfaceField] = Number(e.target.value) || 0;
+state.userSize = { ...state.surface };
+return;
+}
 const row = e.target.closest('[data-id]');
 const f = e.target.dataset.f;
 if (!row || !f) return;
 const it = state.items.find((x) => x.id === row.dataset.id);
 if (!it) return;
 it[f] = ['widthCm', 'depthCm', 'heightCm'].includes(f) ? Number(e.target.value) || 0 : e.target.value;
+};
+$('#itemsList').onchange = (e) => {
+if (e.target.dataset.airline === undefined) return;
+const b = CABIN_BAGS.find((x) => x.id === e.target.value);
+if (!b?.w) return;
+state.surface = { widthCm: b.w, depthCm: b.d, heightCm: b.h };
+state.userSize = { ...state.surface };
+state.maxWeightKg = b.kg || 0;
+state.airlineId = b.id;
+renderItems();
 };
 $('#itemsList').onclick = (e) => {
 const id = e.target.dataset.del;
@@ -2407,16 +2654,12 @@ windowSide: prefs.windowSide || 'none',
 });
 renderDeskResult();
 } else {
-const preset = state.profile.usesAirlinePresets ? CABIN_BAGS.find((b) => b.id === $('#bagPreset').value) : null;
-const custom = { widthCm: +$('#bagW').value, depthCm: +$('#bagD').value, heightCm: +$('#bagH').value };
 const def = state.profile.defaultSizeCm || {};
-const bin = preset && preset.id !== 'custom'
-? { widthCm: preset.w, depthCm: preset.d, heightCm: preset.h, maxWeightKg: preset.kg }
-: {
-widthCm: custom.widthCm || def.width,
-depthCm: custom.depthCm || def.depth,
-heightCm: custom.heightCm || def.height,
-maxWeightKg: 0,
+const bin = {
+widthCm: state.surface.widthCm || def.width,
+depthCm: state.surface.depthCm || def.depth,
+heightCm: state.surface.heightCm || def.height,
+maxWeightKg: state.maxWeightKg || 0,
 };
 if (!(bin.widthCm > 0 && bin.depthCm > 0 && bin.heightCm > 0)) return toast(t('t_needBagSize'));
 state.bin = bin;
@@ -2537,12 +2780,13 @@ showScreen('review');
 }
 function applyProfileSize() {
 const size = state.profile?.defaultSizeCm;
-if (size?.width > 0 && size?.depth > 0) {
-state.surface = { widthCm: size.width, depthCm: size.depth, heightCm: size.height || 30 };
-if (isBag()) {
-$('#bagW').value = size.width; $('#bagD').value = size.depth; $('#bagH').value = size.height || 30;
-}
-}
+if (!(size?.width > 0 && size?.depth > 0)) return;
+const u = state.userSize;
+state.surface = {
+widthCm: u?.widthCm > 0 ? u.widthCm : size.width,
+depthCm: u?.depthCm > 0 ? u.depthCm : size.depth,
+heightCm: u?.heightCm > 0 ? u.heightCm : (size.height || 30),
+};
 }
 function renderDetectedSpace() {
 const box = $('#detectedSpace');

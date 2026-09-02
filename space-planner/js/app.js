@@ -1,7 +1,7 @@
 /**
  * app.js — الربط بين الكاميرا، الذكاء، الحساب، والرسم.
  */
-import { SCALE_REFERENCES, normalizeBox, computeScale, boxToCm, perspectiveCorrect, scaleConfidence, round1 } from './geometry.js';
+import { SCALE_REFERENCES, scaleRefGroups, toCm, normalizeBox, computeScale, boxToCm, perspectiveCorrect, scaleConfidence, round1 } from './geometry.js';
 import { pack3D, packingOrder } from './packing.js';
 import { layoutSurface } from './surface.js';
 import { renderDeskPlan, renderBagPlan, renderLegend } from './render.js';
@@ -21,6 +21,11 @@ const state = {
   items: [],
   scale: null,
   surface: { widthCm: 140, depthCm: 70, heightCm: 30 },
+  // المقاس اللي المستخدم كتبه بنفسه — بيغلب أي تقدير من الصورة أو من البروفايل
+  userSize: null,
+  // حد الوزن بييجي من مقاس شركة الطيران لو اتختار
+  maxWeightKg: 0,
+  airlineId: '',
   plan: null,
   bin: null,
 };
@@ -72,20 +77,23 @@ function applyLang() {
   $('#btnLang').textContent = getLang() === 'ar' ? 'EN' : 'ع';
   $('#btnLang').title = t('switchTo');
 
-  // القوايم بتتبني من بيانات، فبتتعاد
-  $('#scaleRef').innerHTML = Object.values(SCALE_REFERENCES)
-    .map((r) => `<option value="${r.id}">${esc(r.labelAr)}</option>`).join('');
-  $('#scaleRef').value = store.getPrefs().scaleRef || 'card';
-  const groups = profileOptions();
+  // القوايم بتتبني من بيانات، فبتتعاد — والاختيار الحالي بيرجع مكانه
+  const keepRef = $('#scaleRef').value;
+  $('#scaleRef').innerHTML = scaleRefGroups().map((g) => `<optgroup label="${esc(t(g.group))}">${
+    g.items.map((r) => `<option value="${r.id}">${esc(tx(r.labelAr))}</option>`).join('')
+  }</optgroup>`).join('');
+  $('#scaleRef').value = keepRef || store.getPrefs().scaleRef || 'card';
+
+  // نوع المساحة بيبدأ دايماً «اكتشف تلقائياً» — مش بيتخزن من مرة للتانية
+  const keepType = $('#spaceType').value;
   $('#spaceType').innerHTML =
     `<option value="auto">${esc(t('autoDetect'))}</option>` +
-    groups.map((g) => `<optgroup label="${esc(t(g.group))}">${
+    profileOptions().map((g) => `<optgroup label="${esc(t(g.group))}">${
       g.items.map((p) => `<option value="${p.id}">${esc(tx(p.labelAr))}</option>`).join('')
     }</optgroup>`).join('');
-  $('#spaceType').value = store.getPrefs().spaceType || 'auto';
-  $('#bagPreset').innerHTML = CABIN_BAGS
-    .map((b) => `<option value="${b.id}">${esc(b.nameAr)}${b.w ? ` — ${b.w}×${b.d}×${b.h}` : ''}</option>`).join('');
+  $('#spaceType').value = keepType || 'auto';
   updateHints();
+  updateSizeMethod();
 
   // اللي معروض دلوقتي يتعاد رسمه باللغة الجديدة
   if (state.profile) renderDetectedSpace();
@@ -96,10 +104,30 @@ function applyLang() {
 function updateHints() {
   const picked = $('#spaceType').value;
   $('#spaceTypeHint').textContent = t(picked === 'auto' ? 'autoHint' : 'pickedHint');
-  // مقاسات الحاوية محتاجة ارتفاع كمان
+  // الارتفاع بيتسأل عنه بس لو المستخدم قال بنفسه إن دي حاجة بترص جواها.
+  // قبل ما نشوف الصورة مفيش حاجة اسمها «شنطة» — فمفيش مقاسات طيران هنا.
   const container = picked !== 'auto' && isContainer(getProfile(picked));
-  $('#bagOpts').classList.toggle('hidden', !container);
-  $('#deskOpts').classList.remove('hidden');
+  $('#sizeH').classList.toggle('hidden', !container);
+}
+
+/** طريقتين للمقاس: حاجة معروفة في الصورة، أو مقاس المساحة نفسها. */
+function updateSizeMethod() {
+  const method = $('#sizeMethod').value;
+  $('#sizeMethodHint').textContent = t(method === 'ref' ? 'methodRefHint' : 'methodKnownHint');
+  $('#refWrap').classList.toggle('hidden', method !== 'ref');
+  $('#knownWrap').classList.toggle('hidden', method !== 'known');
+  $('#spanWrap').classList.toggle('hidden', $('#sizeUnit').value !== 'span');
+  store.setPrefs({ sizeMethod: method });
+}
+
+/** بيقرا المقاس اللي المستخدم كتبه ويحوّله لسنتيمترات مهما كانت وحدته. */
+function readKnownSize() {
+  const unit = $('#sizeUnit').value;
+  const span = parseFloat($('#spanCm').value) || 22;
+  const w = toCm($('#sizeW').value, unit, span);
+  const d = toCm($('#sizeD').value, unit, span);
+  const h = toCm($('#sizeH').value, unit, span);
+  return { widthCm: w, depthCm: d, heightCm: h };
 }
 
 /* ═══════════ التهيئة ═══════════ */
@@ -108,6 +136,10 @@ function init() {
   const prefs = store.getPrefs();
   applyLang();
   $('#dominantHand').value = prefs.dominantHand || 'right';
+  $('#sizeMethod').value = prefs.sizeMethod || 'ref';
+  $('#sizeUnit').value = prefs.sizeUnit || 'cm';
+  $('#spanCm').value = prefs.spanCm || 22;
+  updateSizeMethod();
   syncActionBar('capture');
   onScaleRefChange();
   renderSaved();
@@ -119,17 +151,17 @@ function init() {
 
   $$('[data-goto]').forEach((b) => b.addEventListener('click', () => showScreen(b.dataset.goto)));
   $('#scaleRef').addEventListener('change', onScaleRefChange);
-  $('#bagPreset').addEventListener('change', () => {
-    $('#customBagWrap').classList.toggle('hidden', $('#bagPreset').value !== 'custom');
+  $('#sizeMethod').addEventListener('change', updateSizeMethod);
+  $('#sizeUnit').addEventListener('change', () => {
+    store.setPrefs({ sizeUnit: $('#sizeUnit').value });
+    updateSizeMethod();
   });
+  $('#spanCm').addEventListener('change', () => store.setPrefs({ spanCm: +$('#spanCm').value || 22 }));
   $('#btnPick').addEventListener('click', () => $('#fileInput').click());
   $('#fileInput').addEventListener('change', onFilePicked);
   $('#btnAnalyze').addEventListener('click', onAnalyze);
   $('#btnManual').addEventListener('click', onManual);
-  $('#spaceType').addEventListener('change', () => {
-    store.setPrefs({ spaceType: $('#spaceType').value });
-    updateHints();
-  });
+  $('#spaceType').addEventListener('change', updateHints);
   $('#btnChangeSpace').addEventListener('click', () => $('#changeSpaceWrap').classList.toggle('hidden'));
   $('#btnAdapt').addEventListener('click', onAdaptProfile);
   $('#btnAsk').addEventListener('click', onAsk);
@@ -147,9 +179,12 @@ function init() {
 }
 
 function onScaleRefChange() {
-  const isCustom = $('#scaleRef').value === 'custom';
-  $('#customRefWrap').classList.toggle('hidden', !isCustom);
-  store.setPrefs({ scaleRef: $('#scaleRef').value });
+  const ref = SCALE_REFERENCES[$('#scaleRef').value] || SCALE_REFERENCES.card;
+  $('#customRefWrap').classList.toggle('hidden', ref.id !== 'custom');
+  // بنقول للمستخدم إن المرجع ده تقريبي بدل ما ندّعي دقة مش موجودة
+  $('#scaleHint').textContent = ref.id === 'custom' ? tx(ref.hintAr)
+    : `${tx(ref.hintAr)}${ref.approx ? ' · ' + t('approxNote') : ''}`;
+  store.setPrefs({ scaleRef: ref.id });
 }
 
 /* ═══════════ الصورة ═══════════ */
@@ -174,10 +209,15 @@ async function onAnalyze() {
   if (!state.image) return toast(t('t_pickPhoto'));
   if (!(await canSendImages(sample))) return toast(t('t_noImages'));
 
+  const method = $('#sizeMethod').value;
   const refId = $('#scaleRef').value;
-  const ref = SCALE_REFERENCES[refId];
+  const ref = SCALE_REFERENCES[refId] || SCALE_REFERENCES.card;
   const customCm = parseFloat($('#customRefCm').value);
-  if (refId === 'custom' && !(customCm > 0)) return toast(t('t_needRefCm'));
+  const customName = $('#customRefName').value.trim();
+  const known = readKnownSize();
+
+  if (method === 'ref' && refId === 'custom' && !(customCm > 0)) return toast(t('t_needRefCm'));
+  if (method === 'known' && !(known.widthCm > 0 && known.depthCm > 0)) return toast(t('t_needKnownSize'));
 
   store.setPrefs({ dominantHand: $('#dominantHand').value, customRefCm: customCm || 0 });
 
@@ -191,11 +231,16 @@ async function onAnalyze() {
     const analysis = await analyzeScene({
       image: state.image,
       mode: isBag() ? 'bag' : 'surface',
-      scaleRefLabel: refId === 'custom' ? `${customCm} cm wide object` : ref.labelAr,
+      scaleRefLabel: method === 'known'
+        ? `the space itself (${known.widthCm} cm wide)`
+        : refId === 'custom'
+          ? `${customName || 'reference object'} (${customCm} cm wide)`
+          : tx(ref.labelAr),
       profile: chosenProfile,
       intent,
       sample,
       lang: getLang(),
+      sizeMethod: method,
     });
 
     // البروفايل المولّد بيتفلتر قبل ما يوصل للخوارزمية.
@@ -210,35 +255,59 @@ async function onAnalyze() {
       state.profile = GENERIC_PROFILE;
     }
 
-    const refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
-    if (!refBox) {
-      throw new Error(t('t_refNotFound', { what: refId === 'custom' ? t('scaleRef') : ref.labelAr }));
-    }
+    // نقطة المعايرة: يا حاجة معروفة في الصورة، يا المساحة نفسها اللي المستخدم قاسها.
+    // في الحالتين الرياضة واحدة — اللي بيختلف هو مين المسطرة.
+    const surfBox = analysis.surface?.box ? normalizeBox(analysis.surface.box) : null;
+    let scale, refBox;
 
-    // من غير مرجع، المقاسات تخمين. مع المرجع، دي رياضة.
-    let scale;
-    if (refId === 'custom') {
-      const k = customCm / refBox.w;
+    if (method === 'known') {
+      if (!surfBox) throw new Error(t('t_spaceNotFound'));
+      // العرض بس — العمق في الصورة مايل فما ينفعش يعاير عليه
+      const k = known.widthCm / surfBox.w;
       scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
+      refBox = surfBox;
+      state.userSize = { ...known };
+      $('#scaleBanner').className = 'banner ok';
+      $('#scaleBanner').textContent = t('b_known', { w: known.widthCm, d: known.depthCm });
     } else {
-      scale = computeScale(refBox, ref.widthCm, ref.heightCm);
+      refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
+      if (!refBox) {
+        throw new Error(t('t_refNotFound', {
+          what: refId === 'custom' ? (customName || t('scaleRef')) : tx(ref.labelAr),
+        }));
+      }
+      if (refId === 'custom') {
+        const k = customCm / refBox.w;
+        scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
+      } else {
+        scale = computeScale(refBox, ref.widthCm, ref.heightCm);
+      }
+      state.userSize = null;
+
+      const conf = scaleConfidence(scale, refBox);
+      $('#scaleBanner').className = `banner ${conf.score > 0.45 ? 'ok' : 'warn'}`;
+      const level = t(conf.score > 0.75 ? 'conf_high' : conf.score > 0.45 ? 'conf_mid' : 'conf_low');
+      $('#scaleBanner').innerHTML = conf.score > 0.45
+        ? t('b_scaleOk', { what: esc(analysis.scaleReference.whatAr || tx(ref.labelAr)), level })
+        : t('b_scaleWarn', { level });
     }
     state.scale = scale;
 
-    const conf = scaleConfidence(scale, refBox);
-    $('#scaleBanner').className = `banner ${conf.score > 0.45 ? 'ok' : 'warn'}`;
-    const level = t(conf.score > 0.75 ? 'conf_high' : conf.score > 0.45 ? 'conf_mid' : 'conf_low');
-    $('#scaleBanner').innerHTML = conf.score > 0.45
-      ? t('b_scaleOk', { what: esc(analysis.scaleReference.whatAr || ref.labelAr), level })
-      : t('b_scaleWarn', { level });
-
-    // سطح الشغل
-    if (!isBag() && analysis.surface?.box) {
-      const sBox = normalizeBox(analysis.surface.box);
-      if (sBox) {
-        const d = boxToCm(sBox, scale);
-        state.surface = { widthCm: clampCm(d.widthCm, 40, 400), depthCm: clampCm(d.depthCm, 30, 200) };
-      }
+    // مقاس المساحة: اللي المستخدم كتبه بيغلب أي تقدير من الصورة
+    if (state.userSize) {
+      const def = state.profile?.defaultSizeCm || {};
+      state.surface = {
+        widthCm: known.widthCm,
+        depthCm: known.depthCm,
+        heightCm: known.heightCm || def.height || 30,
+      };
+    } else if (surfBox && !isBag()) {
+      const d = boxToCm(surfBox, scale);
+      state.surface = {
+        widthCm: clampCm(d.widthCm, 40, 400),
+        depthCm: clampCm(d.depthCm, 30, 200),
+        heightCm: state.profile?.defaultSizeCm?.height || 30,
+      };
     } else {
       applyProfileSize();
     }
@@ -280,6 +349,9 @@ function onManual() {
   state.scale = null;
   const chosen = $('#spaceType').value;
   state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
+  // لو كتب المقاس في خطوة المقاس، منستهبلش ونرجّعه للمقاس النموذجي
+  const known = $('#sizeMethod').value === 'known' ? readKnownSize() : null;
+  state.userSize = known && known.widthCm > 0 && known.depthCm > 0 ? known : null;
   applyProfileSize();
   addItem();
   renderDetectedSpace();
@@ -305,19 +377,33 @@ function renderItems() {
   const cats = state.profile?.categories || GENERIC_PROFILE.categories;
   const catOptions = Object.entries(cats).map(([k, v]) => [k, tx(v.labelAr)]);
 
-  const surfaceEditor = !isBag() ? `
-    <div class="item">
+  // مقاس المساحة بيتعرض هنا بس — بعد ما التطبيق عرف هي إيه فعلاً.
+  // الحاويات محتاجة ارتفاع كمان، وشنطة السفر بس هي اللي بتشوف مقاسات الطيران.
+  const bag = isBag();
+  const airline = bag && state.profile?.usesAirlinePresets ? `
+        <label class="wide">${esc(t('airlinePreset'))}
+          <select data-airline>
+            <option value="">—</option>
+            ${CABIN_BAGS.filter((b) => b.w).map((b) => `<option value="${b.id}" ${state.airlineId === b.id ? 'selected' : ''}>${esc(b.nameAr)} — ${b.w}×${b.d}×${b.h}</option>`).join('')}
+          </select>
+        </label>
+        <p class="hint wide">${esc(t('airlineWarn'))}</p>` : '';
+
+  const spaceEditor = `
+    <div class="item space-size">
       <div>
-        <strong>${esc(t('surfaceSize'))}</strong>
-        <p class="hint">${esc(t('surfaceSizeHint'))}</p>
+        <strong>${esc(bag ? t('spaceSize') : t('surfaceSize'))}</strong>
+        <p class="hint">${esc(bag ? t('containerSizeHint') : t('surfaceSizeHint'))}</p>
         <div class="item-dims">
-          <label>${esc(t('width'))}<input type="number" data-surface="widthCm" value="${state.surface.widthCm}" step="1"></label>
-          <label>${esc(t('depth'))}<input type="number" data-surface="depthCm" value="${state.surface.depthCm}" step="1"></label>
+          <label>${esc(t('width'))}<input type="number" data-surface="widthCm" value="${state.surface.widthCm}" step="1" min="1"></label>
+          <label>${esc(t('depth'))}<input type="number" data-surface="depthCm" value="${state.surface.depthCm}" step="1" min="1"></label>
+          ${bag ? `<label>${esc(t('height'))}<input type="number" data-surface="heightCm" value="${state.surface.heightCm || 30}" step="1" min="1"></label>` : ''}
+          ${airline}
         </div>
       </div>
-    </div>` : '';
+    </div>`;
 
-  $('#itemsList').innerHTML = surfaceEditor + state.items.map((it) => `
+  $('#itemsList').innerHTML = spaceEditor + state.items.map((it) => `
     <div class="item ${it.confidence < 0.5 ? 'conf-low' : ''}" data-id="${it.id}">
       <div>
         <input class="item-name" data-f="nameAr" value="${esc(it.nameAr)}" aria-label="${esc(t('itemName'))}">
@@ -339,13 +425,27 @@ function renderItems() {
 
   $('#itemsList').oninput = (e) => {
     const surfaceField = e.target.dataset.surface;
-    if (surfaceField) { state.surface[surfaceField] = Number(e.target.value) || 0; return; }
+    if (surfaceField) {
+      state.surface[surfaceField] = Number(e.target.value) || 0;
+      state.userSize = { ...state.surface };
+      return;
+    }
     const row = e.target.closest('[data-id]');
     const f = e.target.dataset.f;
     if (!row || !f) return;
     const it = state.items.find((x) => x.id === row.dataset.id);
     if (!it) return;
     it[f] = ['widthCm', 'depthCm', 'heightCm'].includes(f) ? Number(e.target.value) || 0 : e.target.value;
+  };
+  $('#itemsList').onchange = (e) => {
+    if (e.target.dataset.airline === undefined) return;
+    const b = CABIN_BAGS.find((x) => x.id === e.target.value);
+    if (!b?.w) return;
+    state.surface = { widthCm: b.w, depthCm: b.d, heightCm: b.h };
+    state.userSize = { ...state.surface };
+    state.maxWeightKg = b.kg || 0;
+    state.airlineId = b.id;
+    renderItems();
   };
   $('#itemsList').onclick = (e) => {
     const id = e.target.dataset.del;
@@ -409,18 +509,14 @@ async function onPlan() {
     });
     renderDeskResult();
   } else {
-    // مقاس الحاوية: من قائمة الطيران لو شنطة سفر، وإلا من البروفايل أو من المستخدم
-    const preset = state.profile.usesAirlinePresets ? CABIN_BAGS.find((b) => b.id === $('#bagPreset').value) : null;
-    const custom = { widthCm: +$('#bagW').value, depthCm: +$('#bagD').value, heightCm: +$('#bagH').value };
+    // مقاس الحاوية بيتقرا من نفس المكان اللي السطح بياخد منه — محرر المراجعة
     const def = state.profile.defaultSizeCm || {};
-    const bin = preset && preset.id !== 'custom'
-      ? { widthCm: preset.w, depthCm: preset.d, heightCm: preset.h, maxWeightKg: preset.kg }
-      : {
-          widthCm: custom.widthCm || def.width,
-          depthCm: custom.depthCm || def.depth,
-          heightCm: custom.heightCm || def.height,
-          maxWeightKg: 0,
-        };
+    const bin = {
+      widthCm: state.surface.widthCm || def.width,
+      depthCm: state.surface.depthCm || def.depth,
+      heightCm: state.surface.heightCm || def.height,
+      maxWeightKg: state.maxWeightKg || 0,
+    };
     if (!(bin.widthCm > 0 && bin.depthCm > 0 && bin.heightCm > 0)) return toast(t('t_needBagSize'));
     state.bin = bin;
 
@@ -555,12 +651,13 @@ function renderSaved() {
 /** كل مساحة ليها مقاس نموذجي مختلف — التسريحة مش بمقاس المكتب. */
 function applyProfileSize() {
   const size = state.profile?.defaultSizeCm;
-  if (size?.width > 0 && size?.depth > 0) {
-    state.surface = { widthCm: size.width, depthCm: size.depth, heightCm: size.height || 30 };
-    if (isBag()) {
-      $('#bagW').value = size.width; $('#bagD').value = size.depth; $('#bagH').value = size.height || 30;
-    }
-  }
+  if (!(size?.width > 0 && size?.depth > 0)) return;
+  const u = state.userSize;
+  state.surface = {
+    widthCm: u?.widthCm > 0 ? u.widthCm : size.width,
+    depthCm: u?.depthCm > 0 ? u.depthCm : size.depth,
+    heightCm: u?.heightCm > 0 ? u.heightCm : (size.height || 30),
+  };
 }
 
 /** بيعرض نوع المساحة والقواعد اللي هتتنفّذ — عشان تشوفها قبل الحساب. */
