@@ -9,8 +9,9 @@ import { aiReady, canSendImages, analyzeScene, adaptProfile, explainPlan, askAbo
 import { BUILT_IN_PROFILES, GENERIC_PROFILE, normalizeProfile, profileOptions, getProfile, ZONES } from './profiles.js';
 import { CABIN_BAGS, BAG_CATEGORIES } from '../data/bags.js';
 import { store } from './store.js';
+import { t, tx, tr, getLang, setLang, initLang } from './i18n.js';
 
-const FREQ_LABELS = { high:'بستخدمها كتير', medium:'أحياناً', low:'نادراً' };
+const FREQ_KEYS = { high: 'freqHigh', medium: 'freqMedium', low: 'freqLow' };
 
 const state = {
   mode: 'surface',
@@ -38,40 +39,73 @@ function toast(msg, ms = 3600) {
   clearTimeout(toast._t);
   toast._t = setTimeout(() => t.classList.add('hidden'), ms);
 }
-function loading(on, text = 'بحلل...') {
+function loading(on, text = '') {
   $('#loaderText').textContent = text;
   $('#loader').classList.toggle('hidden', !on);
 }
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
+/** بيمشي على كل عنصر موسوم ويحط النص باللغة الحالية. */
+function applyLang() {
+  document.title = t('appName');
+  for (const el of $$('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  for (const el of $$('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
+  for (const el of $$('[data-i18n-ph]')) el.placeholder = t(el.dataset.i18nPh);
+  $('#btnLang').textContent = getLang() === 'ar' ? 'EN' : 'ع';
+  $('#btnLang').title = t('switchTo');
+
+  // القوايم بتتبني من بيانات، فبتتعاد
+  $('#scaleRef').innerHTML = Object.values(SCALE_REFERENCES)
+    .map((r) => `<option value="${r.id}">${esc(r.labelAr)}</option>`).join('');
+  $('#scaleRef').value = store.getPrefs().scaleRef || 'card';
+  $('#spaceType').innerHTML =
+    `<option value="auto">${esc(t('autoDetect'))}</option>` +
+    profileOptions().map((p) => `<option value="${p.id}">${esc(tx(p.labelAr))}</option>`).join('');
+  $('#spaceType').value = store.getPrefs().spaceType || 'auto';
+  $('#bagPreset').innerHTML = CABIN_BAGS
+    .map((b) => `<option value="${b.id}">${esc(b.nameAr)}${b.w ? ` — ${b.w}×${b.d}×${b.h}` : ''}</option>`).join('');
+  updateHints();
+
+  // اللي معروض دلوقتي يتعاد رسمه باللغة الجديدة
+  if (state.profile) renderDetectedSpace();
+  if (state.items.length) renderItems();
+  if (state.plan) (state.mode === 'surface' ? renderDeskResult : renderBagResult)();
+}
+
+function updateHints() {
+  $('#scaleHint').textContent = t(state.mode === 'surface' ? 'scaleHintSurface' : 'scaleHintBag');
+  $('#spaceTypeHint').textContent = t($('#spaceType').value === 'auto' ? 'autoHint' : 'pickedHint');
+}
+
+function setMode(mode) {
+  state.mode = mode;
+  for (const tab of $$('.tab')) {
+    const on = tab.dataset.mode === mode;
+    tab.classList.toggle('active', on);
+    tab.setAttribute('aria-selected', String(on));
+  }
+  $('#deskOpts').classList.toggle('hidden', mode !== 'surface');
+  $('#bagOpts').classList.toggle('hidden', mode !== 'bag');
+  updateHints();
+}
+
 /* ═══════════ التهيئة ═══════════ */
 function init() {
-  // مراجع القياس
-  $('#scaleRef').innerHTML = Object.values(SCALE_REFERENCES)
-    .map((r) => `<option value="${r.id}">${r.labelAr}</option>`).join('');
-  // الشنط
-  $('#bagPreset').innerHTML = CABIN_BAGS
-    .map((b) => `<option value="${b.id}">${b.nameAr}${b.w ? ` — ${b.w}×${b.d}×${b.h} سم` : ''}</option>`).join('');
-
-  $('#spaceType').innerHTML =
-    '<option value="auto">🤖 اكتشف تلقائياً من الصورة</option>' +
-    profileOptions().map((p) => `<option value="${p.id}">${p.labelAr}</option>`).join('');
-
+  initLang();
   const prefs = store.getPrefs();
-  $('#spaceType').value = prefs.spaceType || 'auto';
-  $('#scaleRef').value = prefs.scaleRef || 'card';
+  applyLang();
   $('#dominantHand').value = prefs.dominantHand || 'right';
+  setMode('surface');
   onScaleRefChange();
   renderSaved();
 
-  $$('.mode-card').forEach((c) => c.addEventListener('click', () => {
-    state.mode = c.dataset.mode;
-    $('#captureTitle').textContent = state.mode === 'surface' ? 'صوّر المساحة' : 'صوّر الحاجات اللي هتشيلها';
-    $('#deskOpts').classList.toggle('hidden', state.mode !== 'surface');
-    $('#bagOpts').classList.toggle('hidden', state.mode !== 'bag');
-    $('#scaleHint').textContent = state.mode === 'surface'
-      ? 'حط الحاجة دي على المكتب جنب باقي الحاجات، وصوّر من فوق قدر الإمكان:'
-      : 'حط الحاجة دي جنب الحاجات اللي هتترص، وافردهم على الأرض وصوّرهم من فوق:';
+  $('#btnLang').addEventListener('click', () => {
+    setLang(getLang() === 'ar' ? 'en' : 'ar');
+    applyLang();
+  });
+
+  $$('.tab').forEach((tab) => tab.addEventListener('click', () => {
+    setMode(tab.dataset.mode);
     showScreen('capture');
   }));
 
@@ -86,9 +120,7 @@ function init() {
   $('#btnManual').addEventListener('click', onManual);
   $('#spaceType').addEventListener('change', () => {
     store.setPrefs({ spaceType: $('#spaceType').value });
-    $('#spaceTypeHint').textContent = $('#spaceType').value === 'auto'
-      ? 'لو سيبتها على «اكتشف تلقائياً»، الموديل هيبص على الصورة ويعرف هي إيه ويكتب قواعد ترتيبها بنفسه.'
-      : 'اخترت النوع بنفسك — الموديل هيستخدم قواعد جاهزة ومجرّبة للمساحة دي.';
+    updateHints();
   });
   $('#btnChangeSpace').addEventListener('click', () => $('#changeSpaceWrap').classList.toggle('hidden'));
   $('#btnAdapt').addEventListener('click', onAdaptProfile);
@@ -99,6 +131,7 @@ function init() {
   $('#btnSave').addEventListener('click', onSave);
 
   $('#btnSettings').addEventListener('click', () => $('#settingsDialog').showModal());
+  setupInstall();
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* بيشتغل عادي من غيره */ });
@@ -129,18 +162,18 @@ async function onFilePicked(e) {
 /* ═══════════ التحليل ═══════════ */
 async function onAnalyze() {
   const sample = await aiReady();
-  if (!sample) return toast('تحليل الصور مش متاح هنا — استخدم «أدخل الحاجات بنفسك»');
-  if (!state.image) return toast('اختار صورة الأول');
-  if (!(await canSendImages(sample))) return toast('العرض ده مش بيسمح ببعت صور — استخدم «أدخل الحاجات بنفسك»');
+  if (!sample) return toast(t('t_noAIphoto'));
+  if (!state.image) return toast(t('t_pickPhoto'));
+  if (!(await canSendImages(sample))) return toast(t('t_noImages'));
 
   const refId = $('#scaleRef').value;
   const ref = SCALE_REFERENCES[refId];
   const customCm = parseFloat($('#customRefCm').value);
-  if (refId === 'custom' && !(customCm > 0)) return toast('اكتب عرض مرجع القياس بالسنتيمتر');
+  if (refId === 'custom' && !(customCm > 0)) return toast(t('t_needRefCm'));
 
   store.setPrefs({ dominantHand: $('#dominantHand').value, customRefCm: customCm || 0 });
 
-  loading(true, 'الموديل بيبص على الصورة...');
+  loading(true, t('t_analyzing'));
   try {
     const chosen = $('#spaceType').value;
     const intent = $('#intent').value.trim();
@@ -150,10 +183,11 @@ async function onAnalyze() {
     const analysis = await analyzeScene({
       image: state.image,
       mode: state.mode,
-      scaleRefLabel: refId === 'custom' ? `حاجة عرضها ${customCm} سم` : ref.labelAr,
+      scaleRefLabel: refId === 'custom' ? `${customCm} cm wide object` : ref.labelAr,
       profile: chosenProfile,
       intent,
       sample,
+      lang: getLang(),
     });
 
     if (state.mode === 'surface') {
@@ -164,7 +198,7 @@ async function onAnalyze() {
 
     const refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
     if (!refBox) {
-      throw new Error(`مالقيناش ${refId === 'custom' ? 'مرجع القياس' : ref.labelAr} في الصورة. حطه في مكان واضح وصوّر تاني.`);
+      throw new Error(t('t_refNotFound', { what: refId === 'custom' ? t('scaleRef') : ref.labelAr }));
     }
 
     // من غير مرجع، المقاسات تخمين. مع المرجع، دي رياضة.
@@ -179,9 +213,10 @@ async function onAnalyze() {
 
     const conf = scaleConfidence(scale, refBox);
     $('#scaleBanner').className = `banner ${conf.score > 0.45 ? 'ok' : 'warn'}`;
+    const level = t(conf.score > 0.75 ? 'conf_high' : conf.score > 0.45 ? 'conf_mid' : 'conf_low');
     $('#scaleBanner').innerHTML = conf.score > 0.45
-      ? `✅ لقينا مرجع القياس (${esc(analysis.scaleReference.whatAr || ref.labelAr)}). دقة القياس: <b>${conf.labelAr}</b>`
-      : `⚠️ دقة القياس <b>${conf.labelAr}</b> — المرجع صغير أو متصوّر بزاوية مايلة. راجع الأرقام كويس أو صوّر تاني من فوق.`;
+      ? t('b_scaleOk', { what: esc(analysis.scaleReference.whatAr || ref.labelAr), level })
+      : t('b_scaleWarn', { level });
 
     // سطح الشغل
     if (state.mode === 'surface' && analysis.surface?.box) {
@@ -202,7 +237,7 @@ async function onAnalyze() {
       const corr = perspectiveCorrect(box, refBox);
       return {
         id: `it${i}`,
-        nameAr: o.nameAr || 'حاجة',
+        nameAr: o.nameAr || t('newItem'),
         category: o.category || 'other',
         widthCm: clampCm(dims.widthCm * corr, 0.5, 300),
         depthCm: clampCm(dims.depthCm * corr, 0.5, 300),
@@ -213,7 +248,7 @@ async function onAnalyze() {
       };
     });
 
-    if (!state.items.length) throw new Error('مالقيناش حاجات في الصورة. جرب صورة أوضح أو ضيف الحاجات بنفسك.');
+    if (!state.items.length) throw new Error(t('t_noObjects'));
 
     renderDetectedSpace();
     renderItems();
@@ -239,7 +274,7 @@ function onManual() {
   addItem();
   renderDetectedSpace();
   $('#scaleBanner').className = 'banner warn';
-  $('#scaleBanner').innerHTML = '✍️ إدخال يدوي — اكتب المقاسات بنفسك بالمسطرة. الحساب والترتيب هيشتغلوا عادي من غير أي AI.';
+  $('#scaleBanner').textContent = t('b_manual');
   renderItems();
   showScreen('review');
 }
@@ -249,7 +284,7 @@ const clampCm = (v, lo, hi) => round1(Math.max(lo, Math.min(hi, Number(v) || lo)
 /* ═══════════ مراجعة الحاجات ═══════════ */
 function addItem() {
   state.items.push({
-    id: `it${Date.now()}`, nameAr: 'حاجة جديدة',
+    id: `it${Date.now()}`, nameAr: t('newItem'),
     category: 'other',
     widthCm: 10, depthCm: 10, heightCm: 10,
     frequency: 'medium', fragile: false, confidence: 1,
@@ -258,17 +293,17 @@ function addItem() {
 
 function renderItems() {
   const catOptions = state.mode === 'surface'
-    ? Object.entries(state.profile?.categories || GENERIC_PROFILE.categories).map(([k, v]) => [k, v.labelAr])
+    ? Object.entries(state.profile?.categories || GENERIC_PROFILE.categories).map(([k, v]) => [k, tx(v.labelAr)])
     : Object.entries(BAG_CATEGORIES).map(([k, v]) => [k, v.labelAr]);
 
   const surfaceEditor = state.mode === 'surface' ? `
     <div class="item">
       <div>
-        <strong>📏 مقاس السطح نفسه</strong>
-        <p class="hint">التقدير ده من الصورة، والصورة بزاوية فبيقل عن الحقيقة. لو تعرف مقاس السطح اكتبه — ده أهم رقم في الحسبة.</p>
+        <strong>${esc(t('surfaceSize'))}</strong>
+        <p class="hint">${esc(t('surfaceSizeHint'))}</p>
         <div class="item-dims">
-          <label>عرض<input type="number" data-surface="widthCm" value="${state.surface.widthCm}" step="1"></label>
-          <label>عمق<input type="number" data-surface="depthCm" value="${state.surface.depthCm}" step="1"></label>
+          <label>${esc(t('width'))}<input type="number" data-surface="widthCm" value="${state.surface.widthCm}" step="1"></label>
+          <label>${esc(t('depth'))}<input type="number" data-surface="depthCm" value="${state.surface.depthCm}" step="1"></label>
         </div>
       </div>
     </div>` : '';
@@ -276,21 +311,21 @@ function renderItems() {
   $('#itemsList').innerHTML = surfaceEditor + state.items.map((it) => `
     <div class="item ${it.confidence < 0.5 ? 'conf-low' : ''}" data-id="${it.id}">
       <div>
-        <input class="item-name" data-f="nameAr" value="${esc(it.nameAr)}" aria-label="اسم الحاجة">
+        <input class="item-name" data-f="nameAr" value="${esc(it.nameAr)}" aria-label="${esc(t('itemName'))}">
         <div class="item-dims">
-          <label>عرض<input type="number" data-f="widthCm" value="${it.widthCm}" step="0.5" min="0.5"></label>
-          <label>عمق<input type="number" data-f="depthCm" value="${it.depthCm}" step="0.5" min="0.5"></label>
-          <label>ارتفاع<input type="number" data-f="heightCm" value="${it.heightCm}" step="0.5" min="0.2"></label>
+          <label>${esc(t('width'))}<input type="number" data-f="widthCm" value="${it.widthCm}" step="0.5" min="0.5"></label>
+          <label>${esc(t('depth'))}<input type="number" data-f="depthCm" value="${it.depthCm}" step="0.5" min="0.5"></label>
+          <label>${esc(t('height'))}<input type="number" data-f="heightCm" value="${it.heightCm}" step="0.5" min="0.2"></label>
         </div>
-        <select data-f="category" aria-label="النوع">
+        <select data-f="category" aria-label="${esc(t('kind'))}">
           ${catOptions.map(([k, v]) => `<option value="${k}" ${it.category === k ? 'selected' : ''}>${v}</option>`).join('')}
         </select>
         ${state.mode === 'surface' ? `
-        <select data-f="frequency" aria-label="معدل الاستخدام">
-          ${Object.entries(FREQ_LABELS).map(([k, v]) => `<option value="${k}" ${it.frequency === k ? 'selected' : ''}>${v}</option>`).join('')}
+        <select data-f="frequency" aria-label="${esc(t('usage'))}">
+          ${Object.entries(FREQ_KEYS).map(([k, key]) => `<option value="${k}" ${it.frequency === k ? 'selected' : ''}>${esc(t(key))}</option>`).join('')}
         </select>` : ''}
       </div>
-      <button class="item-del" data-del="${it.id}" aria-label="امسح">×</button>
+      <button class="item-del" data-del="${it.id}" aria-label="${esc(t('del'))}">×</button>
     </div>`).join('');
 
   $('#itemsList').oninput = (e) => {
@@ -311,13 +346,53 @@ function renderItems() {
   };
 }
 
+/**
+ * التثبيت على الموبايل. المتصفح بيدي الحدث ده لما الصفحة تستوفي شروط PWA
+ * (manifest + service worker + https) — فالزرار بيظهر لوحده وقتها بس.
+ * على iOS مفيش الحدث ده، فبنوجّه المستخدم لزرار المشاركة.
+ */
+function setupInstall() {
+  const btn = $('#btnInstall');
+  let deferred = null;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferred = e;
+    btn.classList.remove('hidden');
+  });
+
+  btn.addEventListener('click', async () => {
+    if (!deferred) return;
+    btn.disabled = true;
+    deferred.prompt();
+    await deferred.userChoice;
+    deferred = null;
+    btn.classList.add('hidden');
+    btn.disabled = false;
+  });
+
+  // iOS: مفيش beforeinstallprompt، بس لسه ينفع يتثبت من زرار المشاركة
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (isIOS && !standalone) {
+    btn.classList.remove('hidden');
+    btn.textContent = t('installIOS');
+    btn.disabled = true;
+  }
+}
+
+/** الملاحظة إما مفتاح من الخوارزمية أو نصيحة {ar,en} من البروفايل. */
+function noteText(n) {
+  return n.text?.key ? tr(n.text) : tx(n.text);
+}
+
 /* ═══════════ الحساب ═══════════ */
 async function onPlan() {
   const valid = state.items.filter((i) => i.widthCm > 0 && i.depthCm > 0 && i.heightCm > 0);
-  if (!valid.length) return toast('محتاجين حاجة واحدة على الأقل بمقاسات صحيحة');
+  if (!valid.length) return toast(t('t_needItems'));
 
   if (state.mode === 'surface') {
-    if (!(state.surface.widthCm > 20 && state.surface.depthCm > 20)) return toast('اكتب مقاس السطح الأول');
+    if (!(state.surface.widthCm > 20 && state.surface.depthCm > 20)) return toast(t('t_needSize'));
     const prefs = store.getPrefs();
     state.plan = layoutSurface(state.surface, valid, state.profile || GENERIC_PROFILE, {
       dominantHand: $('#dominantHand').value,
@@ -329,7 +404,7 @@ async function onPlan() {
     const bin = preset.id === 'custom'
       ? { widthCm: +$('#bagW').value, depthCm: +$('#bagD').value, heightCm: +$('#bagH').value, maxWeightKg: 0 }
       : { widthCm: preset.w, depthCm: preset.d, heightCm: preset.h, maxWeightKg: preset.kg };
-    if (!(bin.widthCm > 0 && bin.depthCm > 0 && bin.heightCm > 0)) return toast('اكتب مقاس الشنطة');
+    if (!(bin.widthCm > 0 && bin.depthCm > 0 && bin.heightCm > 0)) return toast(t('t_needBagSize'));
     state.bin = bin;
 
     const items = valid.map((i) => {
@@ -349,41 +424,41 @@ async function onPlan() {
 
 function renderDeskResult() {
   const p = state.plan;
-  $('#resultTitle').textContent = 'ترتيب ' + (p.profileAr || 'المساحة');
+  $('#resultTitle').textContent = `${t('arrangeOf')} ${tx(p.profileName) || t('resultTitle')}`.trim();
   $('#statsRow').innerHTML = `
-    <div class="stat"><b>${p.stats.onDesk}</b><span>حاجة على السطح</span></div>
-    <div class="stat"><b>${p.stats.freePercent}%</b><span>مساحة فاضية</span></div>
-    <div class="stat"><b>${p.stats.removed}</b><span>اتشالت</span></div>`;
+    <div class="stat"><b>${p.stats.onDesk}</b><span>${esc(t('statOnSurface'))}</span></div>
+    <div class="stat"><b>${p.stats.freePercent}%</b><span>${esc(t('statFree'))}</span></div>
+    <div class="stat"><b>${p.stats.removed}</b><span>${esc(t('statRemoved'))}</span></div>`;
   $('#planView').innerHTML = renderDeskPlan(p);
   $('#legendView').innerHTML = renderLegend(p.placed);
   $('#notesView').innerHTML = p.notes.map((n) =>
-    `<div class="note ${n.level}"><span>${n.level === 'warn' ? '⚠️' : n.level === 'ok' ? '✅' : '💡'}</span><span>${esc(n.textAr)}</span></div>`).join('');
+    `<div class="note ${n.level}"><span>${n.level === 'warn' ? '⚠️' : n.level === 'ok' ? '✅' : '💡'}</span><span>${esc(noteText(n))}</span></div>`).join('');
   $('#stepsView').innerHTML = `
-    <h3>كل حاجة وليه اتحطت هنا</h3>
-    <ol>${p.placed.map((i) => `<li><b>${esc(i.nameAr)}</b><br><span class="pos">${esc(i.reasonAr)}</span></li>`).join('')}</ol>
-    ${p.offDesk.length ? `<div class="off-desk"><h3>شيل دول من على السطح</h3><ul>${
-      p.offDesk.map((i) => `<li><b>${esc(i.nameAr)}</b> — ${esc(i.reasonAr)}</li>`).join('')}</ul></div>` : ''}`;
+    <h3>${esc(t('whyHere'))}</h3>
+    <ol>${p.placed.map((i) => `<li><b>${esc(i.nameAr)}</b><br><span class="pos">${esc(tr(i.reason))}</span></li>`).join('')}</ol>
+    ${p.offDesk.length ? `<div class="off-desk"><h3>${esc(t('removeThese'))}</h3><ul>${
+      p.offDesk.map((i) => `<li><b>${esc(i.nameAr)}</b> — ${esc(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
   $('#btnAfterImage').classList.toggle('hidden', !CAN_RENDER_IMAGE);
 }
 
 function renderBagResult() {
   const p = state.plan;
-  $('#resultTitle').textContent = 'رص الشنطة';
+  $('#resultTitle').textContent = t('bagResult');
   const weightWarn = p.stats.overWeight ? ' ⚠️' : '';
   $('#statsRow').innerHTML = `
-    <div class="stat"><b>${p.stats.placedCount}</b><span>هتدخل</span></div>
-    <div class="stat"><b>${p.stats.unplacedCount}</b><span>مش هتدخل</span></div>
-    <div class="stat"><b>${p.stats.fillPercent}%</b><span>امتلاء</span></div>
-    ${p.stats.totalWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>كجم</span></div>` : ''}`;
+    <div class="stat"><b>${p.stats.placedCount}</b><span>${esc(t('statFits'))}</span></div>
+    <div class="stat"><b>${p.stats.unplacedCount}</b><span>${esc(t('statNoFit'))}</span></div>
+    <div class="stat"><b>${p.stats.fillPercent}%</b><span>${esc(t('statFill'))}</span></div>
+    ${p.stats.totalWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${esc(t('statKg'))}</span></div>` : ''}`;
   $('#planView').innerHTML = renderBagPlan(state.bin, p.placed);
   $('#legendView').innerHTML = renderLegend(p.placed);
   $('#notesView').innerHTML = p.stats.overWeight
-    ? `<div class="note warn"><span>⚠️</span><span>الوزن عدّى الحد المسموح للشنطة دي.</span></div>` : '';
+    ? `<div class="note warn"><span>⚠️</span><span>${esc(t('n_overweight'))}</span></div>` : '';
   $('#stepsView').innerHTML = `
-    <h3>رصّها بالترتيب ده</h3>
-    <ol>${p.steps.map((s) => `<li><b>${esc(s.nameAr)}</b>${s.rotated ? ' <span class="pos">(لفّها)</span>' : ''}${s.fragile ? ' ⚠️' : ''}<br><span class="pos">${esc(s.positionAr)}</span></li>`).join('')}</ol>
-    ${p.unplaced.length ? `<div class="off-desk"><h3>دول مش هيدخلوا</h3><ul>${
-      p.unplaced.map((i) => `<li><b>${esc(i.nameAr)}</b> — ${esc(i.reasonAr)}</li>`).join('')}</ul></div>` : ''}`;
+    <h3>${esc(t('packOrder'))}</h3>
+    <ol>${p.steps.map((st) => `<li><b>${esc(st.nameAr)}</b>${st.rotated ? ` <span class="pos">${esc(t('rotate'))}</span>` : ''}${st.fragile ? ' ⚠️' : ''}<br><span class="pos">${esc(tr(st.position))}</span></li>`).join('')}</ol>
+    ${p.unplaced.length ? `<div class="off-desk"><h3>${esc(t('wontFit'))}</h3><ul>${
+      p.unplaced.map((i) => `<li><b>${esc(i.nameAr)}</b> — ${esc(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
   // صورة "بعد" ليها معنى في المكتب بس
   $('#btnAfterImage').classList.add('hidden');
 }
@@ -394,7 +469,7 @@ async function maybeExplain() {
   const sample = await aiReady();
   if (!sample) return;
   try {
-    const text = await explainPlan({ mode: state.mode, plan: state.plan, sample });
+    const text = await explainPlan({ mode: state.mode, plan: state.plan, sample, lang: getLang() });
     if (text.trim()) {
       $('#aiNote').textContent = text.trim();
       $('#aiNote').classList.remove('hidden');
@@ -404,8 +479,8 @@ async function maybeExplain() {
 
 async function onAfterImage() {
   const sample = await aiReady();
-  if (!state.image) return toast('مفيش صورة أصلية');
-  loading(true, 'برسم صورة "بعد الترتيب"...');
+  if (!state.image) return toast(t('t_noOriginal'));
+  loading(true, t('t_drawing'));
   try {
     const url = await renderAfterImage({ image: state.image, plan: state.plan, sample });
     $('#afterImage').src = url;
@@ -423,14 +498,14 @@ function onSave() {
   const ok = store.saveScan({
     mode: state.mode,
     title: state.mode === 'surface'
-      ? `${state.profile?.spaceTypeAr || 'مساحة'} ${Math.round(state.surface.widthCm)}×${Math.round(state.surface.depthCm)}`
-      : 'رص شنطة',
+      ? `${tx(state.profile?.spaceTypeAr) || t('appName')} ${Math.round(state.surface.widthCm)}×${Math.round(state.surface.depthCm)}`
+      : t('bagResult'),
     items: state.items,
     surface: state.surface,
     profile: state.profile,
     bin: state.bin,
   });
-  toast(ok ? 'اتحفظ في متصفحك ✅' : 'مساحة المتصفح مليانة — امسح محفوظات قديمة');
+  toast(ok ? t('t_savedOk') : t('t_savedFull'));
   renderSaved();
 }
 
@@ -439,10 +514,10 @@ function renderSaved() {
   $('#savedScans').classList.toggle('hidden', !scans.length);
   $('#savedList').innerHTML = scans.map((s) => `
     <li>
-      <span>${esc(s.title)} <span class="muted">— ${new Date(s.savedAt).toLocaleDateString('ar-EG')}</span></span>
+      <span>${esc(s.title)} <span class="muted">— ${new Date(s.savedAt).toLocaleDateString(getLang() === 'ar' ? 'ar-EG' : 'en-GB')}</span></span>
       <span>
-        <button data-load="${s.savedAt}">افتح</button>
-        <button data-drop="${s.savedAt}">مسح</button>
+        <button data-load="${s.savedAt}">${esc(t('open'))}</button>
+        <button data-drop="${s.savedAt}">${esc(t('erase'))}</button>
       </span>
     </li>`).join('');
   $('#savedList').onclick = (e) => {
@@ -477,17 +552,17 @@ function renderDetectedSpace() {
 
   box.classList.remove('hidden');
   const src = state.profile.source === 'ai' ? ' 🤖' : '';
-  $('#detectedName').textContent = state.profile.spaceTypeAr + src;
+  $('#detectedName').textContent = tx(state.profile.spaceTypeAr) + src;
 
   // ملخص القواعد: كل فئة رايحة فين
   $('#rulesList').innerHTML = Object.values(state.profile.categories)
     .filter((c) => c.zone)
     .slice(0, 14)
     .map((c) => {
-      const zone = ZONES[c.zone]?.labelAr || c.zone;
+      const zone = t('zone_' + c.zone);
       const flags = [c.keepDry && '💧', c.avoidLight && '🌑', c.wantsLight && '☀️', c.hot && '🔥', c.anchor && '📌']
         .filter(Boolean).join('');
-      return `<li>${esc(c.labelAr)} → ${esc(zone)} ${flags}</li>`;
+      return `<li>${esc(tx(c.labelAr))} → ${esc(zone)} ${flags}</li>`;
     }).join('');
 }
 
@@ -495,15 +570,15 @@ function renderDetectedSpace() {
 
 async function onAdaptProfile() {
   const sample = await aiReady();
-  if (!sample) return toast('الميزة دي محتاجة Claude — مش متاحة في العرض ده');
+  if (!sample) return toast(t('t_noAI'));
   const intent = $('#adaptIntent').value.trim();
-  if (!intent) return toast('اكتب عايز إيه من المساحة');
-  if (!state.profile) return toast('محتاجين نعرف المساحة الأول');
+  if (!intent) return toast(t('t_writeIntent'));
+  if (!state.profile) return toast(t('t_needSpace'));
 
-  loading(true, 'بكتب القواعد من تاني...');
+  loading(true, t('t_rewriting'));
   try {
-    const adapted = await adaptProfile({ profile: state.profile, intent, sample });
-    if (!adapted) throw new Error('الموديل مرجعش قواعد صالحة — جرب صياغة تانية');
+    const adapted = await adaptProfile({ profile: state.profile, intent, sample, lang: getLang() });
+    if (!adapted) throw new Error(t('t_noRules'));
     const before = state.profile.spaceTypeAr;
     state.profile = normalizeProfile(adapted, state.profile);
     if (state.profile.spaceTypeAr !== before) applyProfileSize();
@@ -515,7 +590,7 @@ async function onAdaptProfile() {
     renderDetectedSpace();
     renderItems();
     $('#changeSpaceWrap').classList.add('hidden');
-    toast('القواعد اتغيرت ✅ اضغط «احسب الترتيب»');
+    toast(t('t_rulesChanged'));
   } catch (err) {
     toast(err.message);
   } finally {
@@ -527,20 +602,20 @@ async function onAdaptProfile() {
 
 async function onAsk() {
   const sample = await aiReady();
-  if (!sample) return toast('الميزة دي محتاجة Claude — مش متاحة في العرض ده');
+  if (!sample) return toast(t('t_noAI'));
   const question = $('#askInput').value.trim();
-  if (!question) return toast('اكتب سؤالك');
-  if (!state.plan) return toast('احسب الترتيب الأول');
+  if (!question) return toast(t('t_writeQuestion'));
+  if (!state.plan) return toast(t('t_calcFirst'));
 
-  loading(true, 'بفكر...');
+  loading(true, t('thinking'));
   try {
-    $('#askAnswer').textContent = 'بفكر...';
+    $('#askAnswer').textContent = t('thinking');
     $('#askAnswer').classList.remove('hidden');
     const answer = await askAboutSpace({
-      question, plan: state.plan, mode: state.mode, sample,
+      question, plan: state.plan, mode: state.mode, sample, lang: getLang(),
       onText: ({ text }) => { $('#askAnswer').textContent = text; },
     });
-    $('#askAnswer').textContent = answer.trim() || 'مالقيتش إجابة — جرب صياغة تانية';
+    $('#askAnswer').textContent = answer.trim() || t('t_noAnswer');
   } catch (err) {
     toast(err.message);
   } finally {

@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const AI_MODULE = process.argv.includes('--gemini') ? 'js/ai-gemini.js' : 'js/ai.js';
 
 const ORDER = [
-  'js/geometry.js', 'js/profiles.js', 'js/packing.js', 'js/surface.js',
+  'js/i18n.js', 'js/geometry.js', 'js/profiles.js', 'js/packing.js', 'js/surface.js',
   'js/render.js', 'js/store.js', 'data/bags.js', AI_MODULE, 'js/app.js',
 ];
 

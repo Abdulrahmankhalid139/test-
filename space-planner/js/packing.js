@@ -152,7 +152,7 @@ export function pack3D(bin, items) {
 
   for (const item of rigid) {
     if (bin.maxWeightKg && usedWeight + item.weightKg > bin.maxWeightKg + EPS) {
-      unplaced.push({ ...item, reasonAr: 'هيعدّي حد الوزن المسموح' });
+      unplaced.push({ ...item, reason: [{ key: 'p_overweight' }] });
       continue;
     }
 
@@ -177,9 +177,9 @@ export function pack3D(bin, items) {
       const everFits = orientations(item).some((dim) => fitsIn(emptyBin, dim));
       unplaced.push({
         ...item,
-        reasonAr: everFits
-          ? 'مفيش مساحة فاضية كفاية'
-          : `أكبر من الشنطة نفسها (أطول ضلع ${Math.round(Math.max(item.w, item.d, item.h))} سم)`,
+        reason: everFits
+          ? [{ key: 'p_noRoom' }]
+          : [{ key: 'p_tooBig', params: { n: Math.round(Math.max(item.w, item.d, item.h)) } }],
       });
       continue;
     }
@@ -207,7 +207,7 @@ export function pack3D(bin, items) {
   for (const item of soft) {
     const compressed = item.w * item.d * item.h * 0.7; // اللبس بيتضغط ~٣٠٪
     if (bin.maxWeightKg && usedWeight + item.weightKg > bin.maxWeightKg + EPS) {
-      unplaced.push({ ...item, reasonAr: 'هيعدّي حد الوزن المسموح' });
+      unplaced.push({ ...item, reason: [{ key: 'p_overweight' }] });
       continue;
     }
     if (compressed <= freeVolume) {
@@ -215,7 +215,7 @@ export function pack3D(bin, items) {
       usedWeight += item.weightKg;
       placed.push({ ...item, box: null, stuffed: true });
     } else {
-      unplaced.push({ ...item, reasonAr: 'مفيش فاضي كفاية حتى بعد الكبس' });
+      unplaced.push({ ...item, reason: [{ key: 'p_noRoomSoft' }] });
     }
   }
 
@@ -250,7 +250,7 @@ export function packingOrder(placed) {
   const steps = sorted.map((p, i) => ({
     step: i + 1,
     nameAr: p.nameAr,
-    positionAr: describePosition(p.box),
+    position: describePosition(p.box),
     rotated: p.rotated,
     fragile: !!p.fragile,
   }));
@@ -258,7 +258,7 @@ export function packingOrder(placed) {
     steps.push({
       step: steps.length + 1,
       nameAr: soft.map((s) => s.nameAr).join('، '),
-      positionAr: 'احشرها في الفراغات اللي فضلت بين الحاجات',
+      position: [{ key: 'p_stuff' }],
       rotated: false,
       fragile: false,
     });
@@ -266,8 +266,11 @@ export function packingOrder(placed) {
   return steps;
 }
 
+/** الموضع بيرجع كأجزاء مترجمة، زي تعليلات السطح. */
 function describePosition(box) {
-  const layer = box.z < 1 ? 'في القاع' : `على ارتفاع ${Math.round(box.z)} سم`;
-  const depth = box.y < 1 ? 'ناحية الضهر' : 'قدام';
-  return `${layer}، ${depth}`;
+  return [
+    box.z < 1 ? { key: 'p_atBottom' } : { key: 'p_atHeight', params: { n: Math.round(box.z) } },
+    { key: 'sep' },
+    box.y < 1 ? { key: 'p_back' } : { key: 'p_front' },
+  ];
 }

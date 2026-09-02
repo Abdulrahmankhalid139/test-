@@ -8,6 +8,15 @@
  * نفس الحدود بالظبط: الموديل بيشوف ويقترح، والرياضة والخوارزمية بيقرروا.
  */
 
+/** الرد بيتكتب باللغة اللي المستخدم مختارها. */
+const LANG_NOTE = {
+  ar: '',
+  en: '\n\nIMPORTANT: write your entire answer in English, not Arabic.',
+};
+
+/** التسميات بقت {ar,en} — بناخد العربي للموديل عشان باقي البرومبت عربي. */
+const labelOf = (v) => (v && typeof v === 'object' ? v.ar || v.en : v) || '';
+
 const ZONE_ENUM = ['front', 'primary', 'secondary', 'back', 'far'];
 const SIDE_ENUM = ['dominant', 'off', 'center', 'any'];
 const ANCHOR_ENUM = ['back-center', 'front-center', 'front-dominant', 'none'];
@@ -92,7 +101,7 @@ const RULES_BRIEF = `
 
 /* ═══════════ ١+٤+٥: الرؤية وتعرّف المساحة وتوليد القواعد ═══════════ */
 
-export async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, sample }) {
+export async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, sample, lang = 'ar' }) {
   const isBag = mode === 'bag';
   const generateProfile = !isBag && !profile;
 
@@ -152,9 +161,9 @@ ${RULES_BRIEF}
 
 قواعد مهمة:
 - المربعات بصيغة [ymin, xmin, ymax, xmax] بمقياس من 0 لـ 1000.
-- الأسماء بالعربي المصري، قصيرة وواضحة.
+- الأسماء ${lang === 'en' ? 'بالإنجليزي' : 'بالعربي المصري'}، قصيرة وواضحة.
 - متخترعش حاجات مش ظاهرة في الصورة.
-- متحاولش تحسب العرض أو العمق بالسنتيمتر — إحنا هنحسبهم من مرجع القياس. قدّر الارتفاع بس.`;
+- متحاولش تحسب العرض أو العمق بالسنتيمتر — إحنا هنحسبهم من مرجع القياس. قدّر الارتفاع بس.${LANG_NOTE[lang]}`;
 
   let json;
   try {
@@ -192,12 +201,12 @@ export function profileFromModel(raw) {
 
 /* ═══════════ ٦: التوجيه بالكلام ═══════════ */
 
-export async function adaptProfile({ profile, intent, sample }) {
+export async function adaptProfile({ profile, intent, sample, lang = 'ar' }) {
   const current = Object.entries(profile.categories)
-    .map(([k, v]) => `${k} | ${v.labelAr} | ${v.zone} | ${v.side}${v.anchor ? ' | anchor:' + v.anchor : ''}`)
+    .map(([k, v]) => `${k} | ${labelOf(v.labelAr)} | ${v.zone} | ${v.side}${v.anchor ? ' | anchor:' + v.anchor : ''}`)
     .join('\n');
 
-  const prompt = `دي قواعد ترتيب "${profile.spaceTypeAr}" الحالية (المفتاح | الاسم | المنطقة | الناحية):
+  const prompt = `دي قواعد ترتيب "${labelOf(profile.spaceTypeAr)}" الحالية (المفتاح | الاسم | المنطقة | الناحية):
 
 ${current}
 
@@ -222,19 +231,19 @@ ${RULES_BRIEF}
 
 /* ═══════════ ٢: الشرح بالعامية ═══════════ */
 
-export async function explainPlan({ mode, plan, sample }) {
+export async function explainPlan({ mode, plan, sample, lang = 'ar' }) {
   const summary = mode === 'bag'
     ? plan.steps.map((s) => `${s.step}. ${s.nameAr} — ${s.positionAr}`).join('\n')
-    : plan.placed.map((p) => `${p.nameAr}: ${p.reasonAr}`).join('\n');
+    : plan.placed.map((p) => p.nameAr).join('، ');
 
-  const prompt = `دي نتيجة خوارزمية ${mode === 'bag' ? 'رص شنطة' : 'ترتيب ' + (plan.profileAr || 'مساحة')}:
+  const prompt = `دي نتيجة خوارزمية ${mode === 'bag' ? 'رص شنطة' : 'ترتيب مساحة'}:
 
 ${summary}
-${plan.notes ? '\nملاحظات:\n' + plan.notes.map((n) => n.textAr).join('\n') : ''}
+
 
 اكتب فقرة قصيرة (٣ لـ ٤ جمل) بالعامية المصرية تشرح منطق الترتيب ده وأهم حاجة يركز عليها.
 متكررش الليستة، وميبقاش فيها عناوين ولا نقط. كلام طبيعي زي ما صاحبك بيشرحلك.
-متخترعش أرقام أو تفاصيل مش موجودة فوق. رد بالفقرة بس.`;
+متخترعش أرقام أو تفاصيل مش موجودة فوق. رد بالفقرة بس.${LANG_NOTE[lang]}`;
 
   const res = await sample(prompt, { modelTier: 'quick' });
   return res.text || '';
@@ -242,14 +251,13 @@ ${plan.notes ? '\nملاحظات:\n' + plan.notes.map((n) => n.textAr).join('\n'
 
 /* ═══════════ ٧: اسأل عن مساحتك ═══════════ */
 
-export async function askAboutSpace({ question, plan, mode, sample, onText }) {
+export async function askAboutSpace({ question, plan, mode, sample, onText, lang = 'ar' }) {
   const context = mode === 'bag'
-    ? `شنطة، ترتيب الرص:\n${plan.steps.map((s) => `${s.step}. ${s.nameAr} — ${s.positionAr}`).join('\n')}` +
+    ? `شنطة، ترتيب الرص:\n${plan.steps.map((s) => `${s.step}. ${s.nameAr}`).join('\n')}` +
       (plan.unplaced?.length ? `\nمدخلش: ${plan.unplaced.map((u) => u.nameAr).join('، ')}` : '')
-    : `${plan.profileAr || 'مساحة'} مقاسها ${Math.round(plan.desk.widthCm)}×${Math.round(plan.desk.depthCm)} سم.\n` +
-      `اللي عليها:\n${plan.placed.map((p) => `- ${p.nameAr} (${Math.round(p.w)}×${Math.round(p.d)} سم): ${p.reasonAr}`).join('\n')}` +
-      (plan.offDesk?.length ? `\nاتشال: ${plan.offDesk.map((o) => o.nameAr).join('، ')}` : '') +
-      `\nملاحظات: ${plan.notes.map((n) => n.textAr).join(' | ')}`;
+    : `مساحة مقاسها ${Math.round(plan.desk.widthCm)}×${Math.round(plan.desk.depthCm)} سم.\n` +
+      `اللي عليها:\n${plan.placed.map((p) => `- ${p.nameAr} (${Math.round(p.w)}×${Math.round(p.d)} سم، على بُعد ${Math.round(Math.hypot(p.x + p.w / 2 - plan.desk.seatXCm, p.y + p.d / 2 + 5))} سم من الشخص)`).join('\n')}` +
+      (plan.offDesk?.length ? `\nاتشال: ${plan.offDesk.map((o) => o.nameAr).join('، ')}` : '');
 
   const prompt = `دي مساحة مستخدم بعد ما الخوارزمية رتبتها:
 
@@ -259,7 +267,7 @@ ${context}
 
 جاوبه بالعامية المصرية في ٤ جمل بالكتير، بناءً على المساحة والمقاسات اللي فوق بالظبط.
 لو السؤال محتاج معلومة مش موجودة فوق، قوله إنك مش شايفها في الصورة بدل ما تخترع.
-كن عملي ومحدد — اقترح حاجة يعملها.`;
+كن عملي ومحدد — اقترح حاجة يعملها.${LANG_NOTE[lang]}`;
 
   const res = await sample(prompt, { modelTier: 'default', onText, cache: false });
   return res.text || '';

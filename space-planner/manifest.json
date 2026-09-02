@@ -1,18 +1,22 @@
 {
-  "name": "مرتّب المساحة",
+  "name": "مرتّب المساحة — Space Planner",
   "short_name": "مرتّب المساحة",
-  "description": "صوّر مكتبك أو شنطتك، والتطبيق يقيسها بالسنتيمتر ويحسبلك أحسن ترتيب.",
-  "lang": "ar",
-  "dir": "rtl",
+  "description": "صوّر أي مساحة والتطبيق يعرف هي إيه، يقيسها بالسنتيمتر، ويحسبلك أحسن ترتيب.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f4f6f8",
   "theme_color": "#0f7b6c",
+  "categories": ["productivity", "utilities", "lifestyle"],
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "رتّب مساحة", "short_name": "مساحة", "url": "./index.html?mode=surface" },
+    { "name": "رص شنطة", "short_name": "شنطة", "url": "./index.html?mode=bag" }
   ]
 }

@@ -48,6 +48,7 @@ export function layoutSurface(surface, items, profile, opts = {}) {
   const W = surface.widthCm;
   const D = surface.depthCm;
   const dominant = opts.dominantHand === 'left' ? 'left' : 'right';
+  const HAND = dominant;
   const windowSide = opts.windowSide || 'none';
   const seatX = Number.isFinite(opts.seatXCm) ? opts.seatXCm : W / 2;
   const reachOrigin = { x: seatX, y: -5 };
@@ -79,20 +80,20 @@ export function layoutSurface(surface, items, profile, opts = {}) {
   if (backCenter) {
     const y = Math.max(0, D - backCenter.d - 2);
     const x = clamp(seatX - backCenter.w / 2, 0, W - backCenter.w);
-    placed.push({ ...backCenter, x, y, rotated: false, reasonAr: 'قدامك مباشرة وفي أبعد نقطة — دي الحاجة اللي بتبص لها' });
+    placed.push({ ...backCenter, x, y, rotated: false, reason: [{ key: 'r_anchorBack' }] });
 
     if (cats[backCenter.category]?.screen) {
       const viewDistance = y - reachOrigin.y;
       if (viewDistance < 50) {
         notes.push({
           level: 'warn',
-          textAr: 'مسافة النظر للشاشة حوالي ' + Math.round(viewDistance) + ' سم — الموصى بيه 50 لـ 70 سم. السطح ضيق في العمق، فارجع بالكرسي شوية أو ركّب الشاشة على ذراع حائط.',
+          text: { key: 'n_viewDistance', params: { n: Math.round(viewDistance) } },
         });
       }
       if (backCenter.category === 'laptop') {
         notes.push({
           level: 'tip',
-          textAr: 'اللابتوب شاشته واطية فبتخلّيك تحني رقبتك. ارفعه على ستاند (أو رزمة كتب) لحد ما تبقى أعلى نقطة في الشاشة على مستوى عينك، واستخدم كيبورد وماوس خارجيين.',
+          text: { key: 'n_laptop' },
         });
       }
     }
@@ -100,7 +101,7 @@ export function layoutSurface(surface, items, profile, opts = {}) {
 
   if (frontCenter) {
     const x = clamp(seatX - frontCenter.w / 2, 0, W - frontCenter.w);
-    placed.push({ ...frontCenter, x, y: FRONT_WORK_GAP, rotated: false, reasonAr: 'في المنتصف قدامك، وسايب مساحة تشتغل فيها' });
+    placed.push({ ...frontCenter, x, y: FRONT_WORK_GAP, rotated: false, reason: [{ key: 'r_anchorFront' }] });
   }
 
   if (frontDominant) {
@@ -109,7 +110,7 @@ export function layoutSurface(surface, items, profile, opts = {}) {
     const x = dominant === 'right'
       ? clamp((fc ? fc.x + fc.w : seatX + 10) + 3, 0, W - frontDominant.w)
       : clamp((fc ? fc.x : seatX - 10) - frontDominant.w - 3, 0, W - frontDominant.w);
-    placed.push({ ...frontDominant, x, y, rotated: false, reasonAr: 'على ناحية إيدك ال' + (dominant === 'right' ? 'يمين' : 'شمال') + ' وقريب من إيدك' });
+    placed.push({ ...frontDominant, x, y, rotated: false, reason: [{ key: 'r_anchorSide', params: { hand: HAND } }] });
   }
 
   // ٢) الباقي: بحث على شبكة بدالة تكلفة
@@ -121,31 +122,29 @@ export function layoutSurface(surface, items, profile, opts = {}) {
     if (item.frequency === 'low' && item.w * item.d > BULKY_AREA_CM2) {
       offDesk.push({
         ...item,
-        reasonAr: 'بتاخد ' + Math.round(item.w * item.d) + ' سم² من المساحة وانت نادراً بتستخدمها — مكانها رف أو درج',
+        reason: [{ key: 'off_bulky', params: { n: Math.round(item.w * item.d) } }],
       });
       continue;
     }
     const rule = ruleFor(item.category);
     const spot = findSpot(item, rule, { W, D, placed, reachOrigin, dominant, light, cats });
     if (spot) {
-      placed.push({ ...item, x: spot.x, y: spot.y, w: spot.w, d: spot.d, rotated: spot.rotated, reasonAr: spot.reasonAr });
+      placed.push({ ...item, x: spot.x, y: spot.y, w: spot.w, d: spot.d, rotated: spot.rotated, reason: spot.reason });
     } else {
       offDesk.push({
         ...item,
-        reasonAr: item.frequency === 'low'
-          ? 'مش بتستخدمها كتير والمساحة مزحومة — مكانها الدرج أو رف'
-          : 'مفيش مساحة مناسبة ليها على السطح',
+        reason: [{ key: item.frequency === 'low' ? 'off_rare' : 'off_noRoom' }],
       });
     }
   }
 
   notes.push(...physicalNotes({ surface, windowSide, dominant, placed, offDesk, cats }));
-  for (const tip of profile.tipsAr || []) notes.push({ level: 'tip', textAr: tip });
+  for (const tip of profile.tipsAr || []) notes.push({ level: 'tip', text: tip });
 
   const usedArea = placed.reduce((s, p) => s + p.w * p.d, 0);
   return {
     desk: { widthCm: W, depthCm: D, seatXCm: seatX },
-    profileAr: profile.spaceTypeAr,
+    profileName: profile.spaceTypeAr,
     placed,
     offDesk,
     notes,
@@ -230,20 +229,26 @@ function findSpot(item, rule, ctx) {
   if (!best) return null;
   if (best.cost > 60 && item.frequency === 'low') return null;
 
-  best.reasonAr = describeReason(rule, best, dominant);
+  best.reason = describeReason(rule, best, dominant);
   return best;
 }
 
+/**
+ * التعليل بيترجع كأجزاء {key, params} مش كجملة جاهزة —
+ * عشان تبديل اللغة يترجم النتيجة من غير ما نعيد الحساب.
+ */
 function describeReason(rule, spot, dominant) {
-  const zoneAr = ZONES[rule.zone]?.labelAr || 'في منطقة مريحة';
-  let extra = '';
-  if (rule.side === 'dominant') extra = ' على ناحية إيدك ال' + (dominant === 'right' ? 'يمين' : 'شمال');
-  else if (rule.side === 'off') extra = ' على الناحية ال' + (dominant === 'right' ? 'شمال' : 'يمين') + ' بعيد عن إيد الشغل';
-  if (rule.keepDry) extra += ' وبعيد عن الحاجات اللي بتتلف لو اتكب';
-  if (rule.avoidLight) extra += ' وبعيد عن الشمس';
-  if (rule.wantsLight) extra += ' وقريب من الضو';
-  if (rule.hot) extra += ' وحواليه خلوص عشان بيسخن';
-  return zoneAr + extra + ' — على بُعد ' + Math.round(spot.dist) + ' سم منك';
+  const parts = [{ key: 'zone_' + rule.zone }];
+  const HAND = dominant === 'right' ? 'right' : 'left';
+  const OFF = dominant === 'right' ? 'left' : 'right';
+  if (rule.side === 'dominant') parts.push({ key: 'r_sideDominant', params: { hand: HAND } });
+  else if (rule.side === 'off') parts.push({ key: 'r_sideOff', params: { hand: OFF } });
+  if (rule.keepDry) parts.push({ key: 'r_keepDry' });
+  if (rule.avoidLight) parts.push({ key: 'r_avoidLight' });
+  if (rule.wantsLight) parts.push({ key: 'r_wantsLight' });
+  if (rule.hot) parts.push({ key: 'r_hot' });
+  parts.push({ key: 'r_distance', params: { n: Math.round(spot.dist) } });
+  return parts;
 }
 
 /** ملاحظات فيزيائية عامة — بتنطبق على أي مساحة مهما كان نوعها. */
@@ -252,11 +257,11 @@ function physicalNotes({ surface, windowSide, dominant, placed, offDesk, cats })
   const hasScreen = placed.some((p) => cats[p.category]?.screen);
 
   if (windowSide === 'back' && hasScreen) {
-    out.push({ level: 'warn', textAr: 'الشباك ورا ضهرك — الضو هيتعكس على الشاشة وهيتعبك. لف السطح بحيث يبقى الشباك على جنبك، أو استخدم ستارة.' });
+    out.push({ level: 'warn', text: { key: 'n_windowBack' } });
   } else if (windowSide === 'front' && hasScreen) {
-    out.push({ level: 'warn', textAr: 'الشباك قدامك ورا الشاشة — هتبص في الضو طول اليوم وعينك هتوجعك. لف السطح ٩٠ درجة عشان الشباك يبقى على جنبك.' });
+    out.push({ level: 'warn', text: { key: 'n_windowFront' } });
   } else if (windowSide === 'left' || windowSide === 'right') {
-    out.push({ level: 'ok', textAr: 'الشباك على جنبك — ده أحسن وضع للإضاءة الطبيعية. ✅' });
+    out.push({ level: 'ok', text: { key: 'n_windowSide' } });
   }
 
   const lamp = placed.find((p) => /lamp|إضاءة|أباجورة/i.test(p.category + p.nameAr));
@@ -265,20 +270,20 @@ function physicalNotes({ surface, windowSide, dominant, placed, offDesk, cats })
       ? lamp.x + lamp.w / 2 > surface.widthCm / 2
       : lamp.x + lamp.w / 2 < surface.widthCm / 2;
     if (!onDominant) {
-      out.push({ level: 'ok', textAr: 'الإضاءة على ناحية إيدك ال' + (dominant === 'right' ? 'شمال' : 'يمين') + ' — عشان إيدك متعملش ضل على اللي بتعمله. ✅' });
+      out.push({ level: 'ok', text: { key: 'n_lamp', params: { hand: dominant === 'right' ? 'left' : 'right' } } });
     }
   }
 
   if (placed.some((p) => cats[p.category]?.keepDry)) {
-    out.push({ level: 'tip', textAr: 'السوايل اتحطت بعيد — لو اتكبت مش هتوصل للحاجات اللي بتتلف.' });
+    out.push({ level: 'tip', text: { key: 'n_liquids' } });
   }
 
   if (placed.some((p) => cats[p.category]?.hot)) {
-    out.push({ level: 'tip', textAr: 'الحاجات اللي بتسخن سيبنا حواليها خلوص عشان متقربش من حاجة تتأثر بالحرارة.' });
+    out.push({ level: 'tip', text: { key: 'n_hot' } });
   }
 
   if (offDesk.length) {
-    out.push({ level: 'tip', textAr: 'شيلنا ' + offDesk.length + ' حاجة من على السطح. المساحة الفاضية بتقلل التشتت، والحاجات دي مكانها الأنسب درج أو رف.' });
+    out.push({ level: 'tip', text: { key: 'n_removed', params: { n: offDesk.length } } });
   }
 
   return out;

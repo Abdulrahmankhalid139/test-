@@ -5,6 +5,8 @@
  * صورة الـAI بتيجي بعده كتصور تقريبي بس.
  */
 
+import { t } from './i18n.js';
+
 const CATEGORY_COLORS = {
   monitor: '#3b82f6', laptop: '#3b82f6', keyboard: '#6366f1', mouse: '#8b5cf6',
   drink: '#f59e0b', phone: '#10b981', notebook: '#14b8a6', pens: '#14b8a6',
@@ -113,7 +115,7 @@ export function renderDeskPlan(layout) {
  */
 export function renderBagPlan(bin, placed) {
   const boxed = placed.filter((p) => p.box);
-  if (!boxed.length) return '<p class="muted">مفيش حاجة اترصت.</p>';
+  if (!boxed.length) return '<p class="muted">' + esc(t('nothingPacked')) + '</p>';
 
   // بنجمّع القطع في طبقات حسب ارتفاع قاعدتها
   const levels = [...new Set(boxed.map((p) => Math.round(p.box.z)))].sort((a, b) => a - b);
@@ -177,7 +179,7 @@ export function renderBagPlan(bin, placed) {
 
   svgs.push(`<figure class="layer">
     <svg viewBox="0 0 ${bin.widthCm + pad * 2} ${bin.heightCm + pad * 2 + 10}"
-      xmlns="http://www.w3.org/2000/svg" class="plan-svg" role="img" aria-label="منظر جانبي">${sideParts.join('')}</svg>
+      xmlns="http://www.w3.org/2000/svg" class="plan-svg" role="img" aria-label="side view">${sideParts.join('')}</svg>
   </figure>`);
 
   return `<div class="layers">${svgs.join('')}</div>`;

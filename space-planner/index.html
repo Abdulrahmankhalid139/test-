@@ -7,7 +7,13 @@
 <meta name="description" content="صوّر مكتبك أو شنطتك، والتطبيق يقيسها بالسنتيمتر ويقولك ترتّبها إزاي بالظبط. مجاني وبيشتغل من متصفحك.">
 <meta name="theme-color" content="#0f7b6c">
 <link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="مرتّب المساحة">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,110 +23,109 @@
 <body>
 
 <header class="topbar">
-  <h1>📐 مرتّب المساحة</h1>
-  <button id="btnSettings" class="icon-btn" aria-label="الإعدادات">⚙️</button>
+  <div class="topbar-row">
+    <h1><span aria-hidden="true">📐</span> <span data-i18n="appName">مرتّب المساحة</span></h1>
+    <div class="topbar-actions">
+      <button id="btnLang" class="chip-btn" aria-label="Language">EN</button>
+      <button id="btnSettings" class="chip-btn" aria-label="About">?</button>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="mode">
+    <button class="tab active" role="tab" aria-selected="true" data-mode="surface">
+      <span aria-hidden="true">📷</span>
+      <span data-i18n="tabSurface">مساحة</span>
+    </button>
+    <button class="tab" role="tab" aria-selected="false" data-mode="bag">
+      <span aria-hidden="true">🧳</span>
+      <span data-i18n="tabBag">شنطة</span>
+    </button>
+  </nav>
 </header>
 
 <main id="app">
 
   <!-- ═══ ١) اختيار الوضع ═══ -->
-  <section class="screen active" data-screen="mode">
-    <p class="lead">صوّر المساحة بتاعتك، والتطبيق هيقيسها بالسنتيمتر ويحسبلك أحسن ترتيب — بالخوارزمية، مش بالتخمين.</p>
-
-    <div class="mode-grid">
-      <button class="mode-card" data-mode="surface">
-        <span class="mode-icon">📷</span>
-        <strong>رتّب أي مساحة</strong>
-        <small>مكتب، تسريحة، رف مطبخ، ترابيزة عدة، كومودينو... صوّرها والتطبيق يعرف هي إيه ويكتب قواعدها</small>
-      </button>
-      <button class="mode-card" data-mode="bag">
-        <span class="mode-icon">🧳</span>
-        <strong>رص شنطتي</strong>
-        <small>إيه اللي هيدخل، وإيه اللي لأ، وبأي ترتيب</small>
-      </button>
-    </div>
-
+  <section class="screen" data-screen="mode">
+    <p class="lead" data-i18n="lead">صوّر المساحة، والتطبيق يعرف هي إيه، يقيسها بالسنتيمتر، ويحسبلك أحسن ترتيب.</p>
     <div id="savedScans" class="saved hidden">
-      <h3>محفوظات</h3>
+      <h3 data-i18n="saved">محفوظات</h3>
       <ul id="savedList"></ul>
     </div>
   </section>
 
-  <!-- ═══ ٢) التصوير والإعدادات ═══ -->
-  <section class="screen" data-screen="capture">
-    <button class="back" data-goto="mode">→ رجوع</button>
-    <h2 id="captureTitle">صوّر المساحة</h2>
+  <section class="screen active" data-screen="capture">
+    <p class="lead" data-i18n="lead">صوّر المساحة، والتطبيق يعرف هي إيه، يقيسها بالسنتيمتر، ويحسبلك أحسن ترتيب.</p>
 
     <div class="field">
-      <label class="label">١. حط مرجع قياس في الصورة</label>
-      <p class="hint" id="scaleHint">من غير مرجع قياس، أي مقاس هيطلع تخمين. حط الحاجة دي في الصورة جنب الحاجات:</p>
+      <label class="label"><span class="stepno">1</span> <span data-i18n="step1">مرجع القياس</span></label>
+      <p class="hint" id="scaleHint"></p>
       <select id="scaleRef" class="input"></select>
       <div id="customRefWrap" class="hidden">
-        <input id="customRefCm" class="input" type="number" min="1" step="0.1" placeholder="العرض الحقيقي بالسنتيمتر">
+        <input id="customRefCm" class="input" type="number" min="1" step="0.1" data-i18n-ph="customRefCm" placeholder="">
       </div>
     </div>
 
     <div class="field" id="deskOpts">
-      <label class="label">٢. المساحة دي إيه؟</label>
+      <label class="label"><span class="stepno">2</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
       <select id="spaceType" class="input"></select>
-      <p class="hint" id="spaceTypeHint">لو سيبتها على «اكتشف تلقائياً»، الموديل هيبص على الصورة ويعرف هي إيه ويكتب قواعد ترتيبها بنفسه.</p>
-      <input id="intent" class="input" type="text" maxlength="120" placeholder="عايز إيه من المساحة دي؟ (اختياري)">
-      <p class="hint">مثال: «عايزة أجهّز نفسي بسرعة الصبح» أو «عايز أحوّلها ركن مذاكرة»</p>
+      <p class="hint" id="spaceTypeHint"></p>
+      <input id="intent" class="input" type="text" maxlength="120" data-i18n-ph="intentPlaceholder" placeholder="">
+      <p class="hint" data-i18n="intentExample"></p>
       <select id="dominantHand" class="input">
-        <option value="right">بستخدم إيدي اليمين</option>
-        <option value="left">بستخدم إيدي الشمال</option>
+        <option value="right" data-i18n="handRight"></option>
+        <option value="left" data-i18n="handLeft"></option>
       </select>
     </div>
 
     <div class="field hidden" id="bagOpts">
-      <label class="label">٢. الشنطة</label>
+      <label class="label"><span class="stepno">2</span> <span data-i18n="step2Bag">الشنطة</span></label>
       <select id="bagPreset" class="input"></select>
       <div id="customBagWrap" class="row hidden">
-        <input id="bagW" class="input" type="number" placeholder="العرض سم">
-        <input id="bagD" class="input" type="number" placeholder="العمق سم">
-        <input id="bagH" class="input" type="number" placeholder="الارتفاع سم">
+        <input id="bagW" class="input" type="number" data-i18n-ph="bagW" placeholder="">
+        <input id="bagD" class="input" type="number" data-i18n-ph="bagD" placeholder="">
+        <input id="bagH" class="input" type="number" data-i18n-ph="bagH" placeholder="">
       </div>
-      <p class="hint">⚠️ مقاسات شركات الطيران بتتغيّر — راجع موقع شركتك قبل السفر.</p>
+      <p class="hint" data-i18n="airlineWarn"></p>
     </div>
 
     <div class="field">
-      <label class="label">٣. الصورة</label>
+      <label class="label"><span class="stepno">3</span> <span data-i18n="step3">الصورة</span></label>
       <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
-      <button id="btnPick" class="btn big">📷 صوّر أو اختار صورة</button>
-      <div id="preview" class="preview hidden"><img id="previewImg" alt="الصورة اللي اخترتها"></div>
+      <button id="btnPick" class="btn big" data-i18n="takePhoto"></button>
+      <div id="preview" class="preview hidden"><img id="previewImg" alt=""></div>
     </div>
 
-    <button id="btnAnalyze" class="btn primary big" disabled>حلّل الصورة</button>
-    <button id="btnManual" class="btn ghost">أو أدخل الحاجات بنفسك من غير صورة</button>
-    <p class="hint center">الصورة بتتبعت لـClaude عشان يحللها بس، ومش بتتخزن في أي مكان.</p>
+    <button id="btnAnalyze" class="btn primary big" disabled data-i18n="analyze"></button>
+    <button id="btnManual" class="btn ghost" data-i18n="manual"></button>
+    <p class="hint center" data-i18n="privacy"></p>
   </section>
 
   <!-- ═══ ٣) مراجعة الحاجات ═══ -->
   <section class="screen" data-screen="review">
-    <button class="back" data-goto="capture">→ رجوع</button>
-    <h2>راجع المقاسات</h2>
+    <button class="back" data-goto="capture" data-i18n="back"></button>
+    <h2 data-i18n="reviewTitle"></h2>
     <div id="scaleBanner" class="banner"></div>
     <div id="detectedSpace" class="detected hidden">
       <div class="detected-row">
-        <span>المساحة دي: <b id="detectedName">—</b></span>
-        <button id="btnChangeSpace" class="link-btn">غيّرها</button>
+        <span><span data-i18n="spaceIs"></span> <b id="detectedName">—</b></span>
+        <button id="btnChangeSpace" class="link-btn" data-i18n="changeIt"></button>
       </div>
       <div id="changeSpaceWrap" class="hidden">
-        <input id="adaptIntent" class="input" type="text" maxlength="120" placeholder="اكتب عايز إيه: «خليها ركن مذاكرة»">
-        <button id="btnAdapt" class="btn ghost">🤖 اعمل القواعد من تاني</button>
+        <input id="adaptIntent" class="input" type="text" maxlength="120" data-i18n-ph="adaptPlaceholder" placeholder="">
+        <button id="btnAdapt" class="btn ghost" data-i18n="adaptBtn"></button>
       </div>
       <ul id="rulesList" class="rules"></ul>
     </div>
-    <p class="hint">الأرقام دي محسوبة من مرجع القياس. لو حاجة غلط، عدّلها — الترتيب هيتحسب على اللي انت تأكده.</p>
+    <p class="hint" data-i18n="reviewHint"></p>
     <div id="itemsList" class="items"></div>
-    <button id="btnAddItem" class="btn ghost">+ ضيف حاجة بنفسك</button>
-    <button id="btnPlan" class="btn primary big">احسب الترتيب</button>
+    <button id="btnAddItem" class="btn ghost" data-i18n="addItem"></button>
+    <button id="btnPlan" class="btn primary big" data-i18n="calc"></button>
   </section>
 
   <!-- ═══ ٤) النتيجة ═══ -->
   <section class="screen" data-screen="result">
-    <button class="back" data-goto="review">→ رجوع للمقاسات</button>
-    <h2 id="resultTitle">الترتيب المقترح</h2>
+    <button class="back" data-goto="review" data-i18n="backToSizes"></button>
+    <h2 id="resultTitle"></h2>
     <div id="statsRow" class="stats"></div>
     <div id="planView" class="plan"></div>
     <div id="legendView"></div>
@@ -128,18 +133,18 @@
     <div id="notesView" class="notes"></div>
     <div id="stepsView" class="steps"></div>
     <div class="ask">
-      <label class="label" for="askInput">💬 اسأل عن مساحتك</label>
-      <input id="askInput" class="input" type="text" maxlength="200" placeholder="مثال: ليه رقبتي بتوجعني؟ / إزاي أخليها أهدى؟">
-      <button id="btnAsk" class="btn ghost">اسأل</button>
+      <label class="label" for="askInput" data-i18n="askTitle"></label>
+      <input id="askInput" class="input" type="text" maxlength="200" data-i18n-ph="askPlaceholder" placeholder="">
+      <button id="btnAsk" class="btn ghost" data-i18n="askBtn"></button>
       <div id="askAnswer" class="ai-note hidden"></div>
     </div>
     <div class="actions">
-      <button id="btnAfterImage" class="btn ghost">🎨 ورّيني صورة "بعد الترتيب"</button>
-      <button id="btnSave" class="btn ghost">💾 احفظ</button>
+      <button id="btnAfterImage" class="btn ghost" data-i18n="afterImage"></button>
+      <button id="btnSave" class="btn ghost" data-i18n="save"></button>
     </div>
     <div id="afterImageWrap" class="hidden">
-      <p class="hint">⚠️ دي صورة تخيلية من الـAI — المخطط اللي فوق هو الدقيق.</p>
-      <img id="afterImage" alt="تصور للمكان بعد الترتيب">
+      <p class="hint" data-i18n="aiImageWarn"></p>
+      <img id="afterImage" alt="">
     </div>
   </section>
 
@@ -148,27 +153,19 @@
 <!-- ═══ الإعدادات ═══ -->
 <dialog id="settingsDialog">
   <form method="dialog">
-    <h2>عن التطبيق</h2>
-    <p class="hint">
-      <b>الذكاء بيشوف بس.</b> الموديل بيتعرّف على الحاجات ونوع المساحة ويكتب قواعدها ويشرح —
-      لكن <b>المقاسات بتتحسب بالرياضة</b> من مرجع القياس، و<b>الترتيب بتقرره خوارزمية</b>،
-      والمخطط مرسوم من الأرقام دي. عشان كده المخطط مستحيل يهلوس.
-    </p>
-    <p class="hint">
-      المقاسات تقديرية: حط مرجع قياس في الصورة، وصوّر من فوق قدر الإمكان، وراجع الأرقام قبل الحساب.
-      الارتفاع تقدير من الموديل مش قياس.
-    </p>
-    <p class="hint">
-      محفوظاتك وإعداداتك بتتخزن في متصفحك انت بس.
-    </p>
+    <h2 data-i18n="about"></h2>
+    <p class="hint" data-i18n-html="aboutBody"></p>
+    <p class="hint" data-i18n="aboutAccuracy"></p>
+    <p class="hint" data-i18n="aboutPrivacy"></p>
+    <button id="btnInstall" type="button" class="btn ghost hidden" data-i18n="install"></button>
     <div class="row">
-      <button value="ok" class="btn primary">تمام</button>
+      <button value="ok" class="btn primary" data-i18n="ok"></button>
     </div>
   </form>
 </dialog>
 
 <div id="toast" class="toast hidden"></div>
-<div id="loader" class="loader hidden"><div class="spinner"></div><p id="loaderText">بحلل...</p></div>
+<div id="loader" class="loader hidden"><div class="spinner"></div><p id="loaderText"></p></div>
 
 <script type="module" src="js/app.js"></script>
 </body>
