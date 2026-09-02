@@ -5,8 +5,10 @@
   --ok:#166534; --ok-soft:#dcfce7; --reach:#94a3b8; --seat:#0f7b6c;
   --radius:14px; --shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.05);
 }
+/* الوضع التلقائي (مفيش بصمة): نظام التشغيل بيقرر،
+   بس اختيار المستخدم الصريح للفاتح لازم يكسب. */
 @media (prefers-color-scheme: dark){
-  :root{
+  :root:not([data-theme="light"]){
     --bg:#12151a; --surface:#1a1f26; --card:#1a1f26; --line:#2c333d;
     --ink:#e8ecf1; --dim:#94a1af; --accent:#2dd4bf; --accent-ink:#0b1114;
     --accent-soft:#134e4a; --warn:#fbbf24; --warn-soft:#3b2f0b;
@@ -14,7 +16,17 @@
     --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
   }
 }
+/* البصمة الصريحة تكسب في الاتجاهين */
+:root[data-theme="dark"]{
+  --bg:#12151a; --surface:#1a1f26; --card:#1a1f26; --line:#2c333d;
+  --ink:#e8ecf1; --dim:#94a1af; --accent:#2dd4bf; --accent-ink:#0b1114;
+  --accent-soft:#134e4a; --warn:#fbbf24; --warn-soft:#3b2f0b;
+  --ok:#4ade80; --ok-soft:#14331f; --reach:#4b5563; --seat:#2dd4bf;
+  --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+}
+
 *,*::before,*::after{box-sizing:border-box}
+html,body{direction:rtl}
 body{
   margin:0; background:var(--bg); color:var(--ink);
   font-family:'Cairo',system-ui,-apple-system,'Segoe UI',sans-serif;

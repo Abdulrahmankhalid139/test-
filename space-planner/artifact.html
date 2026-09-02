@@ -1,14 +1,4 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>مرتّب المساحة</title>
-<meta name="description" content="صوّر مكتبك أو شنطتك، والتطبيق يقيسها بالسنتيمتر ويقولك ترتّبها إزاي بالظبط. مجاني وبيشتغل من متصفحك.">
-<meta name="theme-color" content="#0f7b6c">
-
-<link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
@@ -187,9 +177,6 @@ border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;
 .ask{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-top:20px}
 .ask .btn{margin-top:8px}
 </style>
-</head>
-<body>
-
 <header class="topbar">
   <h1>📐 مرتّب المساحة</h1>
   <button id="btnSettings" class="icon-btn" aria-label="الإعدادات">⚙️</button>
@@ -343,7 +330,6 @@ border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;
 
 <div id="toast" class="toast hidden"></div>
 <div id="loader" class="loader hidden"><div class="spinner"></div><p id="loaderText">بحلل...</p></div>
-
 <script>
 
 /* js/geometry.js */
@@ -1973,5 +1959,3 @@ loading(false);
 init();
 
 </script>
-</body>
-</html>

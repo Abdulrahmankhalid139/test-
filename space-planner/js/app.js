@@ -5,7 +5,7 @@ import { SCALE_REFERENCES, normalizeBox, computeScale, boxToCm, perspectiveCorre
 import { pack3D, packingOrder } from './packing.js';
 import { layoutSurface } from './surface.js';
 import { renderDeskPlan, renderBagPlan, renderLegend } from './render.js';
-import { analyzeScene, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized } from './vision.js';
+import { aiReady, canSendImages, analyzeScene, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized, CAN_RENDER_IMAGE } from './ai.js';
 import { BUILT_IN_PROFILES, GENERIC_PROFILE, normalizeProfile, profileOptions, getProfile, ZONES } from './profiles.js';
 import { CABIN_BAGS, BAG_CATEGORIES } from '../data/bags.js';
 import { store } from './store.js';
@@ -61,7 +61,6 @@ function init() {
   $('#spaceType').value = prefs.spaceType || 'auto';
   $('#scaleRef').value = prefs.scaleRef || 'card';
   $('#dominantHand').value = prefs.dominantHand || 'right';
-  $('#apiKey').value = store.getApiKey();
   onScaleRefChange();
   renderSaved();
 
@@ -100,14 +99,6 @@ function init() {
   $('#btnSave').addEventListener('click', onSave);
 
   $('#btnSettings').addEventListener('click', () => $('#settingsDialog').showModal());
-  $('#settingsDialog').addEventListener('close', (e) => {
-    if ($('#settingsDialog').returnValue === 'save') {
-      store.setApiKey($('#apiKey').value.trim());
-      toast('اتحفظ ✅');
-    } else {
-      $('#apiKey').value = store.getApiKey();
-    }
-  });
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* بيشتغل عادي من غيره */ });
@@ -137,9 +128,10 @@ async function onFilePicked(e) {
 
 /* ═══════════ التحليل ═══════════ */
 async function onAnalyze() {
-  const apiKey = store.getApiKey();
-  if (!apiKey) { $('#settingsDialog').showModal(); return toast('محتاج مفتاح Gemini الأول'); }
+  const sample = await aiReady();
+  if (!sample) return toast('تحليل الصور مش متاح هنا — استخدم «أدخل الحاجات بنفسك»');
   if (!state.image) return toast('اختار صورة الأول');
+  if (!(await canSendImages(sample))) return toast('العرض ده مش بيسمح ببعت صور — استخدم «أدخل الحاجات بنفسك»');
 
   const refId = $('#scaleRef').value;
   const ref = SCALE_REFERENCES[refId];
@@ -156,12 +148,12 @@ async function onAnalyze() {
     const chosenProfile = state.mode === 'surface' && chosen !== 'auto' ? getProfile(chosen) : null;
 
     const analysis = await analyzeScene({
-      base64: state.image.base64,
+      image: state.image,
       mode: state.mode,
       scaleRefLabel: refId === 'custom' ? `حاجة عرضها ${customCm} سم` : ref.labelAr,
       profile: chosenProfile,
       intent,
-      apiKey,
+      sample,
     });
 
     if (state.mode === 'surface') {
@@ -371,7 +363,7 @@ function renderDeskResult() {
     <ol>${p.placed.map((i) => `<li><b>${esc(i.nameAr)}</b><br><span class="pos">${esc(i.reasonAr)}</span></li>`).join('')}</ol>
     ${p.offDesk.length ? `<div class="off-desk"><h3>شيل دول من على السطح</h3><ul>${
       p.offDesk.map((i) => `<li><b>${esc(i.nameAr)}</b> — ${esc(i.reasonAr)}</li>`).join('')}</ul></div>` : ''}`;
-  $('#btnAfterImage').classList.remove('hidden');
+  $('#btnAfterImage').classList.toggle('hidden', !CAN_RENDER_IMAGE);
 }
 
 function renderBagResult() {
@@ -398,11 +390,11 @@ function renderBagResult() {
 
 /* ═══════════ إضافات الـAI ═══════════ */
 async function maybeExplain() {
-  const apiKey = store.getApiKey();
-  if (!apiKey) return;
   $('#aiNote').classList.add('hidden');
+  const sample = await aiReady();
+  if (!sample) return;
   try {
-    const text = await explainPlan({ mode: state.mode, plan: state.plan, apiKey });
+    const text = await explainPlan({ mode: state.mode, plan: state.plan, sample });
     if (text.trim()) {
       $('#aiNote').textContent = text.trim();
       $('#aiNote').classList.remove('hidden');
@@ -411,12 +403,11 @@ async function maybeExplain() {
 }
 
 async function onAfterImage() {
-  const apiKey = store.getApiKey();
-  if (!apiKey) return toast('محتاج مفتاح Gemini');
+  const sample = await aiReady();
   if (!state.image) return toast('مفيش صورة أصلية');
   loading(true, 'برسم صورة "بعد الترتيب"...');
   try {
-    const url = await renderAfterImage({ base64: state.image.base64, plan: state.plan, apiKey });
+    const url = await renderAfterImage({ image: state.image, plan: state.plan, sample });
     $('#afterImage').src = url;
     $('#afterImageWrap').classList.remove('hidden');
     $('#afterImageWrap').scrollIntoView({ behavior: 'smooth' });
@@ -503,15 +494,15 @@ function renderDetectedSpace() {
 /* ═══════════ ٦: التوجيه بالكلام ═══════════ */
 
 async function onAdaptProfile() {
-  const apiKey = store.getApiKey();
-  if (!apiKey) return toast('محتاج مفتاح Gemini للميزة دي');
+  const sample = await aiReady();
+  if (!sample) return toast('الميزة دي محتاجة Claude — مش متاحة في العرض ده');
   const intent = $('#adaptIntent').value.trim();
   if (!intent) return toast('اكتب عايز إيه من المساحة');
   if (!state.profile) return toast('محتاجين نعرف المساحة الأول');
 
   loading(true, 'بكتب القواعد من تاني...');
   try {
-    const adapted = await adaptProfile({ profile: state.profile, intent, apiKey });
+    const adapted = await adaptProfile({ profile: state.profile, intent, sample });
     if (!adapted) throw new Error('الموديل مرجعش قواعد صالحة — جرب صياغة تانية');
     const before = state.profile.spaceTypeAr;
     state.profile = normalizeProfile(adapted, state.profile);
@@ -535,17 +526,21 @@ async function onAdaptProfile() {
 /* ═══════════ ٧: اسأل عن مساحتك ═══════════ */
 
 async function onAsk() {
-  const apiKey = store.getApiKey();
-  if (!apiKey) return toast('محتاج مفتاح Gemini للميزة دي');
+  const sample = await aiReady();
+  if (!sample) return toast('الميزة دي محتاجة Claude — مش متاحة في العرض ده');
   const question = $('#askInput').value.trim();
   if (!question) return toast('اكتب سؤالك');
   if (!state.plan) return toast('احسب الترتيب الأول');
 
   loading(true, 'بفكر...');
   try {
-    const answer = await askAboutSpace({ question, plan: state.plan, mode: state.mode, apiKey });
-    $('#askAnswer').textContent = answer.trim() || 'مالقيتش إجابة — جرب صياغة تانية';
+    $('#askAnswer').textContent = 'بفكر...';
     $('#askAnswer').classList.remove('hidden');
+    const answer = await askAboutSpace({
+      question, plan: state.plan, mode: state.mode, sample,
+      onText: ({ text }) => { $('#askAnswer').textContent = text; },
+    });
+    $('#askAnswer').textContent = answer.trim() || 'مالقيتش إجابة — جرب صياغة تانية';
   } catch (err) {
     toast(err.message);
   } finally {

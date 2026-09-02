@@ -8,14 +8,18 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
+// --gemini: النسخة اللي بتستخدم مفتاح Gemini (للاستضافة العادية)
+// الافتراضي: النسخة اللي بتسأل Claude عبر قدرة sample (للآرتيفاكت)
+const AI_MODULE = process.argv.includes('--gemini') ? 'js/ai-gemini.js' : 'js/ai.js';
+
 const ORDER = [
   'js/geometry.js', 'js/profiles.js', 'js/packing.js', 'js/surface.js',
-  'js/render.js', 'js/store.js', 'data/bags.js', 'js/vision.js', 'js/app.js',
+  'js/render.js', 'js/store.js', 'data/bags.js', AI_MODULE, 'js/app.js',
 ];
 
 // تصادمات الأسماء بين الموديولات — لازم تتحل قبل الدمج
 const RENAMES = {
-  'js/vision.js': [
+  'js/ai-gemini.js': [
     // ليستة أسماء فئات الشنطة في vision.js بتتصادم مع كائن الفئات في bags.js
     [/\bBAG_CATEGORIES\b/g, 'BAG_CATS_LIST'],
   ],
@@ -87,6 +91,26 @@ const out = html
   .replace('<link rel="manifest" href="manifest.json">', '');
 
 writeFileSync('dist.html', out);
+
+// --artifact: الآرتيفاكت بيلفّ الصفحة في هيكل <html><head></head><body> بنفسه،
+// فبنطلّع المحتوى بس: العنوان، الخط، الستايل، الجسم، السكريبت.
+if (process.argv.includes('--artifact')) {
+  const title = html.match(/<title>([\s\S]*?)<\/title>/)[1];
+  const fonts = [...html.matchAll(/<link[^>]*fonts\.(?:googleapis|gstatic)[^>]*>/g)].map((m) => m[0]).join('\n');
+  const body = html.slice(html.indexOf('<body>') + '<body>'.length, html.lastIndexOf('</body>'))
+    .replace(/<script type="module"[^>]*><\/script>/, '');
+
+  const artifact = [
+    `<title>${title}</title>`,
+    fonts,
+    `<style>\n${css}\n</style>`,
+    body.trim(),
+    `<script>\n${bundle}\n</script>`,
+  ].join('\n');
+
+  writeFileSync('artifact.html', artifact);
+  console.log(`artifact.html: ${(artifact.length / 1024).toFixed(1)} KB`);
+}
 
 // --terser: يمرّر الـJS على مصغّر حقيقي وينتج dist.min.html
 if (process.argv.includes('--terser')) {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>مرتّب المساحة — صوّر أي مساحة</title>
+<title>مرتّب المساحة</title>
 <meta name="description" content="صوّر مكتبك أو شنطتك، والتطبيق يقيسها بالسنتيمتر ويقولك ترتّبها إزاي بالظبط. مجاني وبيشتغل من متصفحك.">
 <meta name="theme-color" content="#0f7b6c">
 <link rel="manifest" href="manifest.json">
@@ -92,7 +92,7 @@
 
     <button id="btnAnalyze" class="btn primary big" disabled>حلّل الصورة</button>
     <button id="btnManual" class="btn ghost">أو أدخل الحاجات بنفسك من غير صورة</button>
-    <p class="hint center">الصورة بتتبعت لجوجل بمفتاحك انت، ومش بتتخزن عندنا — مفيش سيرفر أصلاً.</p>
+    <p class="hint center">الصورة بتتبعت لـClaude عشان يحللها بس، ومش بتتخزن في أي مكان.</p>
   </section>
 
   <!-- ═══ ٣) مراجعة الحاجات ═══ -->
@@ -148,16 +148,21 @@
 <!-- ═══ الإعدادات ═══ -->
 <dialog id="settingsDialog">
   <form method="dialog">
-    <h2>الإعدادات</h2>
-    <label class="label" for="apiKey">مفتاح Gemini</label>
-    <input id="apiKey" class="input" type="password" placeholder="AIza..." autocomplete="off">
+    <h2>عن التطبيق</h2>
     <p class="hint">
-      المفتاح مجاني من <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
-      بيتخزن في متصفحك انت بس، وبيتبعت لجوجل مباشرة. مفيش سيرفر بيشوفه.
+      <b>الذكاء بيشوف بس.</b> الموديل بيتعرّف على الحاجات ونوع المساحة ويكتب قواعدها ويشرح —
+      لكن <b>المقاسات بتتحسب بالرياضة</b> من مرجع القياس، و<b>الترتيب بتقرره خوارزمية</b>،
+      والمخطط مرسوم من الأرقام دي. عشان كده المخطط مستحيل يهلوس.
+    </p>
+    <p class="hint">
+      المقاسات تقديرية: حط مرجع قياس في الصورة، وصوّر من فوق قدر الإمكان، وراجع الأرقام قبل الحساب.
+      الارتفاع تقدير من الموديل مش قياس.
+    </p>
+    <p class="hint">
+      محفوظاتك وإعداداتك بتتخزن في متصفحك انت بس.
     </p>
     <div class="row">
-      <button value="save" class="btn primary">حفظ</button>
-      <button value="cancel" class="btn ghost">إلغاء</button>
+      <button value="ok" class="btn primary">تمام</button>
     </div>
   </form>
 </dialog>
