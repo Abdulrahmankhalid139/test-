@@ -153,7 +153,9 @@ export async function analyzeScene({ image, mode, scaleRefLabel, profile, intent
    فكّر زي متخصص: إيه اللي لازم يبقى في متناول الإيد، إيه اللي بيبوظ في الشمس، إيه اللي بيسخن، وإيه اللي بيحجب.
 ${RULES_BRIEF}
 3) ${calibLine}
-4) حدد سطح المساحة نفسه بمربع، وقدّر مقاسه الحقيقي.
+4) حدد سطح المساحة نفسه بمربع، **وكمان أركانه الأربعة** بالترتيب:
+   قدام-شمال، قدام-يمين، ورا-يمين، ورا-شمال (قدام = الناحية القريبة من الكاميرا).
+   الأركان دي بترسم المخطط على الصورة نفسها، فخليها على حرف السطح بالظبط.
 5) اعمل ليستة بكل حاجة على السطح.
 6) الشباك أو مصدر الضو فين بالنسبة للشخص؟
 
@@ -162,21 +164,21 @@ ${RULES_BRIEF}
  "categories":[{"key":"...","labelAr":"...","zone":"...","side":"...","anchor":"...","tall":false,"keepDry":false,"avoidLight":false,"wantsLight":false,"hot":false,"screen":false,"keepUpright":false,"compressible":false}],
  "tipsAr":["..."]},
  "scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
- "surface":{"box":[0,0,0,0]},
+ "surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
  "windowSide":"left|right|front|back|none",
  "dominantHand":"right|left|unknown",
  "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
   } else if (isBag) {
     prompt += `المطلوب:
 1) ${calibLine}
-2) حدد مربع الحاوية نفسها (الشنطة/الدرج/الرف) لو ظاهرة.
+2) حدد مربع الحاوية نفسها (الشنطة/الدرج/الرف) لو ظاهرة، وأركانها الأربعة لو باينة.
 3) اعمل ليستة بكل حاجة ظاهرة هتترص. الفئات المسموحة: ${BAG_CATS_LIST.join('، ')}
 4) قدّر وزن كل حاجة بالكيلوجرام في weightKg — تقدير تقريبي معقول لنوعها ومقاسها.
    ده الرقم الوحيد اللي إحنا مش بنحسبه، وحد وزن شركة الطيران بيتبني عليه، فخليه واقعي.
 
 الصيغة:
 {"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
- "surface":{"box":[0,0,0,0]},
+ "surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
  "dominantHand":"right|left|unknown",
  "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"weightKg":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
   } else {
@@ -185,13 +187,14 @@ ${RULES_BRIEF}
 
 المطلوب:
 1) ${calibLine}
-2) حدد سطح المساحة بمربع.
+2) حدد سطح المساحة بمربع، **وكمان أركانه الأربعة** بالترتيب:
+   قدام-شمال، قدام-يمين، ورا-يمين، ورا-شمال (قدام = الناحية القريبة من الكاميرا).
 3) اعمل ليستة بكل حاجة عليه. الفئات المسموحة: ${catList}
 4) الشباك فين بالنسبة للشخص؟
 
 الصيغة:
 {"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
- "surface":{"box":[0,0,0,0]},
+ "surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
  "windowSide":"left|right|front|back|none",
  "dominantHand":"right|left|unknown",
  "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;

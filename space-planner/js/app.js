@@ -3,7 +3,11 @@
  */
 import { SCALE_REFERENCES, scaleRefGroups, toCm, normalizeBox, computeScale, boxToCm, perspectiveCorrect, scaleConfidence, round1 } from './geometry.js';
 import { pack3D, packingOrder } from './packing.js';
-import { layoutSurface } from './surface.js';
+import { layoutSurface, tryFit } from './surface.js';
+import { renderPhotoOverlay, imageToPlan, hitTest } from './overlay.js';
+import { validCorners, cornersFromBox } from './homography.js';
+import { startEditing, select as selectItem, moveTo, swap, undo as undoEdit, reset as resetLayout, verdict } from './edit.js';
+import { planSpaces, moveSummary, COMPANION_SUGGESTIONS } from './multispace.js';
 import { renderDeskPlan, renderBagPlan, renderLegend } from './render.js';
 import { aiReady, canSendImages, analyzeScene, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized, CAN_RENDER_IMAGE } from './ai.js';
 import { BUILT_IN_PROFILES, GENERIC_PROFILE, GENERIC_CONTAINER, normalizeProfile, profileOptions, getProfile, isContainer, ZONES } from './profiles.js';
@@ -28,6 +32,14 @@ const state = {
   airlineId: '',
   plan: null,
   bin: null,
+  // أركان السطح في الصورة — بيها بنرسم المخطط على الصورة نفسها
+  corners: null,
+  cornersApprox: false,
+  // حالة التعديل اليدوي، وبتتعمل أول ما المستخدم يفتح وضع التعديل
+  edit: null,
+  view: 'plan',
+  // المساحات المكمّلة اللي المستخدم ضافها (درج، رف...)
+  extraSpaces: [],
   // إيد المستخدم اللي الموديل استنتجها من الصورة — null يعني اختياره هو اللي ساري
   handDetected: null,
   // إحنا اللي عدّينا المراجعة؟ الشريط في شاشة النتيجة بيتعلق على ده
@@ -247,6 +259,28 @@ function init() {
   $('#btnAfterImage').addEventListener('click', onAfterImage);
   $('#btnSave').addEventListener('click', onSave);
 
+  $$('#viewTabs .vtab').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+  $('#photoOverlay').addEventListener('click', onOverlayTap);
+  $('#btnUndo').addEventListener('click', onUndoMove);
+  $('#btnResetLayout').addEventListener('click', onResetLayout);
+  $('#btnFitAsk').addEventListener('click', onFitAsk);
+  $('#btnFitCheck').addEventListener('click', onFitCheck);
+  $('#btnAddSpace').addEventListener('click', onAddSpace);
+  $('#spacesList').addEventListener('input', (e) => {
+    const row = e.target.closest('[data-space]');
+    const f = e.target.dataset.sf;
+    if (!row || !f) return;
+    state.extraSpaces[+row.dataset.space].size[f] = Number(e.target.value) || 0;
+    runSpaces();
+  });
+  $('#spacesList').addEventListener('click', (e) => {
+    const i = e.target.dataset.dropspace;
+    if (i === undefined) return;
+    state.extraSpaces.splice(+i, 1);
+    renderSpaces();
+    runSpaces();
+  });
+
   $('#btnSettings').addEventListener('click', () => $('#settingsDialog').showModal());
   setupInstall();
 
@@ -394,6 +428,21 @@ async function onAnalyze() {
       renderScaleBanner();
     }
     state.scale = scale;
+
+    // أركان السطح — بيها بنرسم المخطط على الصورة بمنظورها.
+    // الموديل ممكن يرجّع أركان بايظة، فبنتحقق منها؛ ولو مش صالحة
+    // بنقرّب من المربع ونعلّم النتيجة إنها تقديرية بدل ما نرسم غلط.
+    const rawCorners = validCorners(analysis.surface?.corners);
+    if (rawCorners) {
+      state.corners = rawCorners;
+      state.cornersApprox = false;
+    } else if (surfBox) {
+      const fb = cornersFromBox(surfBox);
+      state.corners = fb?.corners || null;
+      state.cornersApprox = true;
+    } else {
+      state.corners = null;
+    }
 
     // مقاس المساحة: اللي المستخدم كتبه بيغلب أي تقدير من الصورة
     if (state.userSize) {
@@ -638,6 +687,8 @@ async function onPlan() {
       dominantHand: $('#dominantHand').value,
       windowSide: prefs.windowSide || 'none',
     });
+    state.edit = null;
+    $('#editBar').classList.add('hidden');
     renderDeskResult();
   } else {
     // مقاس الحاوية بيتقرا من نفس المكان اللي السطح بياخد منه — محرر المراجعة
@@ -686,6 +737,17 @@ function renderDeskResult() {
     ${p.offDesk.length ? `<div class="off-desk"><h3>${esc(t('removeThese'))}</h3><ul>${
       p.offDesk.map((i) => `<li><b>${esc(i.nameAr)}</b> — ${esc(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
   $('#btnAfterImage').classList.toggle('hidden', !CAN_RENDER_IMAGE);
+
+  // المخطط على الصورة متاح بس لما يبقى فيه صورة وأركان اتحددت
+  const canPhoto = !!(state.image && state.corners);
+  $('#viewTabs').classList.toggle('hidden', !canPhoto);
+  if (!canPhoto && state.view === 'photo') setView('plan');
+  $('#editHint').textContent = canPhoto ? t('editHint') : '';
+  $('#fitPanel').classList.remove('hidden');
+  $('#spacesPanel').classList.remove('hidden');
+  renderSpaces();
+  runSpaces();
+  if (state.view === 'photo') renderOverlay();
 }
 
 function renderBagResult() {
@@ -697,6 +759,14 @@ function renderBagResult() {
     <div class="stat"><b>${p.stats.unplacedCount}</b><span>${esc(t('statNoFit'))}</span></div>
     <div class="stat"><b>${p.stats.fillPercent}%</b><span>${esc(t('statFill'))}</span></div>
     ${p.stats.requestedWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${esc(t('statKg'))}</span></div>` : ''}`;
+  // الرص جوه حاوية مالوش «مخطط على الصورة» ولا تعديل بالإيد — دي حاجات السطح
+  $('#viewTabs').classList.add('hidden');
+  $('#editBar').classList.add('hidden');
+  $('#editHint').textContent = '';
+  $('#fitPanel').classList.add('hidden');
+  $('#spacesPanel').classList.add('hidden');
+  $('#photoView').classList.add('hidden');
+  $('#planView').classList.remove('hidden');
   $('#planView').innerHTML = renderBagPlan(state.bin, p.placed);
   $('#legendView').innerHTML = renderLegend(p.placed);
   $('#notesView').innerHTML = p.stats.overWeight
@@ -820,6 +890,276 @@ function renderDetectedSpace() {
   const handNote = $('#handNote');
   handNote.classList.toggle('hidden', !state.handDetected);
   if (state.handDetected) handNote.textContent = t('handDetected', { hand: t(state.handDetected) });
+}
+
+/* ═══════════ المخطط على الصورة + التعديل اليدوي ═══════════ */
+
+/**
+ * تبديل بين المخطط من فوق والمخطط مرسوم على الصورة.
+ * الأرقام واحدة في الاتنين — اللي بيتغير نقطة النظر بس.
+ */
+function setView(view) {
+  state.view = view;
+  $$('#viewTabs .vtab').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+  $('#planView').classList.toggle('hidden', view !== 'plan');
+  $('#photoView').classList.toggle('hidden', view !== 'photo');
+  if (view === 'photo') renderOverlay();
+}
+
+/** الحاجات المعروضة دلوقتي: المعدّلة لو المستخدم حرّك، وإلا اللي الخوارزمية طلعته. */
+const shownPlaced = () => (state.edit ? state.edit.placed : state.plan?.placed) || [];
+
+function renderOverlay() {
+  const box = $('#photoOverlay');
+  if (!state.image || !state.corners || !state.plan) {
+    box.innerHTML = '';
+    $('#photoNote').textContent = t('photoNoImage');
+    return;
+  }
+  $('#photoBase').src = state.image.dataUrl;
+  const out = renderPhotoOverlay(state.surface, shownPlaced(), state.corners, {
+    imgW: 1000,
+    imgH: Math.round(1000 * (state.image.height / state.image.width)),
+    approx: state.cornersApprox,
+    selectedId: state.edit?.selectedId,
+    movedIds: state.edit ? [...state.edit.movedIds] : [],
+  });
+  if (!out) { box.innerHTML = ''; $('#photoNote').textContent = t('photoNoImage'); return; }
+  box.innerHTML = out.svg;
+  state.projected = out.projected;
+  state.homography = out.homography;
+  $('#photoNote').textContent = t(state.cornersApprox ? 'photoApprox' : 'photoExact');
+}
+
+/** بيبدأ التعديل عند أول لمسة — قبل كده مفيش داعي نحسب حاجة. */
+function ensureEditing() {
+  if (!state.edit && state.plan && !isBag()) {
+    state.edit = startEditing(state.plan, state.surface, state.profile || GENERIC_PROFILE, planOpts());
+  }
+  return state.edit;
+}
+
+function planOpts() {
+  const prefs = store.getPrefs();
+  return { dominantHand: $('#dominantHand').value, windowSide: prefs.windowSide || 'none' };
+}
+
+/**
+ * لمسة على الصورة: أول لمسة بتختار، والتانية بتنقل أو بتبدّل.
+ * ده أبسط من السحب على تليفون، وبيشتغل باللمس والماوس من غير كود منفصل.
+ */
+function onOverlayTap(ev) {
+  if (isBag() || !state.projected || !ensureEditing()) return;
+  const svg = $('#photoOverlay svg');
+  if (!svg) return;
+  const r = svg.getBoundingClientRect();
+  const vb = svg.viewBox.baseVal;
+  const x = ((ev.clientX - r.left) / r.width) * vb.width;
+  const y = ((ev.clientY - r.top) / r.height) * vb.height;
+
+  const hitId = hitTest(state.projected, x, y);
+  const picked = state.edit.selectedId;
+
+  if (!picked) {
+    if (!hitId) return;
+    state.edit = selectItem(state.edit, hitId);
+    const it = state.edit.placed.find((i) => i.id === hitId);
+    showVerdict({ picked: it?.nameAr });
+    renderOverlay();
+    return;
+  }
+
+  let res;
+  if (hitId && hitId !== picked) {
+    res = swap(state.edit, picked, hitId);
+  } else if (hitId === picked) {
+    state.edit = selectItem(state.edit, hitId);   // إلغاء الاختيار
+    showVerdict({});
+    renderOverlay();
+    return;
+  } else {
+    // مكان فاضي: بنحوّل نقطة الصورة لسنتيمترات على السطح، وبنحط المركز هناك
+    const plan = imageToPlan(state.homography, x / vb.width, y / vb.height);
+    if (!plan) return;
+    const it = state.edit.placed.find((i) => i.id === picked);
+    res = moveTo(state.edit, picked, plan.x - it.w / 2, plan.y - it.d / 2);
+  }
+
+  if (res?.ok) {
+    state.edit = selectItem(res.st, null);
+    state.edit.selectedId = null;
+    showVerdict(res);
+    renderOverlay();
+    $('#planView').innerHTML = renderDeskPlan({ ...state.plan, placed: state.edit.placed });
+  }
+}
+
+/** الحكم على التعديل — بنفس دالة تكلفة الخوارزمية، مش برأي تاني. */
+function showVerdict(res) {
+  const bar = $('#editBar');
+  const out = $('#editVerdict');
+  if (res.picked) {
+    bar.classList.remove('hidden');
+    out.className = 'verdict';
+    out.textContent = t('editPicked', { what: res.picked });
+    return;
+  }
+  if (!state.edit || !state.edit.movedIds.size) { bar.classList.add('hidden'); return; }
+
+  bar.classList.remove('hidden');
+  if (res.problems?.length) {
+    out.className = 'verdict bad';
+    out.textContent = t('vIllegal', { why: tr([res.problems[0].why]) });
+    return;
+  }
+  const v = verdict(state.edit);
+  out.className = `verdict ${v.direction === 'better' ? 'good' : v.direction === 'worse' ? 'bad' : ''}`;
+  out.textContent = v.direction === 'better'
+    ? t('vBetter', { n: Math.abs(v.delta), cm: Math.abs(v.reachDelta) })
+    : v.direction === 'worse' ? t('vWorse', { n: Math.abs(v.delta) })
+    : t('vSame');
+}
+
+function onUndoMove() {
+  if (!state.edit) return;
+  state.edit = undoEdit(state.edit);
+  showVerdict({});
+  renderOverlay();
+  $('#planView').innerHTML = renderDeskPlan({ ...state.plan, placed: state.edit.placed });
+}
+
+function onResetLayout() {
+  if (!state.edit) return;
+  state.edit = resetLayout(state.edit);
+  showVerdict({});
+  renderOverlay();
+  $('#planView').innerHTML = renderDeskPlan(state.plan);
+}
+
+/* ═══════════ هيدخل ولا لأ ═══════════ */
+
+/**
+ * بيسأل الموديل عن مقاس حاجة بالاسم — «شاشة ٢٧ بوصة» بتبقى أرقام.
+ * الأرقام بترجع من الموديل، بس القرار «هتدخل ولا لأ» بيتحسب هنا بالرياضة.
+ */
+async function onFitAsk() {
+  const what = $('#fitName').value.trim();
+  if (!what) return toast(t('fitNeedSize'));
+  const sample = await aiReady();
+  if (!sample) return toast(t('t_noAI'));
+  loading(true, t('t_analyzing'));
+  try {
+    const cats = Object.keys((state.profile || GENERIC_PROFILE).categories);
+    const r = await sample.json(
+      `قد إيه مقاس "${what}" بالسنتيمتر تقريباً؟ رد بـJSON بس:\n` +
+      `{"widthCm":0,"depthCm":0,"heightCm":0,"category":"واحدة من: ${cats.join('، ')}"}`,
+      { modelTier: 'quick' });
+    $('#fitW').value = clampCm(r.widthCm, 0.5, 400);
+    $('#fitD').value = clampCm(r.depthCm, 0.5, 400);
+    $('#fitH').value = clampCm(r.heightCm, 0.2, 300);
+    $('#fitPanel').dataset.cat = cats.includes(r.category) ? r.category : 'other';
+    onFitCheck();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    loading(false);
+  }
+}
+
+function onFitCheck() {
+  const w = parseFloat($('#fitW').value);
+  const d = parseFloat($('#fitD').value);
+  if (!(w > 0 && d > 0)) return toast(t('fitNeedSize'));
+  if (isBag() || !state.plan) return;
+
+  const out = $('#fitResult');
+  const res = tryFit(state.surface, shownPlaced(), state.profile || GENERIC_PROFILE, {
+    nameAr: $('#fitName').value.trim() || t('newItem'),
+    category: $('#fitPanel').dataset.cat || 'other',
+    widthCm: w, depthCm: d, heightCm: parseFloat($('#fitH').value) || 5,
+    frequency: 'medium',
+  }, planOpts());
+
+  const nameOf = (id) => shownPlaced().find((p) => p.id === id)?.nameAr || '—';
+  out.classList.remove('hidden');
+  if (res.fits) {
+    out.textContent = t('fitYes', { where: tr(res.spot.reason) });
+  } else if (res.tooBig) {
+    out.textContent = t('fitTooBig', { w: res.shortBy.widthCm, d: res.shortBy.depthCm });
+  } else if (res.anchorTaken) {
+    out.textContent = t('fitAnchorTaken', { what: res.blockedBy.map(nameOf).join('، ') });
+  } else if (res.blockedBy.length) {
+    out.textContent = t('fitNoRoom', { what: res.blockedBy.map(nameOf).join('، ') });
+  } else {
+    out.textContent = t('fitNoRoomHard');
+  }
+}
+
+/* ═══════════ مساحات متصلة ═══════════ */
+
+function renderSpaces() {
+  const primary = state.profile?.id;
+  const suggested = COMPANION_SUGGESTIONS[primary] || ['drawer', 'shelf'];
+  const groups = profileOptions();
+  const all = groups.flatMap((g) => g.items);
+
+  $('#addSpaceType').innerHTML = all
+    .sort((a, b) => (suggested.includes(b.id) ? 1 : 0) - (suggested.includes(a.id) ? 1 : 0))
+    .map((p) => `<option value="${p.id}">${esc(tx(p.labelAr))}</option>`).join('');
+
+  $('#spacesList').innerHTML = state.extraSpaces.map((sp, i) => `
+    <div class="item" data-space="${i}">
+      <div>
+        <strong>${esc(tx(sp.profile.spaceTypeAr))}</strong>
+        <div class="item-dims">
+          <label>${esc(t('width'))}<input type="number" data-sf="widthCm" value="${sp.size.widthCm}" step="1" min="1"></label>
+          <label>${esc(t('depth'))}<input type="number" data-sf="depthCm" value="${sp.size.depthCm}" step="1" min="1"></label>
+          <label>${esc(t('height'))}<input type="number" data-sf="heightCm" value="${sp.size.heightCm}" step="1" min="1"></label>
+        </div>
+      </div>
+      <button class="item-del" data-dropspace="${i}" aria-label="${esc(t('spaceRemove'))}">×</button>
+    </div>`).join('');
+}
+
+function onAddSpace() {
+  const prof = getProfile($('#addSpaceType').value);
+  if (!prof) return;
+  const d = prof.defaultSizeCm || {};
+  state.extraSpaces.push({
+    id: `sp${Date.now()}`,
+    name: tx(prof.spaceTypeAr),
+    profile: prof,
+    size: { widthCm: d.width || 45, depthCm: d.depth || 40, heightCm: d.height || 20 },
+  });
+  renderSpaces();
+  runSpaces();
+}
+
+/**
+ * بيعيد التوزيع على كل المساحات مع بعض.
+ * اللي بيفيض من السطح مابيختفيش — بيروح المساحة اللي بعدها بالترتيب.
+ */
+function runSpaces() {
+  const out = $('#spacesResult');
+  if (!state.extraSpaces.length || !state.plan) {
+    out.classList.add('hidden');
+    return;
+  }
+  const spaces = [
+    { id: 'primary', name: tx(state.profile.spaceTypeAr), profile: state.profile, size: state.surface },
+    ...state.extraSpaces.map((sp) => ({ ...sp, name: tx(sp.profile.spaceTypeAr) })),
+  ];
+  const res = planSpaces(spaces, state.items, planOpts());
+  const sum = moveSummary(res, 'primary');
+
+  out.classList.remove('hidden');
+  out.innerHTML = [
+    ...sum.relocated.map((r) => `<div class="note ok"><span>📦</span><span>${
+      esc(t('spacesRelocated', { n: r.ids.length, where: r.name }))}</span></div>`),
+    sum.homelessCount
+      ? `<div class="note warn"><span>⚠️</span><span>${esc(t('spacesHomeless', { n: sum.homelessCount }))}</span></div>`
+      : `<div class="note ok"><span>✅</span><span>${esc(t('spacesAllPlaced'))}</span></div>`,
+  ].join('');
 }
 
 /* ═══════════ ٦: التوجيه بالكلام ═══════════ */

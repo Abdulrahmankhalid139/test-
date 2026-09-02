@@ -342,6 +342,29 @@ font:inherit;font-size:14.5px;font-weight:700;cursor:pointer;transition:.16s;
 #app{padding-inline:12px}
 .item-dims input{width:52px}
 }
+.viewtabs{display:flex;gap:4px;margin:10px 0 6px;background:var(--paper);
+border:1px solid var(--line);border-radius:9px;padding:3px}
+.vtab{flex:1;padding:7px 8px;border:0;border-radius:7px;background:none;
+color:var(--dim);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.vtab.active{background:var(--card);color:var(--accent);box-shadow:var(--shadow)}
+.photo-plan{position:relative;margin-top:6px}
+.photo-plan img{width:100%;display:block;border-radius:10px}
+#photoOverlay{position:absolute;inset:0;cursor:pointer}
+#photoOverlay svg{width:100%;height:100%;display:block}
+.ov-item{cursor:pointer}
+.editbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;
+padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--card)}
+.verdict{flex:1;font-size:12.5px;font-weight:700;color:var(--dim)}
+.verdict.good{color:var(--accent)}
+.verdict.bad{color:var(--mark)}
+.panel{margin-top:12px;border:1px solid var(--line);border-radius:10px;
+background:var(--card);padding:10px 12px}
+.panel>summary{cursor:pointer;font-weight:800;font-size:13.5px;color:var(--ink);list-style:none}
+.panel>summary::-webkit-details-marker{display:none}
+.panel>summary::after{content:'▾';float:inline-end;color:var(--faint)}
+.panel[open]>summary::after{content:'▴'}
+.panel .row{margin-top:8px}
+.btn.small{padding:7px 11px;font-size:12px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -477,11 +500,58 @@ font:inherit;font-size:14.5px;font-weight:700;cursor:pointer;transition:.16s;
       <button id="btnDismissSkip" class="link-btn" type="button" data-i18n="dismissBar"></button>
     </div>
     <div id="statsRow" class="stats"></div>
+
+    <div id="viewTabs" class="viewtabs hidden">
+      <button class="vtab active" data-view="plan" type="button" data-i18n="viewPlan"></button>
+      <button class="vtab" data-view="photo" type="button" data-i18n="viewPhoto"></button>
+    </div>
+
     <div id="planView" class="plan"></div>
+
+    <div id="photoView" class="photo-plan hidden">
+      <img id="photoBase" alt="">
+      <div id="photoOverlay"></div>
+      <p class="hint" id="photoNote"></p>
+    </div>
+
+    <div id="editBar" class="editbar hidden">
+      <span id="editVerdict" class="verdict"></span>
+      <button id="btnUndo" class="link-btn" type="button" data-i18n="undoMove"></button>
+      <button id="btnResetLayout" class="link-btn" type="button" data-i18n="resetLayout"></button>
+    </div>
+    <p class="hint" id="editHint"></p>
+
     <div id="legendView"></div>
     <div id="aiNote" class="ai-note hidden"></div>
     <div id="notesView" class="notes"></div>
     <div id="stepsView" class="steps"></div>
+    <details class="panel" id="fitPanel">
+      <summary data-i18n="fitTitle"></summary>
+      <p class="hint" data-i18n="fitHint"></p>
+      <div class="row">
+        <input id="fitName" class="input" type="text" maxlength="40" data-i18n-ph="fitName" placeholder="">
+        <button id="btnFitAsk" class="btn ghost small" data-i18n="fitAsk"></button>
+      </div>
+      <div class="row">
+        <input id="fitW" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeW" placeholder="">
+        <input id="fitD" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeD" placeholder="">
+        <input id="fitH" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeH" placeholder="">
+      </div>
+      <button id="btnFitCheck" class="btn ghost" data-i18n="fitCheck"></button>
+      <div id="fitResult" class="ai-note hidden"></div>
+    </details>
+
+    <details class="panel" id="spacesPanel">
+      <summary data-i18n="spacesTitle"></summary>
+      <p class="hint" data-i18n="spacesHint"></p>
+      <div id="spacesList"></div>
+      <div class="row">
+        <select id="addSpaceType" class="input"></select>
+        <button id="btnAddSpace" class="btn ghost small" data-i18n="addSpace"></button>
+      </div>
+      <div id="spacesResult" class="hidden"></div>
+    </details>
+
     <div class="ask">
       <label class="label" for="askInput" data-i18n="askTitle"></label>
       <input id="askInput" class="input" type="text" maxlength="200" data-i18n-ph="askPlaceholder" placeholder="">
@@ -577,6 +647,42 @@ photoHint: 'أي مساحة — سطح أو حاجة بترص جواها',
 analyze: 'حلّل الصورة',
 manual: 'أو أدخل الحاجات بنفسك',
 privacy: 'الصورة بتتبعت لـClaude عشان يحللها بس، ومش بتتخزن في أي مكان.',
+viewPlan: 'المخطط', viewPhoto: 'على صورتي',
+photoExact: 'المخطط مرسوم على صورتك بأركان السطح اللي التطبيق شافها.',
+photoApprox: '⚠️ الأركان تقريبية — التطبيق شاف حدود السطح بس مش أركانه، فالرسم على الصورة تقديري.',
+photoNoImage: 'محتاج صورة عشان نرسم عليها.',
+editHint: 'دوس على أي حاجة تختارها، وبعدين دوس على مكان فاضي تنقلها له، أو على حاجة تانية تبدّلهم.',
+editPicked: 'اخترت {what} — دوس على مكان أو على حاجة تانية.',
+vBetter: '✅ أحسن بـ{n} — وفّرت {cm} سم مد إيد',
+vWorse: '⚠️ أوحش بـ{n}',
+vSame: '= نفس الكفاءة تقريباً',
+vIllegal: '⛔ {why}',
+e_overlaps: 'متراكبة على {what}',
+e_edge: 'قريبة أوي من حرف السطح',
+e_blocks: 'حاجبة {what}',
+e_noRoom: 'مفيش مكان هنا',
+undoMove: 'رجّع خطوة', resetLayout: 'رجّع ترتيب التطبيق',
+fitTitle: '📏 هيدخل ولا لأ؟',
+fitHint: 'حاجة لسه مشتريتهاش — اكتب مقاسها ونقولك هتدخل فين، ولا ناقصك كام سنتي.',
+fitName: 'إيه هي؟ (مثال: شاشة ٢٧ بوصة)',
+fitAsk: '🤖 هات المقاس',
+fitCheck: 'شوف هتدخل ولا لأ',
+fitYes: '✅ هتدخل — مكانها {where}.',
+fitNoRoom: '⚠️ مش هتدخل بالترتيب ده. لو شِلت {what} هتلاقي مكان.',
+fitNoRoomHard: '⚠️ مش هتدخل — مفيش مكان فاضي كفاية.',
+fitTooBig: '⛔ أكبر من المساحة نفسها — ناقصك {w} سم عرض و{d} سم عمق.',
+fitAnchorTaken: '⚠️ مكانها الطبيعي محجوز بـ{what}.',
+fitNeedSize: 'اكتب العرض والعمق الأول',
+spacesTitle: '🗄️ مساحات متصلة',
+spacesHint: 'اللي بيتشال من على السطح بيروح فين؟ ضيف الدرج أو الرف وهنوزّع عليهم.',
+addSpace: '+ ضيف',
+spaceRemove: 'شيل',
+spacesRelocated: '{n} حاجة راحت {where}',
+spacesHomeless: '{n} حاجة مالقتش مكان في أي مساحة.',
+spacesAllPlaced: 'كل حاجة لقت مكان.',
+spacesNeedOne: 'ضيف مساحة واحدة عالأقل',
+handDetected: '🤖 التطبيق شاف إنك بتستخدم إيدك {hand} من الصورة.',
+left: 'الشمال', right: 'اليمين',
 reviewTitle: 'راجع المقاسات',
 reviewHint: 'الأرقام محسوبة من مرجع القياس. لو حاجة غلط عدّلها — الترتيب هيتحسب على اللي تأكده.',
 spaceIs: 'المساحة دي:', changeIt: 'غيّرها',
@@ -738,6 +844,42 @@ photoHint: 'Any space — a surface, or something you pack into',
 analyze: 'Analyse photo',
 manual: 'Or enter items yourself',
 privacy: 'The photo goes to Claude for analysis only and is never stored.',
+viewPlan: 'Plan', viewPhoto: 'On my photo',
+photoExact: 'The plan is drawn onto your photo using the surface corners the app found.',
+photoApprox: '⚠️ The corners are approximate — the app saw the edges of the surface but not its corners, so this drawing is an estimate.',
+photoNoImage: 'A photo is needed to draw on.',
+editHint: 'Tap anything to pick it up, then tap an empty spot to move it there, or another item to swap the two.',
+editPicked: '{what} picked up — tap a spot, or another item.',
+vBetter: '✅ Better by {n} — {cm} cm less reaching',
+vWorse: '⚠️ Worse by {n}',
+vSame: '= About the same',
+vIllegal: '⛔ {why}',
+e_overlaps: 'overlapping {what}',
+e_edge: 'too close to the edge',
+e_blocks: 'blocking {what}',
+e_noRoom: 'no room here',
+undoMove: 'Undo', resetLayout: "Back to the app's layout",
+fitTitle: '📏 Will it fit?',
+fitHint: "Something you don't own yet — type its size and we'll tell you where it would go, or how much you're short by.",
+fitName: 'What is it? (e.g. 27-inch monitor)',
+fitAsk: '🤖 Get the size',
+fitCheck: 'Check if it fits',
+fitYes: '✅ It fits — it would go {where}.',
+fitNoRoom: '⚠️ Not with this layout. Remove {what} and it would fit.',
+fitNoRoomHard: '⚠️ It does not fit — not enough free space.',
+fitTooBig: '⛔ Bigger than the space itself — short by {w} cm of width and {d} cm of depth.',
+fitAnchorTaken: '⚠️ Its natural spot is taken by {what}.',
+fitNeedSize: 'Enter the width and depth first',
+spacesTitle: '🗄️ Linked spaces',
+spacesHint: 'Where does what comes off the surface actually go? Add the drawer or the shelf and we will spread things across them.',
+addSpace: '+ Add',
+spaceRemove: 'Remove',
+spacesRelocated: '{n} item(s) moved to {where}',
+spacesHomeless: '{n} item(s) found no home in any space.',
+spacesAllPlaced: 'Everything found a home.',
+spacesNeedOne: 'Add at least one space',
+handDetected: '🤖 The app worked out from the photo that you are {hand}-handed.',
+left: 'left', right: 'right',
 reviewTitle: 'Check the measurements',
 reviewHint: 'These come from the scale reference. Fix anything wrong — the layout uses what you confirm.',
 spaceIs: 'This space is:', changeIt: 'Change',
@@ -2010,6 +2152,105 @@ if (findSpot(item, rule, ctx2)) blockedBy.push(p.id);
 return { fits: false, spot: null, cost: 0, blockedBy };
 }
 
+/* js/homography.js */
+function solve(A, b) {
+const n = b.length;
+const M = A.map((row, i) => [...row, b[i]]);
+for (let col = 0; col < n; col++) {
+let piv = col;
+for (let r = col + 1; r < n; r++) {
+if (Math.abs(M[r][col]) > Math.abs(M[piv][col])) piv = r;
+}
+if (Math.abs(M[piv][col]) < 1e-10) return null;
+[M[col], M[piv]] = [M[piv], M[col]];
+for (let r = 0; r < n; r++) {
+if (r === col) continue;
+const f = M[r][col] / M[col][col];
+if (!f) continue;
+for (let c = col; c <= n; c++) M[r][c] -= f * M[col][c];
+}
+}
+return M.map((row, i) => row[n] / row[i][i] ?? 0).map((v, i) => M[i][n] / M[i][i]);
+}
+function solveHomography(src, dst) {
+if (!Array.isArray(src) || !Array.isArray(dst) || src.length !== 4 || dst.length !== 4) return null;
+if ([...src, ...dst].some((p) => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
+const A = [];
+const b = [];
+for (let i = 0; i < 4; i++) {
+const { x, y } = src[i];
+const { x: u, y: v } = dst[i];
+A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+}
+const h = solve(A, b);
+if (!h || h.some((n) => !Number.isFinite(n))) return null;
+return [...h, 1];
+}
+function applyH(H, x, y) {
+const w = H[6] * x + H[7] * y + H[8];
+if (Math.abs(w) < 1e-9) return null;
+return {
+x: (H[0] * x + H[1] * y + H[2]) / w,
+y: (H[3] * x + H[4] * y + H[5]) / w,
+};
+}
+function projectRect(H, x, y, w, d) {
+const pts = [
+applyH(H, x, y),
+applyH(H, x + w, y),
+applyH(H, x + w, y + d),
+applyH(H, x, y + d),
+];
+return pts.every(Boolean) ? pts : null;
+}
+function validCorners(raw) {
+if (!Array.isArray(raw) || raw.length !== 4) return null;
+const pts = raw.map((p) => (Array.isArray(p) && p.length === 2
+? { x: Number(p[0]) / 1000, y: Number(p[1]) / 1000 }
+: null));
+if (pts.some((p) => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
+if (pts.some((p) => p.x < -0.1 || p.x > 1.1 || p.y < -0.1 || p.y > 1.1)) return null;
+let area = 0;
+for (let i = 0; i < 4; i++) {
+const a = pts[i], b = pts[(i + 1) % 4];
+area += a.x * b.y - b.x * a.y;
+}
+if (Math.abs(area) / 2 < 0.02) return null;
+const cross = [];
+for (let i = 0; i < 4; i++) {
+const a = pts[i], b = pts[(i + 1) % 4], c = pts[(i + 2) % 4];
+cross.push((b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x));
+}
+if (!(cross.every((v) => v > 0) || cross.every((v) => v < 0))) return null;
+return pts;
+}
+function cornersFromBox(box, narrowing = 0.82) {
+if (!box || !(box.w > 0) || !(box.h > 0)) return null;
+const inset = (box.w * (1 - narrowing)) / 2;
+return {
+corners: [
+{ x: box.x, y: box.y + box.h },                 // قدام-شمال
+{ x: box.x + box.w, y: box.y + box.h },         // قدام-يمين
+{ x: box.x + box.w - inset, y: box.y },         // ورا-يمين
+{ x: box.x + inset, y: box.y },                 // ورا-شمال
+],
+approx: true,
+};
+}
+function surfaceHomography(surface, corners) {
+const W = Number(surface.widthCm);
+const D = Number(surface.depthCm);
+if (!(W > 0) || !(D > 0)) return null;
+const plan = [
+{ x: 0, y: 0 },
+{ x: W, y: 0 },
+{ x: W, y: D },
+{ x: 0, y: D },
+];
+return solveHomography(plan, corners);
+}
+
 /* js/render.js */
 const CATEGORY_COLORS = {
 monitor: '#3b82f6', laptop: '#3b82f6', keyboard: '#6366f1', mouse: '#8b5cf6',
@@ -2143,6 +2384,305 @@ const seen = new Map();
 for (const it of items) if (!seen.has(it.category)) seen.set(it.category, it.nameAr);
 return `<ul class="legend">${[...seen.entries()].map(([cat, name]) =>
 `<li><span class="dot" style="background:${colorFor(cat)}"></span>${esc(name)}</li>`).join('')}</ul>`;
+}
+
+/* js/overlay.js */
+const escSvg = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function centroid(quad) {
+return {
+x: quad.reduce((s, p) => s + p.x, 0) / quad.length,
+y: quad.reduce((s, p) => s + p.y, 0) / quad.length,
+};
+}
+function shortestSide(quad) {
+let min = Infinity;
+for (let i = 0; i < quad.length; i++) {
+const a = quad[i], b = quad[(i + 1) % quad.length];
+min = Math.min(min, Math.hypot(b.x - a.x, b.y - a.y));
+}
+return min;
+}
+function renderPhotoOverlay(surface, placed, corners, opts = {}) {
+const H = surfaceHomography(surface, corners);
+if (!H) return null;
+const W = opts.imgW || 1000;
+const Hgt = opts.imgH || 750;
+const px = (p) => ({ x: p.x * W, y: p.y * Hgt });
+const selected = opts.selectedId;
+const moved = new Set(opts.movedIds || []);
+const frame = [
+applyH(H, 0, 0), applyH(H, surface.widthCm, 0),
+applyH(H, surface.widthCm, surface.depthCm), applyH(H, 0, surface.depthCm),
+];
+if (frame.some((p) => !p)) return null;
+const framePts = frame.map(px).map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+const projected = [];
+const shapes = [];
+const order = [...placed].sort((a, b) => (b.y + b.d / 2) - (a.y + a.d / 2));
+for (const it of order) {
+const quad = projectRect(H, it.x, it.y, it.w ?? it.widthCm, it.d ?? it.depthCm);
+if (!quad) continue;
+const pts = quad.map(px);
+projected.push({ id: it.id, quad: pts });
+const poly = pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+const c = centroid(pts);
+const side = shortestSide(pts);
+const fill = colorFor(it.category);
+const isSel = it.id === selected;
+const isMoved = moved.has(it.id);
+shapes.push(`<polygon points="${poly}" fill="${fill}" fill-opacity="${isSel ? 0.72 : 0.5}"
+stroke="${isSel ? '#ffffff' : isMoved ? '#c2571a' : '#14181d'}"
+stroke-width="${isSel ? 4 : isMoved ? 3 : 1.5}"
+stroke-dasharray="${isMoved && !isSel ? '7 4' : ''}"
+data-id="${escSvg(it.id)}" class="ov-item${isSel ? ' sel' : ''}"/>`);
+if (side > 26) {
+const fs = Math.max(11, Math.min(18, side * 0.3));
+shapes.push(`<text x="${c.x.toFixed(1)}" y="${(c.y + fs * 0.35).toFixed(1)}"
+text-anchor="middle" font-size="${fs.toFixed(0)}" font-weight="700"
+fill="#ffffff" stroke="#14181d" stroke-width="3" paint-order="stroke"
+pointer-events="none">${escSvg(it.nameAr)}</text>`);
+}
+}
+const svg = `<svg viewBox="0 0 ${W} ${Hgt}" class="overlay-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+<polygon points="${framePts}" fill="none" stroke="#0d6e63" stroke-width="3" stroke-dasharray="10 6" opacity="${opts.approx ? 0.55 : 0.9}"/>
+${shapes.join('\n  ')}
+</svg>`;
+return { svg, projected, homography: H };
+}
+function imageToPlan(H, u, v) {
+const [a, b, c, d, e, f, g, h, i] = H;
+const A = [
+[a - u * g, b - u * h],
+[d - v * g, e - v * h],
+];
+const B = [u * i - c, v * i - f];
+const det = A[0][0] * A[1][1] - A[0][1] * A[1][0];
+if (Math.abs(det) < 1e-9) return null;
+return {
+x: (B[0] * A[1][1] - A[0][1] * B[1]) / det,
+y: (A[0][0] * B[1] - B[0] * A[1][0]) / det,
+};
+}
+function hitTest(projected, x, y) {
+for (let i = projected.length - 1; i >= 0; i--) {
+if (pointInQuad(projected[i].quad, x, y)) return projected[i].id;
+}
+return null;
+}
+function pointInQuad(quad, x, y) {
+let inside = false;
+for (let i = 0, j = quad.length - 1; i < quad.length; j = i++) {
+const a = quad[i], b = quad[j];
+if ((a.y > y) !== (b.y > y) && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+}
+return inside;
+}
+
+/* js/edit.js */
+function startEditing(layout, surface, profile, opts = {}) {
+const base = layout.placed.map((p) => ({ ...p }));
+return {
+surface, profile, opts,
+original: base.map((p) => ({ ...p })),
+placed: base,
+baseScore: scoreLayout(surface, base, profile, opts),
+selectedId: null,
+movedIds: new Set(),
+history: [],
+};
+}
+function select(st, id) {
+return { ...st, selectedId: st.selectedId === id ? null : id };
+}
+function moveTo(st, id, xCm, yCm) {
+const item = st.placed.find((p) => p.id === id);
+if (!item) return { st, ok: false, reason: 'notFound' };
+const x = clampCm2(snapHalfCm(xCm), 0, st.surface.widthCm - item.w);
+const y = clampCm2(snapHalfCm(yCm), 0, st.surface.depthCm - item.d);
+if (x === item.x && y === item.y) return { st, ok: true, unchanged: true };
+const next = st.placed.map((p) => (p.id === id ? { ...p, x, y } : p));
+return commit(st, next, [id], { from: { x: item.x, y: item.y } });
+}
+function swap(st, idA, idB) {
+const a = st.placed.find((p) => p.id === idA);
+const b = st.placed.find((p) => p.id === idB);
+if (!a || !b || idA === idB) return { st, ok: false, reason: 'notFound' };
+const centreA = { x: a.x + a.w / 2, y: a.y + a.d / 2 };
+const centreB = { x: b.x + b.w / 2, y: b.y + b.d / 2 };
+const newA = {
+x: clampCm2(snapHalfCm(centreB.x - a.w / 2), 0, st.surface.widthCm - a.w),
+y: clampCm2(snapHalfCm(centreB.y - a.d / 2), 0, st.surface.depthCm - a.d),
+};
+const newB = {
+x: clampCm2(snapHalfCm(centreA.x - b.w / 2), 0, st.surface.widthCm - b.w),
+y: clampCm2(snapHalfCm(centreA.y - b.d / 2), 0, st.surface.depthCm - b.d),
+};
+const next = st.placed.map((p) => {
+if (p.id === idA) return { ...p, ...newA };
+if (p.id === idB) return { ...p, ...newB };
+return p;
+});
+return commit(st, next, [idA, idB], { swapped: true });
+}
+function commit(st, next, touched, meta = {}) {
+const score = scoreLayout(st.surface, next, st.profile, st.opts);
+const ctx = layoutContext(st.surface, st.profile, st.opts, next);
+const cats = st.profile.categories || {};
+const problems = [];
+for (const id of touched) {
+const p = next.find((x) => x.id === id);
+if (!p) continue;
+const rule = cats[p.category] || cats.other || { zone: 'secondary', side: 'any' };
+if (!isLegalSpot({ x: p.x, y: p.y, w: p.w, d: p.d }, p, rule, ctx, null, p.id)) {
+problems.push({ id, nameAr: p.nameAr, why: whyIllegal(p, next, ctx, cats) });
+}
+}
+const moved = new Set(st.movedIds);
+for (const id of touched) moved.add(id);
+const nextSt = {
+...st,
+placed: next,
+movedIds: moved,
+history: [...st.history, { placed: st.placed, movedIds: new Set(st.movedIds) }].slice(-30),
+};
+return {
+st: nextSt,
+ok: true,
+legal: problems.length === 0,
+problems,
+score,
+delta: score.total - st.baseScore.total,
+reachDelta: score.reachTotalCm - st.baseScore.reachTotalCm,
+...meta,
+};
+}
+function whyIllegal(p, placed, ctx, cats) {
+const box = { x: p.x, y: p.y, w: p.w, d: p.d };
+const hits = placed.filter((o) => o.id !== p.id && overlaps(box, o));
+if (hits.length) return { key: 'e_overlaps', params: { what: hits[0].nameAr } };
+if (p.y < 4) return { key: 'e_edge' };
+const back = placed.find((o) => cats[o.category]?.anchor === 'back-center' && o.id !== p.id);
+if (back && p.h > 12 && p.y + p.d > back.y - 12) return { key: 'e_blocks', params: { what: back.nameAr } };
+return { key: 'e_noRoom' };
+}
+function overlaps(a, b, pad = 1) {
+return a.x < b.x + b.w + pad && a.x + a.w + pad > b.x
+&& a.y < b.y + b.d + pad && a.y + a.d + pad > b.y;
+}
+function undo(st) {
+if (!st.history.length) return st;
+const last = st.history[st.history.length - 1];
+return { ...st, placed: last.placed, movedIds: last.movedIds, history: st.history.slice(0, -1) };
+}
+function reset(st) {
+return {
+...st,
+placed: st.original.map((p) => ({ ...p })),
+movedIds: new Set(),
+history: [],
+selectedId: null,
+};
+}
+function verdict(st) {
+const score = scoreLayout(st.surface, st.placed, st.profile, st.opts);
+const delta = score.total - st.baseScore.total;
+const reachDelta = score.reachTotalCm - st.baseScore.reachTotalCm;
+return {
+changed: st.movedIds.size > 0,
+illegal: score.illegal,
+delta: Math.round(delta),
+reachDelta: Math.round(reachDelta),
+direction: Math.abs(delta) < 3 ? 'same' : delta < 0 ? 'better' : 'worse',
+score,
+};
+}
+const snapHalfCm = (n) => Math.round(n * 2) / 2;
+const clampCm2 = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/* js/multispace.js */
+function planSpaces(spaces, items, globalOpts = {}) {
+if (!spaces.length) return { plans: [], homeless: items, moves: [] };
+const plans = [];
+const moves = [];
+let pending = items.filter((i) => i.widthCm > 0 && i.depthCm > 0 && i.heightCm > 0);
+for (let i = 0; i < spaces.length; i++) {
+const space = spaces[i];
+const isLast = i === spaces.length - 1;
+const container = isContainer(space.profile);
+const forThis = pending;
+if (!forThis.length) {
+plans.push({ space, kind: container ? 'container' : 'surface', plan: null, empty: true });
+continue;
+}
+if (container) {
+const prepared = forThis.map((it) => {
+const meta = space.profile.categories[it.category] || {};
+return {
+...it,
+keepUpright: !!meta.keepUpright,
+fragile: it.fragile || !!meta.fragile,
+compressible: !!meta.compressible,
+};
+});
+const bin = {
+widthCm: space.size.widthCm,
+depthCm: space.size.depthCm,
+heightCm: space.size.heightCm,
+maxWeightKg: space.size.maxWeightKg || 0,
+};
+const res = pack3D(bin, prepared);
+plans.push({
+space, kind: 'container', bin,
+plan: { ...res, steps: packingOrder(res.placed) },
+});
+for (const p of res.placed) moves.push({ itemId: p.id, spaceId: space.id, spaceName: space.name });
+pending = (res.unplaced || []).map(stripPacking);
+} else {
+const res = layoutSurface(space.size, forThis, space.profile, { ...globalOpts, ...space.opts });
+plans.push({ space, kind: 'surface', plan: res });
+for (const p of res.placed) moves.push({ itemId: p.id, spaceId: space.id, spaceName: space.name });
+pending = res.offDesk.map(stripLayout);
+}
+if (isLast) break;
+}
+return { plans, homeless: pending, moves };
+}
+function stripPacking(r) {
+const it = r.item || r;
+return {
+id: it.id, nameAr: it.nameAr, category: it.category,
+widthCm: it.widthCm ?? it.w, depthCm: it.depthCm ?? it.d, heightCm: it.heightCm ?? it.h,
+frequency: it.frequency, fragile: it.fragile,
+rejectedFrom: r.reason || null,
+};
+}
+function stripLayout(o) {
+return {
+id: o.id, nameAr: o.nameAr, category: o.category,
+widthCm: o.widthCm ?? o.w, depthCm: o.depthCm ?? o.d, heightCm: o.heightCm ?? o.h,
+frequency: o.frequency, fragile: o.fragile,
+rejectedFrom: o.reason || null,
+};
+}
+const COMPANION_SUGGESTIONS = {
+desk:      ['drawer', 'shelf'],
+dresser:   ['drawer', 'shelf'],
+study:     ['drawer', 'shelf'],
+workbench: ['drawer', 'shelf', 'movingBox'],
+kitchen:   ['drawer', 'shelf', 'fridge'],
+bedside:   ['drawer'],
+};
+function moveSummary(result, primaryId) {
+const byspace = new Map();
+for (const m of result.moves) {
+if (m.spaceId === primaryId) continue;
+if (!byspace.has(m.spaceId)) byspace.set(m.spaceId, { name: m.spaceName, ids: [] });
+byspace.get(m.spaceId).ids.push(m.itemId);
+}
+return {
+relocated: [...byspace.values()],
+homelessCount: result.homeless.length,
+};
 }
 
 /* js/store.js */
@@ -2324,7 +2864,9 @@ prompt += `المطلوب:
 فكّر زي متخصص: إيه اللي لازم يبقى في متناول الإيد، إيه اللي بيبوظ في الشمس، إيه اللي بيسخن، وإيه اللي بيحجب.
 ${RULES_BRIEF}
 3) ${calibLine}
-4) حدد سطح المساحة نفسه بمربع، وقدّر مقاسه الحقيقي.
+4) حدد سطح المساحة نفسه بمربع، **وكمان أركانه الأربعة** بالترتيب:
+قدام-شمال، قدام-يمين، ورا-يمين، ورا-شمال (قدام = الناحية القريبة من الكاميرا).
+الأركان دي بترسم المخطط على الصورة نفسها، فخليها على حرف السطح بالظبط.
 5) اعمل ليستة بكل حاجة على السطح.
 6) الشباك أو مصدر الضو فين بالنسبة للشخص؟
 الصيغة:
@@ -2332,20 +2874,20 @@ ${RULES_BRIEF}
 "categories":[{"key":"...","labelAr":"...","zone":"...","side":"...","anchor":"...","tall":false,"keepDry":false,"avoidLight":false,"wantsLight":false,"hot":false,"screen":false,"keepUpright":false,"compressible":false}],
 "tipsAr":["..."]},
 "scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
-"surface":{"box":[0,0,0,0]},
+"surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
 "windowSide":"left|right|front|back|none",
 "dominantHand":"right|left|unknown",
 "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
 } else if (isBag) {
 prompt += `المطلوب:
 1) ${calibLine}
-2) حدد مربع الحاوية نفسها (الشنطة/الدرج/الرف) لو ظاهرة.
+2) حدد مربع الحاوية نفسها (الشنطة/الدرج/الرف) لو ظاهرة، وأركانها الأربعة لو باينة.
 3) اعمل ليستة بكل حاجة ظاهرة هتترص. الفئات المسموحة: ${BAG_CATS_LIST.join('، ')}
 4) قدّر وزن كل حاجة بالكيلوجرام في weightKg — تقدير تقريبي معقول لنوعها ومقاسها.
 ده الرقم الوحيد اللي إحنا مش بنحسبه، وحد وزن شركة الطيران بيتبني عليه، فخليه واقعي.
 الصيغة:
 {"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
-"surface":{"box":[0,0,0,0]},
+"surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
 "dominantHand":"right|left|unknown",
 "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"weightKg":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
 } else {
@@ -2353,12 +2895,13 @@ const catList = Object.entries(profile.categories).map(([k, v]) => `${k} (${v.la
 prompt += `دي صورة ${profile.spaceTypeAr}.
 المطلوب:
 1) ${calibLine}
-2) حدد سطح المساحة بمربع.
+2) حدد سطح المساحة بمربع، **وكمان أركانه الأربعة** بالترتيب:
+قدام-شمال، قدام-يمين، ورا-يمين، ورا-شمال (قدام = الناحية القريبة من الكاميرا).
 3) اعمل ليستة بكل حاجة عليه. الفئات المسموحة: ${catList}
 4) الشباك فين بالنسبة للشخص؟
 الصيغة:
 {"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
-"surface":{"box":[0,0,0,0]},
+"surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
 "windowSide":"left|right|front|back|none",
 "dominantHand":"right|left|unknown",
 "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
@@ -2470,6 +3013,11 @@ maxWeightKg: 0,
 airlineId: '',
 plan: null,
 bin: null,
+corners: null,
+cornersApprox: false,
+edit: null,
+view: 'plan',
+extraSpaces: [],
 handDetected: null,
 autoAccepted: false,
 scaleInfo: null,
@@ -2629,6 +3177,27 @@ $('#btnDismissSkip').addEventListener('click', () => $('#autoSkipBar').classList
 $('#optAutoSkip').addEventListener('change', () => store.setPrefs({ autoSkip: $('#optAutoSkip').checked }));
 $('#btnAfterImage').addEventListener('click', onAfterImage);
 $('#btnSave').addEventListener('click', onSave);
+$$('#viewTabs .vtab').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+$('#photoOverlay').addEventListener('click', onOverlayTap);
+$('#btnUndo').addEventListener('click', onUndoMove);
+$('#btnResetLayout').addEventListener('click', onResetLayout);
+$('#btnFitAsk').addEventListener('click', onFitAsk);
+$('#btnFitCheck').addEventListener('click', onFitCheck);
+$('#btnAddSpace').addEventListener('click', onAddSpace);
+$('#spacesList').addEventListener('input', (e) => {
+const row = e.target.closest('[data-space]');
+const f = e.target.dataset.sf;
+if (!row || !f) return;
+state.extraSpaces[+row.dataset.space].size[f] = Number(e.target.value) || 0;
+runSpaces();
+});
+$('#spacesList').addEventListener('click', (e) => {
+const i = e.target.dataset.dropspace;
+if (i === undefined) return;
+state.extraSpaces.splice(+i, 1);
+renderSpaces();
+runSpaces();
+});
 $('#btnSettings').addEventListener('click', () => $('#settingsDialog').showModal());
 setupInstall();
 if ('serviceWorker' in navigator) {
@@ -2746,6 +3315,17 @@ score: conf.score,
 renderScaleBanner();
 }
 state.scale = scale;
+const rawCorners = validCorners(analysis.surface?.corners);
+if (rawCorners) {
+state.corners = rawCorners;
+state.cornersApprox = false;
+} else if (surfBox) {
+const fb = cornersFromBox(surfBox);
+state.corners = fb?.corners || null;
+state.cornersApprox = true;
+} else {
+state.corners = null;
+}
 if (state.userSize) {
 const def = state.profile?.defaultSizeCm || {};
 state.surface = {
@@ -2945,6 +3525,8 @@ state.plan = layoutSurface(state.surface, valid, state.profile || GENERIC_PROFIL
 dominantHand: $('#dominantHand').value,
 windowSide: prefs.windowSide || 'none',
 });
+state.edit = null;
+$('#editBar').classList.add('hidden');
 renderDeskResult();
 } else {
 const def = state.profile.defaultSizeCm || {};
@@ -2988,6 +3570,15 @@ $('#stepsView').innerHTML = `
 ${p.offDesk.length ? `<div class="off-desk"><h3>${escHtml(t('removeThese'))}</h3><ul>${
 p.offDesk.map((i) => `<li><b>${escHtml(i.nameAr)}</b> — ${escHtml(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
 $('#btnAfterImage').classList.toggle('hidden', !CAN_RENDER_IMAGE);
+const canPhoto = !!(state.image && state.corners);
+$('#viewTabs').classList.toggle('hidden', !canPhoto);
+if (!canPhoto && state.view === 'photo') setView('plan');
+$('#editHint').textContent = canPhoto ? t('editHint') : '';
+$('#fitPanel').classList.remove('hidden');
+$('#spacesPanel').classList.remove('hidden');
+renderSpaces();
+runSpaces();
+if (state.view === 'photo') renderOverlay();
 }
 function renderBagResult() {
 const p = state.plan;
@@ -2998,6 +3589,13 @@ $('#statsRow').innerHTML = `
 <div class="stat"><b>${p.stats.unplacedCount}</b><span>${escHtml(t('statNoFit'))}</span></div>
 <div class="stat"><b>${p.stats.fillPercent}%</b><span>${escHtml(t('statFill'))}</span></div>
 ${p.stats.requestedWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${escHtml(t('statKg'))}</span></div>` : ''}`;
+$('#viewTabs').classList.add('hidden');
+$('#editBar').classList.add('hidden');
+$('#editHint').textContent = '';
+$('#fitPanel').classList.add('hidden');
+$('#spacesPanel').classList.add('hidden');
+$('#photoView').classList.add('hidden');
+$('#planView').classList.remove('hidden');
 $('#planView').innerHTML = renderBagPlan(state.bin, p.placed);
 $('#legendView').innerHTML = renderLegend(p.placed);
 $('#notesView').innerHTML = p.stats.overWeight
@@ -3103,6 +3701,226 @@ return `<li>${escHtml(tx(c.labelAr))} → ${escHtml(zone)} ${flags}</li>`;
 const handNote = $('#handNote');
 handNote.classList.toggle('hidden', !state.handDetected);
 if (state.handDetected) handNote.textContent = t('handDetected', { hand: t(state.handDetected) });
+}
+function setView(view) {
+state.view = view;
+$$('#viewTabs .vtab').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+$('#planView').classList.toggle('hidden', view !== 'plan');
+$('#photoView').classList.toggle('hidden', view !== 'photo');
+if (view === 'photo') renderOverlay();
+}
+const shownPlaced = () => (state.edit ? state.edit.placed : state.plan?.placed) || [];
+function renderOverlay() {
+const box = $('#photoOverlay');
+if (!state.image || !state.corners || !state.plan) {
+box.innerHTML = '';
+$('#photoNote').textContent = t('photoNoImage');
+return;
+}
+$('#photoBase').src = state.image.dataUrl;
+const out = renderPhotoOverlay(state.surface, shownPlaced(), state.corners, {
+imgW: 1000,
+imgH: Math.round(1000 * (state.image.height / state.image.width)),
+approx: state.cornersApprox,
+selectedId: state.edit?.selectedId,
+movedIds: state.edit ? [...state.edit.movedIds] : [],
+});
+if (!out) { box.innerHTML = ''; $('#photoNote').textContent = t('photoNoImage'); return; }
+box.innerHTML = out.svg;
+state.projected = out.projected;
+state.homography = out.homography;
+$('#photoNote').textContent = t(state.cornersApprox ? 'photoApprox' : 'photoExact');
+}
+function ensureEditing() {
+if (!state.edit && state.plan && !isBag()) {
+state.edit = startEditing(state.plan, state.surface, state.profile || GENERIC_PROFILE, planOpts());
+}
+return state.edit;
+}
+function planOpts() {
+const prefs = store.getPrefs();
+return { dominantHand: $('#dominantHand').value, windowSide: prefs.windowSide || 'none' };
+}
+function onOverlayTap(ev) {
+if (isBag() || !state.projected || !ensureEditing()) return;
+const svg = $('#photoOverlay svg');
+if (!svg) return;
+const r = svg.getBoundingClientRect();
+const vb = svg.viewBox.baseVal;
+const x = ((ev.clientX - r.left) / r.width) * vb.width;
+const y = ((ev.clientY - r.top) / r.height) * vb.height;
+const hitId = hitTest(state.projected, x, y);
+const picked = state.edit.selectedId;
+if (!picked) {
+if (!hitId) return;
+state.edit = selectItem(state.edit, hitId);
+const it = state.edit.placed.find((i) => i.id === hitId);
+showVerdict({ picked: it?.nameAr });
+renderOverlay();
+return;
+}
+let res;
+if (hitId && hitId !== picked) {
+res = swap(state.edit, picked, hitId);
+} else if (hitId === picked) {
+state.edit = selectItem(state.edit, hitId);   // إلغاء الاختيار
+showVerdict({});
+renderOverlay();
+return;
+} else {
+const plan = imageToPlan(state.homography, x / vb.width, y / vb.height);
+if (!plan) return;
+const it = state.edit.placed.find((i) => i.id === picked);
+res = moveTo(state.edit, picked, plan.x - it.w / 2, plan.y - it.d / 2);
+}
+if (res?.ok) {
+state.edit = selectItem(res.st, null);
+state.edit.selectedId = null;
+showVerdict(res);
+renderOverlay();
+$('#planView').innerHTML = renderDeskPlan({ ...state.plan, placed: state.edit.placed });
+}
+}
+function showVerdict(res) {
+const bar = $('#editBar');
+const out = $('#editVerdict');
+if (res.picked) {
+bar.classList.remove('hidden');
+out.className = 'verdict';
+out.textContent = t('editPicked', { what: res.picked });
+return;
+}
+if (!state.edit || !state.edit.movedIds.size) { bar.classList.add('hidden'); return; }
+bar.classList.remove('hidden');
+if (res.problems?.length) {
+out.className = 'verdict bad';
+out.textContent = t('vIllegal', { why: tr([res.problems[0].why]) });
+return;
+}
+const v = verdict(state.edit);
+out.className = `verdict ${v.direction === 'better' ? 'good' : v.direction === 'worse' ? 'bad' : ''}`;
+out.textContent = v.direction === 'better'
+? t('vBetter', { n: Math.abs(v.delta), cm: Math.abs(v.reachDelta) })
+: v.direction === 'worse' ? t('vWorse', { n: Math.abs(v.delta) })
+: t('vSame');
+}
+function onUndoMove() {
+if (!state.edit) return;
+state.edit = undoEdit(state.edit);
+showVerdict({});
+renderOverlay();
+$('#planView').innerHTML = renderDeskPlan({ ...state.plan, placed: state.edit.placed });
+}
+function onResetLayout() {
+if (!state.edit) return;
+state.edit = resetLayout(state.edit);
+showVerdict({});
+renderOverlay();
+$('#planView').innerHTML = renderDeskPlan(state.plan);
+}
+async function onFitAsk() {
+const what = $('#fitName').value.trim();
+if (!what) return toast(t('fitNeedSize'));
+const sample = await aiReady();
+if (!sample) return toast(t('t_noAI'));
+loading(true, t('t_analyzing'));
+try {
+const cats = Object.keys((state.profile || GENERIC_PROFILE).categories);
+const r = await sample.json(
+`قد إيه مقاس "${what}" بالسنتيمتر تقريباً؟ رد بـJSON بس:\n` +
+`{"widthCm":0,"depthCm":0,"heightCm":0,"category":"واحدة من: ${cats.join('، ')}"}`,
+{ modelTier: 'quick' });
+$('#fitW').value = clampCm(r.widthCm, 0.5, 400);
+$('#fitD').value = clampCm(r.depthCm, 0.5, 400);
+$('#fitH').value = clampCm(r.heightCm, 0.2, 300);
+$('#fitPanel').dataset.cat = cats.includes(r.category) ? r.category : 'other';
+onFitCheck();
+} catch (err) {
+toast(err.message);
+} finally {
+loading(false);
+}
+}
+function onFitCheck() {
+const w = parseFloat($('#fitW').value);
+const d = parseFloat($('#fitD').value);
+if (!(w > 0 && d > 0)) return toast(t('fitNeedSize'));
+if (isBag() || !state.plan) return;
+const out = $('#fitResult');
+const res = tryFit(state.surface, shownPlaced(), state.profile || GENERIC_PROFILE, {
+nameAr: $('#fitName').value.trim() || t('newItem'),
+category: $('#fitPanel').dataset.cat || 'other',
+widthCm: w, depthCm: d, heightCm: parseFloat($('#fitH').value) || 5,
+frequency: 'medium',
+}, planOpts());
+const nameOf = (id) => shownPlaced().find((p) => p.id === id)?.nameAr || '—';
+out.classList.remove('hidden');
+if (res.fits) {
+out.textContent = t('fitYes', { where: tr(res.spot.reason) });
+} else if (res.tooBig) {
+out.textContent = t('fitTooBig', { w: res.shortBy.widthCm, d: res.shortBy.depthCm });
+} else if (res.anchorTaken) {
+out.textContent = t('fitAnchorTaken', { what: res.blockedBy.map(nameOf).join('، ') });
+} else if (res.blockedBy.length) {
+out.textContent = t('fitNoRoom', { what: res.blockedBy.map(nameOf).join('، ') });
+} else {
+out.textContent = t('fitNoRoomHard');
+}
+}
+function renderSpaces() {
+const primary = state.profile?.id;
+const suggested = COMPANION_SUGGESTIONS[primary] || ['drawer', 'shelf'];
+const groups = profileOptions();
+const all = groups.flatMap((g) => g.items);
+$('#addSpaceType').innerHTML = all
+.sort((a, b) => (suggested.includes(b.id) ? 1 : 0) - (suggested.includes(a.id) ? 1 : 0))
+.map((p) => `<option value="${p.id}">${escHtml(tx(p.labelAr))}</option>`).join('');
+$('#spacesList').innerHTML = state.extraSpaces.map((sp, i) => `
+<div class="item" data-space="${i}">
+<div>
+<strong>${escHtml(tx(sp.profile.spaceTypeAr))}</strong>
+<div class="item-dims">
+<label>${escHtml(t('width'))}<input type="number" data-sf="widthCm" value="${sp.size.widthCm}" step="1" min="1"></label>
+<label>${escHtml(t('depth'))}<input type="number" data-sf="depthCm" value="${sp.size.depthCm}" step="1" min="1"></label>
+<label>${escHtml(t('height'))}<input type="number" data-sf="heightCm" value="${sp.size.heightCm}" step="1" min="1"></label>
+</div>
+</div>
+<button class="item-del" data-dropspace="${i}" aria-label="${escHtml(t('spaceRemove'))}">×</button>
+</div>`).join('');
+}
+function onAddSpace() {
+const prof = getProfile($('#addSpaceType').value);
+if (!prof) return;
+const d = prof.defaultSizeCm || {};
+state.extraSpaces.push({
+id: `sp${Date.now()}`,
+name: tx(prof.spaceTypeAr),
+profile: prof,
+size: { widthCm: d.width || 45, depthCm: d.depth || 40, heightCm: d.height || 20 },
+});
+renderSpaces();
+runSpaces();
+}
+function runSpaces() {
+const out = $('#spacesResult');
+if (!state.extraSpaces.length || !state.plan) {
+out.classList.add('hidden');
+return;
+}
+const spaces = [
+{ id: 'primary', name: tx(state.profile.spaceTypeAr), profile: state.profile, size: state.surface },
+...state.extraSpaces.map((sp) => ({ ...sp, name: tx(sp.profile.spaceTypeAr) })),
+];
+const res = planSpaces(spaces, state.items, planOpts());
+const sum = moveSummary(res, 'primary');
+out.classList.remove('hidden');
+out.innerHTML = [
+...sum.relocated.map((r) => `<div class="note ok"><span>📦</span><span>${
+escHtml(t('spacesRelocated', { n: r.ids.length, where: r.name }))}</span></div>`),
+sum.homelessCount
+? `<div class="note warn"><span>⚠️</span><span>${escHtml(t('spacesHomeless', { n: sum.homelessCount }))}</span></div>`
+: `<div class="note ok"><span>✅</span><span>${escHtml(t('spacesAllPlaced'))}</span></div>`,
+].join('');
 }
 async function onAdaptProfile() {
 const sample = await aiReady();

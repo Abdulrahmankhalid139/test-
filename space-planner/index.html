@@ -153,11 +153,58 @@
       <button id="btnDismissSkip" class="link-btn" type="button" data-i18n="dismissBar"></button>
     </div>
     <div id="statsRow" class="stats"></div>
+
+    <div id="viewTabs" class="viewtabs hidden">
+      <button class="vtab active" data-view="plan" type="button" data-i18n="viewPlan"></button>
+      <button class="vtab" data-view="photo" type="button" data-i18n="viewPhoto"></button>
+    </div>
+
     <div id="planView" class="plan"></div>
+
+    <div id="photoView" class="photo-plan hidden">
+      <img id="photoBase" alt="">
+      <div id="photoOverlay"></div>
+      <p class="hint" id="photoNote"></p>
+    </div>
+
+    <div id="editBar" class="editbar hidden">
+      <span id="editVerdict" class="verdict"></span>
+      <button id="btnUndo" class="link-btn" type="button" data-i18n="undoMove"></button>
+      <button id="btnResetLayout" class="link-btn" type="button" data-i18n="resetLayout"></button>
+    </div>
+    <p class="hint" id="editHint"></p>
+
     <div id="legendView"></div>
     <div id="aiNote" class="ai-note hidden"></div>
     <div id="notesView" class="notes"></div>
     <div id="stepsView" class="steps"></div>
+    <details class="panel" id="fitPanel">
+      <summary data-i18n="fitTitle"></summary>
+      <p class="hint" data-i18n="fitHint"></p>
+      <div class="row">
+        <input id="fitName" class="input" type="text" maxlength="40" data-i18n-ph="fitName" placeholder="">
+        <button id="btnFitAsk" class="btn ghost small" data-i18n="fitAsk"></button>
+      </div>
+      <div class="row">
+        <input id="fitW" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeW" placeholder="">
+        <input id="fitD" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeD" placeholder="">
+        <input id="fitH" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeH" placeholder="">
+      </div>
+      <button id="btnFitCheck" class="btn ghost" data-i18n="fitCheck"></button>
+      <div id="fitResult" class="ai-note hidden"></div>
+    </details>
+
+    <details class="panel" id="spacesPanel">
+      <summary data-i18n="spacesTitle"></summary>
+      <p class="hint" data-i18n="spacesHint"></p>
+      <div id="spacesList"></div>
+      <div class="row">
+        <select id="addSpaceType" class="input"></select>
+        <button id="btnAddSpace" class="btn ghost small" data-i18n="addSpace"></button>
+      </div>
+      <div id="spacesResult" class="hidden"></div>
+    </details>
+
     <div class="ask">
       <label class="label" for="askInput" data-i18n="askTitle"></label>
       <input id="askInput" class="input" type="text" maxlength="200" data-i18n-ph="askPlaceholder" placeholder="">
