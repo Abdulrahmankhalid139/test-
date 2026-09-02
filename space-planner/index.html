@@ -44,35 +44,26 @@
 
 <main id="app">
 
-  <nav class="tabs" role="tablist" aria-label="mode">
-    <button class="tab active" role="tab" aria-selected="true" data-mode="surface" type="button">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M3 8.5h3.2l1.4-2.2h8.8l1.4 2.2H21v10H3z"/><circle cx="12" cy="13" r="3.4"/>
-      </svg>
-      <span data-i18n="tabSurface">مساحة</span>
-    </button>
-    <button class="tab" role="tab" aria-selected="false" data-mode="bag" type="button">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="3.5" y="7.5" width="17" height="13" rx="2.2"/><path d="M9 7.5V5.2A1.2 1.2 0 0 1 10.2 4h3.6A1.2 1.2 0 0 1 15 5.2v2.3"/><path d="M9 11v6M15 11v6"/>
-      </svg>
-      <span data-i18n="tabBag">شنطة</span>
-    </button>
-  </nav>
-
-  <!-- ═══ ١) اختيار الوضع ═══ -->
-  <section class="screen" data-screen="mode">
-    <p class="lead" data-i18n="lead">صوّر المساحة، والتطبيق يعرف هي إيه، يقيسها بالسنتيمتر، ويحسبلك أحسن ترتيب.</p>
-    <div id="savedScans" class="saved hidden">
-      <h3 data-i18n="saved">محفوظات</h3>
-      <ul id="savedList"></ul>
-    </div>
-  </section>
 
   <section class="screen active" data-screen="capture">
-    <p class="lead" data-i18n="lead">صوّر المساحة، والتطبيق يعرف هي إيه، يقيسها بالسنتيمتر، ويحسبلك أحسن ترتيب.</p>
+    <p class="lead" data-i18n="lead"></p>
 
     <div class="field">
-      <label class="label"><span class="stepno">1</span> <span data-i18n="step1">مرجع القياس</span></label>
+      <label class="label"><span class="stepno">1</span> <span data-i18n="step3">الصورة</span></label>
+      <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
+      <button id="btnPick" class="photo-tile" type="button">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 8.5h3.2l1.4-2.2h8.8l1.4 2.2H21v10H3z"/><circle cx="12" cy="13" r="3.4"/>
+        </svg>
+        <span data-i18n="takePhoto"></span>
+        <small data-i18n="photoHint"></small>
+      </button>
+      <div id="preview" class="preview hidden"><img id="previewImg" alt=""></div>
+    </div>
+
+
+    <div class="field">
+      <label class="label"><span class="stepno">2</span> <span data-i18n="step1">مرجع القياس</span></label>
       <p class="hint" id="scaleHint"></p>
       <select id="scaleRef" class="input"></select>
       <div id="customRefWrap" class="hidden">
@@ -81,7 +72,7 @@
     </div>
 
     <div class="field" id="deskOpts">
-      <label class="label"><span class="stepno">2</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
+      <label class="label"><span class="stepno">3</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
       <select id="spaceType" class="input"></select>
       <p class="hint" id="spaceTypeHint"></p>
       <input id="intent" class="input" type="text" maxlength="120" data-i18n-ph="intentPlaceholder" placeholder="">
@@ -93,7 +84,7 @@
     </div>
 
     <div class="field hidden" id="bagOpts">
-      <label class="label"><span class="stepno">2</span> <span data-i18n="step2Bag">الشنطة</span></label>
+      <label class="label"><span class="stepno">3</span> <span data-i18n="step2Bag">الشنطة</span></label>
       <select id="bagPreset" class="input"></select>
       <div id="customBagWrap" class="row hidden">
         <input id="bagW" class="input" type="number" data-i18n-ph="bagW" placeholder="">
@@ -103,19 +94,12 @@
       <p class="hint" data-i18n="airlineWarn"></p>
     </div>
 
-    <div class="field">
-      <label class="label"><span class="stepno">3</span> <span data-i18n="step3">الصورة</span></label>
-      <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
-      <button id="btnPick" class="btn big" type="button">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 8.5h3.2l1.4-2.2h8.8l1.4 2.2H21v10H3z"/><circle cx="12" cy="13" r="3.4"/>
-        </svg>
-        <span data-i18n="takePhoto"></span>
-      </button>
-      <div id="preview" class="preview hidden"><img id="previewImg" alt=""></div>
-    </div>
-
     <p class="hint center" data-i18n="privacy"></p>
+
+    <div id="savedScans" class="saved hidden">
+      <h3 data-i18n="saved">محفوظات</h3>
+      <ul id="savedList"></ul>
+    </div>
   </section>
 
   <!-- ═══ ٣) مراجعة الحاجات ═══ -->

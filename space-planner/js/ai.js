@@ -97,6 +97,10 @@ const RULES_BRIEF = `
 - الأعلام: tall (عالية فممكن تحجب) · keepDry (سايلة) · avoidLight (بتبوظ في الشمس) ·
   wantsLight (محتاجة ضو) · hot (بتسخن) · screen (شاشة).
 لازم تسيب فئة اسمها other لأي حاجة مش داخلة في تصنيف.
+
+لو المساحة container، الأعلام المهمة بقت: keepUpright (لازم تفضل واقفة) ·
+fragile (قابلة للكسر فبتترص فوق) · compressible (لينة فبتتحشر في الفراغات).
+والمناطق والنواحي مش مهمة في الحالة دي.
 `;
 
 /* ═══════════ ١+٤+٥: الرؤية وتعرّف المساحة وتوليد القواعد ═══════════ */
@@ -112,8 +116,10 @@ export async function analyzeScene({ image, mode, scaleRefLabel, profile, intent
 
   if (generateProfile) {
     prompt += `المطلوب:
-1) حدد المساحة دي إيه بالظبط من اللي عليها. مثال: ترابيزة عليها مراية ومكياج = تسريحة مش مكتب.
-   ترابيزة عليها شاشة وكيبورد = مكتب شغل. ترابيزة جنب سرير عليها أباجورة = كومودينو.
+1) حدد المساحة دي إيه بالظبط، **وهل هي سطح بترتب عليه ولا حاوية بترص جواها**:
+   - surface = بترتب حاجات فوقه: مكتب، تسريحة، رف مطبخ، كومودينو، ترابيزة عدة.
+   - container = بترص حاجات جواه: شنطة، درج، دولاب، كرتونة، تلاجة، شنطة عربية.
+   مثال: ترابيزة عليها مراية ومكياج = تسريحة (surface). درج مفتوح فيه حاجات = درج (container).
 2) اكتب قواعد ترتيب النوع ده من المساحات: الفئات اللي بتتحط عليه، وكل فئة تروح فين وليه.
    فكّر زي متخصص: إيه اللي لازم يبقى في متناول الإيد، إيه اللي بيبوظ في الشمس، إيه اللي بيسخن، وإيه اللي بيحجب.
 ${RULES_BRIEF}
@@ -123,8 +129,8 @@ ${RULES_BRIEF}
 6) الشباك أو مصدر الضو فين بالنسبة للشخص؟
 
 الصيغة:
-{"spaceTypeAr":"...","profile":{"spaceTypeAr":"...","defaultSizeCm":{"width":0,"depth":0},
- "categories":[{"key":"...","labelAr":"...","zone":"...","side":"...","anchor":"...","tall":false,"keepDry":false,"avoidLight":false,"wantsLight":false,"hot":false,"screen":false}],
+{"spaceTypeAr":"...","profile":{"spaceTypeAr":"...","spaceKind":"surface|container","defaultSizeCm":{"width":0,"depth":0,"height":0},
+ "categories":[{"key":"...","labelAr":"...","zone":"...","side":"...","anchor":"...","tall":false,"keepDry":false,"avoidLight":false,"wantsLight":false,"hot":false,"screen":false,"keepUpright":false,"compressible":false}],
  "tipsAr":["..."]},
  "scaleReference":{"found":true,"whatAr":"...","box":[0,0,0,0]},
  "surface":{"box":[0,0,0,0]},
@@ -184,7 +190,7 @@ export function profileFromModel(raw) {
   for (const c of raw.categories) {
     if (!c || !c.key) continue;
     const def = { labelAr: c.labelAr, zone: c.zone, side: c.side };
-    for (const f of ['tall', 'keepDry', 'avoidLight', 'wantsLight', 'hot', 'screen']) {
+    for (const f of ['tall', 'keepDry', 'avoidLight', 'wantsLight', 'hot', 'screen', 'keepUpright', 'compressible']) {
       if (c[f] === true) def[f] = true;
     }
     if (c.anchor && c.anchor !== 'none') def.anchor = c.anchor;
@@ -192,7 +198,7 @@ export function profileFromModel(raw) {
   }
   return {
     spaceTypeAr: raw.spaceTypeAr,
-    spaceKind: 'surface',
+    spaceKind: raw.spaceKind === 'container' ? 'container' : 'surface',
     defaultSizeCm: raw.defaultSizeCm,
     categories,
     tipsAr: raw.tipsAr,

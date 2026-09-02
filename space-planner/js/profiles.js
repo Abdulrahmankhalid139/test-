@@ -182,6 +182,151 @@ export const BUILT_IN_PROFILES = {
   },
 };
 
+
+/**
+ * الحاويات: أي حاجة بترص جواها بدل ما ترتب عليها.
+ * نفس البروفايل بالظبط، بس spaceKind = 'container' فبتروح لخوارزمية
+ * الرص ثلاثي الأبعاد بدل مرتّب الأسطح. الفئات هنا بتحمل أعلام الرص.
+ */
+export const CONTAINER_PROFILES = {
+  cabinBag: {
+    id: 'cabinBag',
+    spaceTypeAr: { ar: 'شنطة سفر', en: 'Travel bag' },
+    spaceKind: 'container',
+    defaultSizeCm: { width: 50, depth: 37, height: 25 },
+    usesAirlinePresets: true,
+    categories: {
+      laptop:     { labelAr: { ar: 'لابتوب / تابلت', en: 'Laptop / tablet' }, keepUpright: true, fragile: true },
+      electronics:{ labelAr: { ar: 'إلكترونيات', en: 'Electronics' }, fragile: true },
+      camera:     { labelAr: { ar: 'كاميرا / عدسة', en: 'Camera / lens' }, keepUpright: true, fragile: true },
+      glass:      { labelAr: { ar: 'حاجة قابلة للكسر', en: 'Fragile item' }, keepUpright: true, fragile: true },
+      shoes:      { labelAr: { ar: 'جزم', en: 'Shoes' } },
+      clothes:    { labelAr: { ar: 'هدوم', en: 'Clothes' }, compressible: true },
+      toiletries: { labelAr: { ar: 'أدوات نظافة', en: 'Toiletries' }, keepUpright: true },
+      book:       { labelAr: { ar: 'كتاب / ورق', en: 'Book / papers' } },
+      food:       { labelAr: { ar: 'أكل', en: 'Food' }, keepUpright: true },
+      other:      { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+    },
+    tipsAr: [
+      { ar: 'الحاجات التقيلة في القاع ناحية العجل — الشنطة بتبقى أثبت وانت بتجرها.',
+        en: 'Heavy things at the bottom near the wheels — the bag rolls steadier.' },
+    ],
+  },
+
+  drawer: {
+    id: 'drawer',
+    spaceTypeAr: { ar: 'درج', en: 'Drawer' },
+    spaceKind: 'container',
+    defaultSizeCm: { width: 45, depth: 40, height: 12 },
+    categories: {
+      flat:      { labelAr: { ar: 'حاجة مسطحة', en: 'Flat item' } },
+      box:       { labelAr: { ar: 'علبة', en: 'Box' }, keepUpright: true },
+      tools:     { labelAr: { ar: 'أدوات', en: 'Tools' } },
+      cables:    { labelAr: { ar: 'كابلات', en: 'Cables' }, compressible: true },
+      fragile:   { labelAr: { ar: 'حاجة قابلة للكسر', en: 'Fragile item' }, keepUpright: true, fragile: true },
+      papers:    { labelAr: { ar: 'ورق', en: 'Papers' } },
+      other:     { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+    },
+    tipsAr: [
+      { ar: 'الدرج الواطي بيضيع فيه الوقت لو الحاجات فوق بعض — خليها كلها ظاهرة من فوق.',
+        en: 'A shallow drawer wastes your time when things stack — keep everything visible from above.' },
+    ],
+  },
+
+  shelf: {
+    id: 'shelf',
+    spaceTypeAr: { ar: 'رف / دولاب', en: 'Shelf / cupboard' },
+    spaceKind: 'container',
+    defaultSizeCm: { width: 80, depth: 35, height: 40 },
+    categories: {
+      boxes:     { labelAr: { ar: 'علب وصناديق', en: 'Boxes' }, keepUpright: true },
+      books:     { labelAr: { ar: 'كتب', en: 'Books' } },
+      clothes:   { labelAr: { ar: 'هدوم مطوية', en: 'Folded clothes' }, compressible: true },
+      appliance: { labelAr: { ar: 'جهاز', en: 'Appliance' }, keepUpright: true, fragile: true },
+      dishes:    { labelAr: { ar: 'أطباق', en: 'Dishes' }, keepUpright: true, fragile: true },
+      bags:      { labelAr: { ar: 'شنط', en: 'Bags' }, compressible: true },
+      other:     { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+    },
+    tipsAr: [
+      { ar: 'اللي بتستخدمه كل يوم في مستوى العين، والتقيل تحت، والنادر فوق.',
+        en: 'Daily things at eye level, heavy things low, rarely used things high.' },
+    ],
+  },
+
+  movingBox: {
+    id: 'movingBox',
+    spaceTypeAr: { ar: 'كرتونة نقل', en: 'Moving box' },
+    spaceKind: 'container',
+    defaultSizeCm: { width: 45, depth: 35, height: 35 },
+    categories: {
+      heavy:     { labelAr: { ar: 'حاجة تقيلة', en: 'Heavy item' } },
+      fragile:   { labelAr: { ar: 'قابل للكسر', en: 'Fragile' }, keepUpright: true, fragile: true },
+      books:     { labelAr: { ar: 'كتب', en: 'Books' } },
+      clothes:   { labelAr: { ar: 'هدوم', en: 'Clothes' }, compressible: true },
+      kitchen:   { labelAr: { ar: 'أدوات مطبخ', en: 'Kitchenware' }, keepUpright: true, fragile: true },
+      other:     { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+    },
+    tipsAr: [
+      { ar: 'التقيل تحت والخفيف فوق، ومتملاش الكرتونة لدرجة إنك متشيلهاش.',
+        en: 'Heavy at the bottom, light on top — and do not fill it past what you can lift.' },
+    ],
+  },
+
+  fridge: {
+    id: 'fridge',
+    spaceTypeAr: { ar: 'رف تلاجة', en: 'Fridge shelf' },
+    spaceKind: 'container',
+    defaultSizeCm: { width: 50, depth: 35, height: 25 },
+    categories: {
+      bottles:   { labelAr: { ar: 'زجاجات', en: 'Bottles' }, keepUpright: true },
+      jars:      { labelAr: { ar: 'برطمانات', en: 'Jars' }, keepUpright: true, fragile: true },
+      leftovers: { labelAr: { ar: 'علب أكل', en: 'Food containers' }, keepUpright: true },
+      produce:   { labelAr: { ar: 'خضار وفاكهة', en: 'Produce' } },
+      eggs:      { labelAr: { ar: 'بيض', en: 'Eggs' }, keepUpright: true, fragile: true },
+      other:     { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+    },
+    tipsAr: [
+      { ar: 'اللي قرب يخلص قدام — ده أكتر سبب إن الأكل بيترمي.',
+        en: 'What expires soonest goes at the front — the main reason food gets thrown out.' },
+    ],
+  },
+
+  carBoot: {
+    id: 'carBoot',
+    spaceTypeAr: { ar: 'شنطة عربية', en: 'Car boot' },
+    spaceKind: 'container',
+    defaultSizeCm: { width: 100, depth: 60, height: 45 },
+    categories: {
+      luggage:   { labelAr: { ar: 'شنط', en: 'Luggage' } },
+      bags:      { labelAr: { ar: 'أكياس', en: 'Bags' }, compressible: true },
+      fragile:   { labelAr: { ar: 'قابل للكسر', en: 'Fragile' }, keepUpright: true, fragile: true },
+      tools:     { labelAr: { ar: 'عدة', en: 'Tools' } },
+      sports:    { labelAr: { ar: 'أدوات رياضة', en: 'Sports gear' } },
+      other:     { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+    },
+    tipsAr: [
+      { ar: 'اللي هتحتاجه الأول قدام عند الباب — مش تحت كل حاجة.',
+        en: 'What you need first goes by the tailgate, not under everything else.' },
+    ],
+  },
+};
+
+/** حاوية احتياطية عامة لأي حاجة بترص جواها ومش معروفة. */
+export const GENERIC_CONTAINER = {
+  id: 'genericContainer',
+  spaceTypeAr: { ar: 'حاوية', en: 'Container' },
+  spaceKind: 'container',
+  defaultSizeCm: { width: 50, depth: 40, height: 30 },
+  categories: {
+    rigid:       { labelAr: { ar: 'حاجة جامدة', en: 'Rigid item' } },
+    fragile:     { labelAr: { ar: 'قابل للكسر', en: 'Fragile' }, keepUpright: true, fragile: true },
+    soft:        { labelAr: { ar: 'حاجة لينة', en: 'Soft item' }, compressible: true },
+    keepUpright: { labelAr: { ar: 'لازم واقفة', en: 'Must stay upright' }, keepUpright: true },
+    other:       { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+  },
+  tipsAr: [],
+};
+
 /** بروفايل احتياطي عام — لأي مساحة مش متعرف عليها ومفيش AI. */
 export const GENERIC_PROFILE = {
   id: 'generic',
@@ -227,6 +372,8 @@ export function normalizeProfile(raw, fallback = GENERIC_PROFILE) {
     };
 
     for (const flag of VALID_FLAGS) if (def[flag] === true) cat[flag] = true;
+    // أعلام الرص للحاويات
+    for (const flag of ['keepUpright', 'compressible']) if (def[flag] === true) cat[flag] = true;
 
     // خانة الإرساء الواحدة متتاخدش مرتين
     if (ANCHOR_SLOTS.includes(def.anchor) && !anchorsUsed.has(def.anchor)) {
@@ -250,8 +397,9 @@ export function normalizeProfile(raw, fallback = GENERIC_PROFILE) {
     spaceTypeAr: String(raw.spaceTypeAr || 'مساحة').slice(0, 40),
     spaceKind: raw.spaceKind === 'container' ? 'container' : 'surface',
     defaultSizeCm: {
-      width: clampNum(size.width, 20, 400, fallback.defaultSizeCm.width),
-      depth: clampNum(size.depth, 15, 200, fallback.defaultSizeCm.depth),
+      width: clampNum(size.width, 10, 400, fallback.defaultSizeCm.width),
+      depth: clampNum(size.depth, 10, 200, fallback.defaultSizeCm.depth),
+      height: clampNum(size.height, 3, 200, fallback.defaultSizeCm.height || 30),
     },
     categories,
     tipsAr: Array.isArray(raw.tipsAr)
@@ -266,11 +414,19 @@ function clampNum(v, lo, hi, fallback) {
   return Number.isFinite(n) && n >= lo && n <= hi ? n : fallback;
 }
 
-/** ليستة المساحات الجاهزة للاختيار اليدوي. */
+/** كل البروفايلات — أسطح وحاويات في مكان واحد. */
+export const ALL_PROFILES = { ...BUILT_IN_PROFILES, ...CONTAINER_PROFILES };
+
+/** ليستة الاختيار اليدوي، متقسمة لمجموعتين. */
 export function profileOptions() {
-  return Object.values(BUILT_IN_PROFILES).map((p) => ({ id: p.id, labelAr: p.spaceTypeAr }));
+  return [
+    { group: 'surfaces', items: Object.values(BUILT_IN_PROFILES).map((p) => ({ id: p.id, labelAr: p.spaceTypeAr })) },
+    { group: 'containers', items: Object.values(CONTAINER_PROFILES).map((p) => ({ id: p.id, labelAr: p.spaceTypeAr })) },
+  ];
 }
 
 export function getProfile(id) {
-  return BUILT_IN_PROFILES[id] || GENERIC_PROFILE;
+  return ALL_PROFILES[id] || GENERIC_PROFILE;
 }
+
+export const isContainer = (profile) => profile?.spaceKind === 'container';

@@ -6,7 +6,7 @@ import { pack3D, packingOrder } from './packing.js';
 import { layoutSurface } from './surface.js';
 import { renderDeskPlan, renderBagPlan, renderLegend } from './render.js';
 import { aiReady, canSendImages, analyzeScene, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized, CAN_RENDER_IMAGE } from './ai.js';
-import { BUILT_IN_PROFILES, GENERIC_PROFILE, normalizeProfile, profileOptions, getProfile, ZONES } from './profiles.js';
+import { BUILT_IN_PROFILES, GENERIC_PROFILE, GENERIC_CONTAINER, normalizeProfile, profileOptions, getProfile, isContainer, ZONES } from './profiles.js';
 import { CABIN_BAGS, BAG_CATEGORIES } from '../data/bags.js';
 import { store } from './store.js';
 import { t, tx, tr, getLang, setLang, initLang } from './i18n.js';
@@ -14,15 +14,19 @@ import { t, tx, tr, getLang, setLang, initLang } from './i18n.js';
 const FREQ_KEYS = { high: 'freqHigh', medium: 'freqMedium', low: 'freqLow' };
 
 const state = {
-  mode: 'surface',
-  profile: null,      // بروفايل المساحة — جاهز أو مولّد بالـAI
+  // مفيش اختيار وضع: نوع المساحة بيتحدد من البروفايل نفسه.
+  // spaceKind: 'surface' → مرتّب الأسطح · 'container' → الرص ثلاثي الأبعاد
+  profile: null,
   image: null,
   items: [],
   scale: null,
-  surface: { widthCm: 140, depthCm: 70 },
+  surface: { widthCm: 140, depthCm: 70, heightCm: 30 },
   plan: null,
   bin: null,
 };
+
+/** الوضع مشتق: مفيش حالة منفصلة تتعارض مع البروفايل. */
+const isBag = () => isContainer(state.profile);
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -72,9 +76,12 @@ function applyLang() {
   $('#scaleRef').innerHTML = Object.values(SCALE_REFERENCES)
     .map((r) => `<option value="${r.id}">${esc(r.labelAr)}</option>`).join('');
   $('#scaleRef').value = store.getPrefs().scaleRef || 'card';
+  const groups = profileOptions();
   $('#spaceType').innerHTML =
     `<option value="auto">${esc(t('autoDetect'))}</option>` +
-    profileOptions().map((p) => `<option value="${p.id}">${esc(tx(p.labelAr))}</option>`).join('');
+    groups.map((g) => `<optgroup label="${esc(t(g.group))}">${
+      g.items.map((p) => `<option value="${p.id}">${esc(tx(p.labelAr))}</option>`).join('')
+    }</optgroup>`).join('');
   $('#spaceType').value = store.getPrefs().spaceType || 'auto';
   $('#bagPreset').innerHTML = CABIN_BAGS
     .map((b) => `<option value="${b.id}">${esc(b.nameAr)}${b.w ? ` — ${b.w}×${b.d}×${b.h}` : ''}</option>`).join('');
@@ -83,24 +90,16 @@ function applyLang() {
   // اللي معروض دلوقتي يتعاد رسمه باللغة الجديدة
   if (state.profile) renderDetectedSpace();
   if (state.items.length) renderItems();
-  if (state.plan) (state.mode === 'surface' ? renderDeskResult : renderBagResult)();
+  if (state.plan) (isBag() ? renderBagResult : renderDeskResult)();
 }
 
 function updateHints() {
-  $('#scaleHint').textContent = t(state.mode === 'surface' ? 'scaleHintSurface' : 'scaleHintBag');
-  $('#spaceTypeHint').textContent = t($('#spaceType').value === 'auto' ? 'autoHint' : 'pickedHint');
-}
-
-function setMode(mode) {
-  state.mode = mode;
-  for (const tab of $$('.tab')) {
-    const on = tab.dataset.mode === mode;
-    tab.classList.toggle('active', on);
-    tab.setAttribute('aria-selected', String(on));
-  }
-  $('#deskOpts').classList.toggle('hidden', mode !== 'surface');
-  $('#bagOpts').classList.toggle('hidden', mode !== 'bag');
-  updateHints();
+  const picked = $('#spaceType').value;
+  $('#spaceTypeHint').textContent = t(picked === 'auto' ? 'autoHint' : 'pickedHint');
+  // مقاسات الحاوية محتاجة ارتفاع كمان
+  const container = picked !== 'auto' && isContainer(getProfile(picked));
+  $('#bagOpts').classList.toggle('hidden', !container);
+  $('#deskOpts').classList.remove('hidden');
 }
 
 /* ═══════════ التهيئة ═══════════ */
@@ -109,7 +108,6 @@ function init() {
   const prefs = store.getPrefs();
   applyLang();
   $('#dominantHand').value = prefs.dominantHand || 'right';
-  setMode('surface');
   syncActionBar('capture');
   onScaleRefChange();
   renderSaved();
@@ -118,11 +116,6 @@ function init() {
     setLang(getLang() === 'ar' ? 'en' : 'ar');
     applyLang();
   });
-
-  $$('.tab').forEach((tab) => tab.addEventListener('click', () => {
-    setMode(tab.dataset.mode);
-    showScreen('capture');
-  }));
 
   $$('[data-goto]').forEach((b) => b.addEventListener('click', () => showScreen(b.dataset.goto)));
   $('#scaleRef').addEventListener('change', onScaleRefChange);
@@ -193,11 +186,11 @@ async function onAnalyze() {
     const chosen = $('#spaceType').value;
     const intent = $('#intent').value.trim();
     // لو المستخدم اختار نوع، بنستخدم قواعده الجاهزة. لو "اكتشف تلقائياً"، الموديل هيولّدها.
-    const chosenProfile = state.mode === 'surface' && chosen !== 'auto' ? getProfile(chosen) : null;
+    const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
 
     const analysis = await analyzeScene({
       image: state.image,
-      mode: state.mode,
+      mode: isBag() ? 'bag' : 'surface',
       scaleRefLabel: refId === 'custom' ? `${customCm} cm wide object` : ref.labelAr,
       profile: chosenProfile,
       intent,
@@ -205,10 +198,16 @@ async function onAnalyze() {
       lang: getLang(),
     });
 
-    if (state.mode === 'surface') {
-      // البروفايل المولّد بيتفلتر قبل ما يوصل للخوارزمية
-      state.profile = chosenProfile
-        || (analysis.generatedProfile ? normalizeProfile(analysis.generatedProfile) : GENERIC_PROFILE);
+    // البروفايل المولّد بيتفلتر قبل ما يوصل للخوارزمية.
+    // الموديل بيقول كمان هل دي حاجة بترتب عليها ولا بترص جواها.
+    if (chosenProfile) {
+      state.profile = chosenProfile;
+    } else if (analysis.generatedProfile) {
+      const kind = analysis.generatedProfile.spaceKind;
+      state.profile = normalizeProfile(analysis.generatedProfile,
+        kind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
+    } else {
+      state.profile = GENERIC_PROFILE;
     }
 
     const refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
@@ -234,13 +233,13 @@ async function onAnalyze() {
       : t('b_scaleWarn', { level });
 
     // سطح الشغل
-    if (state.mode === 'surface' && analysis.surface?.box) {
+    if (!isBag() && analysis.surface?.box) {
       const sBox = normalizeBox(analysis.surface.box);
       if (sBox) {
         const d = boxToCm(sBox, scale);
         state.surface = { widthCm: clampCm(d.widthCm, 40, 400), depthCm: clampCm(d.depthCm, 30, 200) };
       }
-    } else if (state.mode === 'surface') {
+    } else {
       applyProfileSize();
     }
     if (analysis.windowSide) store.setPrefs({ windowSide: analysis.windowSide });
@@ -280,12 +279,8 @@ function onManual() {
   state.items = [];
   state.scale = null;
   const chosen = $('#spaceType').value;
-  if (state.mode === 'surface') {
-    state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
-    applyProfileSize();
-  } else {
-    state.profile = null;
-  }
+  state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
+  applyProfileSize();
   addItem();
   renderDetectedSpace();
   $('#scaleBanner').className = 'banner warn';
@@ -307,11 +302,10 @@ function addItem() {
 }
 
 function renderItems() {
-  const catOptions = state.mode === 'surface'
-    ? Object.entries(state.profile?.categories || GENERIC_PROFILE.categories).map(([k, v]) => [k, tx(v.labelAr)])
-    : Object.entries(BAG_CATEGORIES).map(([k, v]) => [k, v.labelAr]);
+  const cats = state.profile?.categories || GENERIC_PROFILE.categories;
+  const catOptions = Object.entries(cats).map(([k, v]) => [k, tx(v.labelAr)]);
 
-  const surfaceEditor = state.mode === 'surface' ? `
+  const surfaceEditor = !isBag() ? `
     <div class="item">
       <div>
         <strong>${esc(t('surfaceSize'))}</strong>
@@ -335,7 +329,7 @@ function renderItems() {
         <select data-f="category" aria-label="${esc(t('kind'))}">
           ${catOptions.map(([k, v]) => `<option value="${k}" ${it.category === k ? 'selected' : ''}>${v}</option>`).join('')}
         </select>
-        ${state.mode === 'surface' ? `
+        ${!isBag() ? `
         <select data-f="frequency" aria-label="${esc(t('usage'))}">
           ${Object.entries(FREQ_KEYS).map(([k, key]) => `<option value="${k}" ${it.frequency === k ? 'selected' : ''}>${esc(t(key))}</option>`).join('')}
         </select>` : ''}
@@ -406,7 +400,7 @@ async function onPlan() {
   const valid = state.items.filter((i) => i.widthCm > 0 && i.depthCm > 0 && i.heightCm > 0);
   if (!valid.length) return toast(t('t_needItems'));
 
-  if (state.mode === 'surface') {
+  if (!isBag()) {
     if (!(state.surface.widthCm > 20 && state.surface.depthCm > 20)) return toast(t('t_needSize'));
     const prefs = store.getPrefs();
     state.plan = layoutSurface(state.surface, valid, state.profile || GENERIC_PROFILE, {
@@ -415,16 +409,24 @@ async function onPlan() {
     });
     renderDeskResult();
   } else {
-    const preset = CABIN_BAGS.find((b) => b.id === $('#bagPreset').value);
-    const bin = preset.id === 'custom'
-      ? { widthCm: +$('#bagW').value, depthCm: +$('#bagD').value, heightCm: +$('#bagH').value, maxWeightKg: 0 }
-      : { widthCm: preset.w, depthCm: preset.d, heightCm: preset.h, maxWeightKg: preset.kg };
+    // مقاس الحاوية: من قائمة الطيران لو شنطة سفر، وإلا من البروفايل أو من المستخدم
+    const preset = state.profile.usesAirlinePresets ? CABIN_BAGS.find((b) => b.id === $('#bagPreset').value) : null;
+    const custom = { widthCm: +$('#bagW').value, depthCm: +$('#bagD').value, heightCm: +$('#bagH').value };
+    const def = state.profile.defaultSizeCm || {};
+    const bin = preset && preset.id !== 'custom'
+      ? { widthCm: preset.w, depthCm: preset.d, heightCm: preset.h, maxWeightKg: preset.kg }
+      : {
+          widthCm: custom.widthCm || def.width,
+          depthCm: custom.depthCm || def.depth,
+          heightCm: custom.heightCm || def.height,
+          maxWeightKg: 0,
+        };
     if (!(bin.widthCm > 0 && bin.depthCm > 0 && bin.heightCm > 0)) return toast(t('t_needBagSize'));
     state.bin = bin;
 
     const items = valid.map((i) => {
-      const meta = BAG_CATEGORIES[i.category] || BAG_CATEGORIES.other;
-      return { ...i, keepUpright: meta.keepUpright, fragile: i.fragile || meta.fragile, compressible: !!meta.compressible };
+      const meta = state.profile.categories[i.category] || {};
+      return { ...i, keepUpright: !!meta.keepUpright, fragile: i.fragile || !!meta.fragile, compressible: !!meta.compressible };
     });
     const res = pack3D(bin, items);
     state.plan = { ...res, steps: packingOrder(res.placed) };
@@ -458,7 +460,7 @@ function renderDeskResult() {
 
 function renderBagResult() {
   const p = state.plan;
-  $('#resultTitle').textContent = t('bagResult');
+  $('#resultTitle').textContent = tx(state.profile?.spaceTypeAr) || t('bagResult');
   const weightWarn = p.stats.overWeight ? ' ⚠️' : '';
   $('#statsRow').innerHTML = `
     <div class="stat"><b>${p.stats.placedCount}</b><span>${esc(t('statFits'))}</span></div>
@@ -484,7 +486,7 @@ async function maybeExplain() {
   const sample = await aiReady();
   if (!sample) return;
   try {
-    const text = await explainPlan({ mode: state.mode, plan: state.plan, sample, lang: getLang() });
+    const text = await explainPlan({ mode: isBag() ? 'bag' : 'surface', plan: state.plan, sample, lang: getLang() });
     if (text.trim()) {
       $('#aiNote').textContent = text.trim();
       $('#aiNote').classList.remove('hidden');
@@ -511,10 +513,10 @@ async function onAfterImage() {
 /* ═══════════ الحفظ ═══════════ */
 function onSave() {
   const ok = store.saveScan({
-    mode: state.mode,
-    title: state.mode === 'surface'
+    mode: isBag() ? 'bag' : 'surface',
+    title: !isBag()
       ? `${tx(state.profile?.spaceTypeAr) || t('appName')} ${Math.round(state.surface.widthCm)}×${Math.round(state.surface.depthCm)}`
-      : t('bagResult'),
+      : `${tx(state.profile?.spaceTypeAr) || t('bagResult')}`,
     items: state.items,
     surface: state.surface,
     profile: state.profile,
@@ -541,9 +543,7 @@ function renderSaved() {
     if (!load) return;
     const s = store.getScans().find((x) => x.savedAt === +load);
     if (!s) return;
-    state.mode = s.mode; state.items = s.items; state.surface = s.surface || state.surface; state.profile = s.profile; state.bin = s.bin;
-    $('#deskOpts').classList.toggle('hidden', state.mode !== 'surface');
-    $('#bagOpts').classList.toggle('hidden', state.mode !== 'bag');
+    state.items = s.items; state.surface = s.surface || state.surface; state.profile = s.profile; state.bin = s.bin;
     renderDetectedSpace();
     renderItems();
     showScreen('review');
@@ -556,14 +556,17 @@ function renderSaved() {
 function applyProfileSize() {
   const size = state.profile?.defaultSizeCm;
   if (size?.width > 0 && size?.depth > 0) {
-    state.surface = { widthCm: size.width, depthCm: size.depth };
+    state.surface = { widthCm: size.width, depthCm: size.depth, heightCm: size.height || 30 };
+    if (isBag()) {
+      $('#bagW').value = size.width; $('#bagD').value = size.depth; $('#bagH').value = size.height || 30;
+    }
   }
 }
 
 /** بيعرض نوع المساحة والقواعد اللي هتتنفّذ — عشان تشوفها قبل الحساب. */
 function renderDetectedSpace() {
   const box = $('#detectedSpace');
-  if (state.mode !== 'surface' || !state.profile) { box.classList.add('hidden'); return; }
+  if (!state.profile) { box.classList.add('hidden'); return; }
 
   box.classList.remove('hidden');
   const src = state.profile.source === 'ai' ? ' 🤖' : '';
@@ -627,7 +630,7 @@ async function onAsk() {
     $('#askAnswer').textContent = t('thinking');
     $('#askAnswer').classList.remove('hidden');
     const answer = await askAboutSpace({
-      question, plan: state.plan, mode: state.mode, sample, lang: getLang(),
+      question, plan: state.plan, mode: isBag() ? 'bag' : 'surface', sample, lang: getLang(),
       onText: ({ text }) => { $('#askAnswer').textContent = text; },
     });
     $('#askAnswer').textContent = answer.trim() || t('t_noAnswer');

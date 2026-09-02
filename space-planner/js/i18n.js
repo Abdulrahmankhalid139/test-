@@ -12,13 +12,12 @@ const STRINGS = {
     dir: 'rtl', langName: 'العربية', switchTo: 'English',
 
     appName: 'مرتّب المساحة',
-    lead: 'صوّر المساحة، والتطبيق يعرف هي إيه، يقيسها بالسنتيمتر، ويحسبلك أحسن ترتيب.',
-    tabSurface: 'مساحة', tabBag: 'شنطة',
-    tabSurfaceHint: 'مكتب · تسريحة · مطبخ · أي سطح',
-    tabBagHint: 'إيه اللي هيدخل وبأي ترتيب',
+    lead: 'مكتب، تسريحة، درج، شنطة، تلاجة... صوّرها والتطبيق يعرف هي إيه ويرتّبها.',
+    surfaces: 'حاجات بترتب عليها', containers: 'حاجات بترص جواها',
+
 
     step1: 'مرجع القياس', step2: 'المساحة', step2Bag: 'الشنطة', step3: 'الصورة',
-    scaleHintSurface: 'حط كارت بنك أو ورقة على السطح جنب الحاجات — من غيره المقاسات هتبقى تخمين.',
+    scaleHintSurface: 'حط كارت بنك أو ورقة جنب الحاجات — من غيره المقاسات هتبقى تخمين.',
     scaleHintBag: 'حط كارت بنك جنب الحاجات، وافردهم وصوّرهم من فوق.',
     customRefCm: 'العرض الحقيقي بالسنتيمتر',
     spaceTypeQ: 'المساحة دي إيه؟',
@@ -31,6 +30,7 @@ const STRINGS = {
     bagW: 'العرض سم', bagD: 'العمق سم', bagH: 'الارتفاع سم',
     airlineWarn: '⚠️ مقاسات شركات الطيران بتتغيّر — راجع شركتك قبل السفر.',
     takePhoto: 'صوّر أو اختار صورة',
+    photoHint: 'أي مساحة — سطح أو حاجة بترص جواها',
     analyze: 'حلّل الصورة',
     manual: 'أو أدخل الحاجات بنفسك',
     privacy: 'الصورة بتتبعت لـClaude عشان يحللها بس، ومش بتتخزن في أي مكان.',
@@ -159,13 +159,12 @@ const STRINGS = {
     dir: 'ltr', langName: 'English', switchTo: 'العربية',
 
     appName: 'Space Planner',
-    lead: 'Photograph a surface. The app works out what it is, measures it in centimetres, and computes the best layout.',
-    tabSurface: 'Surface', tabBag: 'Bag',
-    tabSurfaceHint: 'Desk · dresser · kitchen · any surface',
-    tabBagHint: 'What fits, and in what order',
+    lead: 'Desk, dresser, drawer, bag, fridge — photograph it and the app works out what it is and arranges it.',
+    surfaces: 'Things you arrange on', containers: 'Things you pack into',
+
 
     step1: 'Scale reference', step2: 'The space', step2Bag: 'The bag', step3: 'Photo',
-    scaleHintSurface: 'Put a bank card or a sheet of paper on the surface next to your things — without one, every measurement is a guess.',
+    scaleHintSurface: 'Put a bank card or sheet of paper next to your things — without one, every measurement is a guess.',
     scaleHintBag: 'Put a bank card next to the items, lay them out, and shoot from above.',
     customRefCm: 'Real width in centimetres',
     spaceTypeQ: 'What is this space?',
@@ -178,6 +177,7 @@ const STRINGS = {
     bagW: 'Width cm', bagD: 'Depth cm', bagH: 'Height cm',
     airlineWarn: '⚠️ Airline limits change — check your airline before flying.',
     takePhoto: 'Take or choose a photo',
+    photoHint: 'Any space — a surface, or something you pack into',
     analyze: 'Analyse photo',
     manual: 'Or enter items yourself',
     privacy: 'The photo goes to Claude for analysis only and is never stored.',

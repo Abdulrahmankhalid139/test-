@@ -297,6 +297,41 @@ border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite;
 .actionbar-inner{grid-template-columns:1fr 1fr}
 .actionbar-inner .btn.primary{grid-column:1/-1}
 }
+#app{padding:14px 14px 140px}
+.lead{margin:0 0 16px;font-size:13.5px}
+.field{padding-bottom:16px;padding-inline-start:28px}
+.field::before{top:24px}
+.label{font-size:13.5px;margin-bottom:5px}
+.stepno{width:21px;height:21px;font-size:10.5px}
+.hint{font-size:12px;margin:4px 0}
+.input{padding:10px 12px;font-size:14px;margin-top:6px}
+h2{font-size:17.5px}
+h3{font-size:13.5px;margin:18px 0 7px}
+.btn{padding:11px 14px;font-size:14px;margin-top:8px}
+.btn.big{padding:13px 14px;font-size:14.5px}
+.item{padding:10px 11px}
+.item-name{font-size:14px}
+.stat{padding:9px 6px;min-width:70px}
+.stat b{font-size:17px}
+.steps li{margin-bottom:7px;font-size:13px}
+.note{padding:9px 11px;font-size:12.5px}
+.ai-note{padding:12px;font-size:13px}
+.detected{padding:11px 12px}
+.photo-tile{
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;
+width:100%;min-height:104px;padding:18px;margin-top:6px;
+border:1.5px dashed var(--accent-line);border-radius:var(--r-lg);
+background:var(--accent-soft);color:var(--accent);
+font:inherit;font-size:14.5px;font-weight:700;cursor:pointer;transition:.16s;
+}
+.photo-tile:hover{border-color:var(--accent);background:var(--card)}
+.photo-tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.photo-tile svg{opacity:.9}
+.photo-tile small{font-size:11.5px;font-weight:600;color:var(--dim)}
+@media (max-width:380px){
+#app{padding-inline:12px}
+.item-dims input{width:52px}
+}
 </style>
 </head>
 <body>
@@ -323,35 +358,26 @@ border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite;
 
 <main id="app">
 
-  <nav class="tabs" role="tablist" aria-label="mode">
-    <button class="tab active" role="tab" aria-selected="true" data-mode="surface" type="button">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M3 8.5h3.2l1.4-2.2h8.8l1.4 2.2H21v10H3z"/><circle cx="12" cy="13" r="3.4"/>
-      </svg>
-      <span data-i18n="tabSurface">مساحة</span>
-    </button>
-    <button class="tab" role="tab" aria-selected="false" data-mode="bag" type="button">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="3.5" y="7.5" width="17" height="13" rx="2.2"/><path d="M9 7.5V5.2A1.2 1.2 0 0 1 10.2 4h3.6A1.2 1.2 0 0 1 15 5.2v2.3"/><path d="M9 11v6M15 11v6"/>
-      </svg>
-      <span data-i18n="tabBag">شنطة</span>
-    </button>
-  </nav>
-
-  <!-- ═══ ١) اختيار الوضع ═══ -->
-  <section class="screen" data-screen="mode">
-    <p class="lead" data-i18n="lead">صوّر المساحة، والتطبيق يعرف هي إيه، يقيسها بالسنتيمتر، ويحسبلك أحسن ترتيب.</p>
-    <div id="savedScans" class="saved hidden">
-      <h3 data-i18n="saved">محفوظات</h3>
-      <ul id="savedList"></ul>
-    </div>
-  </section>
 
   <section class="screen active" data-screen="capture">
-    <p class="lead" data-i18n="lead">صوّر المساحة، والتطبيق يعرف هي إيه، يقيسها بالسنتيمتر، ويحسبلك أحسن ترتيب.</p>
+    <p class="lead" data-i18n="lead"></p>
 
     <div class="field">
-      <label class="label"><span class="stepno">1</span> <span data-i18n="step1">مرجع القياس</span></label>
+      <label class="label"><span class="stepno">1</span> <span data-i18n="step3">الصورة</span></label>
+      <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
+      <button id="btnPick" class="photo-tile" type="button">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 8.5h3.2l1.4-2.2h8.8l1.4 2.2H21v10H3z"/><circle cx="12" cy="13" r="3.4"/>
+        </svg>
+        <span data-i18n="takePhoto"></span>
+        <small data-i18n="photoHint"></small>
+      </button>
+      <div id="preview" class="preview hidden"><img id="previewImg" alt=""></div>
+    </div>
+
+
+    <div class="field">
+      <label class="label"><span class="stepno">2</span> <span data-i18n="step1">مرجع القياس</span></label>
       <p class="hint" id="scaleHint"></p>
       <select id="scaleRef" class="input"></select>
       <div id="customRefWrap" class="hidden">
@@ -360,7 +386,7 @@ border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite;
     </div>
 
     <div class="field" id="deskOpts">
-      <label class="label"><span class="stepno">2</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
+      <label class="label"><span class="stepno">3</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
       <select id="spaceType" class="input"></select>
       <p class="hint" id="spaceTypeHint"></p>
       <input id="intent" class="input" type="text" maxlength="120" data-i18n-ph="intentPlaceholder" placeholder="">
@@ -372,7 +398,7 @@ border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite;
     </div>
 
     <div class="field hidden" id="bagOpts">
-      <label class="label"><span class="stepno">2</span> <span data-i18n="step2Bag">الشنطة</span></label>
+      <label class="label"><span class="stepno">3</span> <span data-i18n="step2Bag">الشنطة</span></label>
       <select id="bagPreset" class="input"></select>
       <div id="customBagWrap" class="row hidden">
         <input id="bagW" class="input" type="number" data-i18n-ph="bagW" placeholder="">
@@ -382,19 +408,12 @@ border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite;
       <p class="hint" data-i18n="airlineWarn"></p>
     </div>
 
-    <div class="field">
-      <label class="label"><span class="stepno">3</span> <span data-i18n="step3">الصورة</span></label>
-      <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
-      <button id="btnPick" class="btn big" type="button">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 8.5h3.2l1.4-2.2h8.8l1.4 2.2H21v10H3z"/><circle cx="12" cy="13" r="3.4"/>
-        </svg>
-        <span data-i18n="takePhoto"></span>
-      </button>
-      <div id="preview" class="preview hidden"><img id="previewImg" alt=""></div>
-    </div>
-
     <p class="hint center" data-i18n="privacy"></p>
+
+    <div id="savedScans" class="saved hidden">
+      <h3 data-i18n="saved">محفوظات</h3>
+      <ul id="savedList"></ul>
+    </div>
   </section>
 
   <!-- ═══ ٣) مراجعة الحاجات ═══ -->
@@ -478,12 +497,10 @@ const STRINGS = {
 ar: {
 dir: 'rtl', langName: 'العربية', switchTo: 'English',
 appName: 'مرتّب المساحة',
-lead: 'صوّر المساحة، والتطبيق يعرف هي إيه، يقيسها بالسنتيمتر، ويحسبلك أحسن ترتيب.',
-tabSurface: 'مساحة', tabBag: 'شنطة',
-tabSurfaceHint: 'مكتب · تسريحة · مطبخ · أي سطح',
-tabBagHint: 'إيه اللي هيدخل وبأي ترتيب',
+lead: 'مكتب، تسريحة، درج، شنطة، تلاجة... صوّرها والتطبيق يعرف هي إيه ويرتّبها.',
+surfaces: 'حاجات بترتب عليها', containers: 'حاجات بترص جواها',
 step1: 'مرجع القياس', step2: 'المساحة', step2Bag: 'الشنطة', step3: 'الصورة',
-scaleHintSurface: 'حط كارت بنك أو ورقة على السطح جنب الحاجات — من غيره المقاسات هتبقى تخمين.',
+scaleHintSurface: 'حط كارت بنك أو ورقة جنب الحاجات — من غيره المقاسات هتبقى تخمين.',
 scaleHintBag: 'حط كارت بنك جنب الحاجات، وافردهم وصوّرهم من فوق.',
 customRefCm: 'العرض الحقيقي بالسنتيمتر',
 spaceTypeQ: 'المساحة دي إيه؟',
@@ -496,6 +513,7 @@ handRight: 'بستخدم إيدي اليمين', handLeft: 'بستخدم إيد�
 bagW: 'العرض سم', bagD: 'العمق سم', bagH: 'الارتفاع سم',
 airlineWarn: '⚠️ مقاسات شركات الطيران بتتغيّر — راجع شركتك قبل السفر.',
 takePhoto: 'صوّر أو اختار صورة',
+photoHint: 'أي مساحة — سطح أو حاجة بترص جواها',
 analyze: 'حلّل الصورة',
 manual: 'أو أدخل الحاجات بنفسك',
 privacy: 'الصورة بتتبعت لـClaude عشان يحللها بس، ومش بتتخزن في أي مكان.',
@@ -605,12 +623,10 @@ sep: '، ',
 en: {
 dir: 'ltr', langName: 'English', switchTo: 'العربية',
 appName: 'Space Planner',
-lead: 'Photograph a surface. The app works out what it is, measures it in centimetres, and computes the best layout.',
-tabSurface: 'Surface', tabBag: 'Bag',
-tabSurfaceHint: 'Desk · dresser · kitchen · any surface',
-tabBagHint: 'What fits, and in what order',
+lead: 'Desk, dresser, drawer, bag, fridge — photograph it and the app works out what it is and arranges it.',
+surfaces: 'Things you arrange on', containers: 'Things you pack into',
 step1: 'Scale reference', step2: 'The space', step2Bag: 'The bag', step3: 'Photo',
-scaleHintSurface: 'Put a bank card or a sheet of paper on the surface next to your things — without one, every measurement is a guess.',
+scaleHintSurface: 'Put a bank card or sheet of paper next to your things — without one, every measurement is a guess.',
 scaleHintBag: 'Put a bank card next to the items, lay them out, and shoot from above.',
 customRefCm: 'Real width in centimetres',
 spaceTypeQ: 'What is this space?',
@@ -623,6 +639,7 @@ handRight: 'I am right-handed', handLeft: 'I am left-handed',
 bagW: 'Width cm', bagD: 'Depth cm', bagH: 'Height cm',
 airlineWarn: '⚠️ Airline limits change — check your airline before flying.',
 takePhoto: 'Take or choose a photo',
+photoHint: 'Any space — a surface, or something you pack into',
 analyze: 'Analyse photo',
 manual: 'Or enter items yourself',
 privacy: 'The photo goes to Claude for analysis only and is never stored.',
@@ -1022,6 +1039,137 @@ en: 'The lamp goes opposite your writing hand so your hand casts no shadow on th
 ],
 },
 };
+const CONTAINER_PROFILES = {
+cabinBag: {
+id: 'cabinBag',
+spaceTypeAr: { ar: 'شنطة سفر', en: 'Travel bag' },
+spaceKind: 'container',
+defaultSizeCm: { width: 50, depth: 37, height: 25 },
+usesAirlinePresets: true,
+categories: {
+laptop:     { labelAr: { ar: 'لابتوب / تابلت', en: 'Laptop / tablet' }, keepUpright: true, fragile: true },
+electronics:{ labelAr: { ar: 'إلكترونيات', en: 'Electronics' }, fragile: true },
+camera:     { labelAr: { ar: 'كاميرا / عدسة', en: 'Camera / lens' }, keepUpright: true, fragile: true },
+glass:      { labelAr: { ar: 'حاجة قابلة للكسر', en: 'Fragile item' }, keepUpright: true, fragile: true },
+shoes:      { labelAr: { ar: 'جزم', en: 'Shoes' } },
+clothes:    { labelAr: { ar: 'هدوم', en: 'Clothes' }, compressible: true },
+toiletries: { labelAr: { ar: 'أدوات نظافة', en: 'Toiletries' }, keepUpright: true },
+book:       { labelAr: { ar: 'كتاب / ورق', en: 'Book / papers' } },
+food:       { labelAr: { ar: 'أكل', en: 'Food' }, keepUpright: true },
+other:      { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+},
+tipsAr: [
+{ ar: 'الحاجات التقيلة في القاع ناحية العجل — الشنطة بتبقى أثبت وانت بتجرها.',
+en: 'Heavy things at the bottom near the wheels — the bag rolls steadier.' },
+],
+},
+drawer: {
+id: 'drawer',
+spaceTypeAr: { ar: 'درج', en: 'Drawer' },
+spaceKind: 'container',
+defaultSizeCm: { width: 45, depth: 40, height: 12 },
+categories: {
+flat:      { labelAr: { ar: 'حاجة مسطحة', en: 'Flat item' } },
+box:       { labelAr: { ar: 'علبة', en: 'Box' }, keepUpright: true },
+tools:     { labelAr: { ar: 'أدوات', en: 'Tools' } },
+cables:    { labelAr: { ar: 'كابلات', en: 'Cables' }, compressible: true },
+fragile:   { labelAr: { ar: 'حاجة قابلة للكسر', en: 'Fragile item' }, keepUpright: true, fragile: true },
+papers:    { labelAr: { ar: 'ورق', en: 'Papers' } },
+other:     { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+},
+tipsAr: [
+{ ar: 'الدرج الواطي بيضيع فيه الوقت لو الحاجات فوق بعض — خليها كلها ظاهرة من فوق.',
+en: 'A shallow drawer wastes your time when things stack — keep everything visible from above.' },
+],
+},
+shelf: {
+id: 'shelf',
+spaceTypeAr: { ar: 'رف / دولاب', en: 'Shelf / cupboard' },
+spaceKind: 'container',
+defaultSizeCm: { width: 80, depth: 35, height: 40 },
+categories: {
+boxes:     { labelAr: { ar: 'علب وصناديق', en: 'Boxes' }, keepUpright: true },
+books:     { labelAr: { ar: 'كتب', en: 'Books' } },
+clothes:   { labelAr: { ar: 'هدوم مطوية', en: 'Folded clothes' }, compressible: true },
+appliance: { labelAr: { ar: 'جهاز', en: 'Appliance' }, keepUpright: true, fragile: true },
+dishes:    { labelAr: { ar: 'أطباق', en: 'Dishes' }, keepUpright: true, fragile: true },
+bags:      { labelAr: { ar: 'شنط', en: 'Bags' }, compressible: true },
+other:     { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+},
+tipsAr: [
+{ ar: 'اللي بتستخدمه كل يوم في مستوى العين، والتقيل تحت، والنادر فوق.',
+en: 'Daily things at eye level, heavy things low, rarely used things high.' },
+],
+},
+movingBox: {
+id: 'movingBox',
+spaceTypeAr: { ar: 'كرتونة نقل', en: 'Moving box' },
+spaceKind: 'container',
+defaultSizeCm: { width: 45, depth: 35, height: 35 },
+categories: {
+heavy:     { labelAr: { ar: 'حاجة تقيلة', en: 'Heavy item' } },
+fragile:   { labelAr: { ar: 'قابل للكسر', en: 'Fragile' }, keepUpright: true, fragile: true },
+books:     { labelAr: { ar: 'كتب', en: 'Books' } },
+clothes:   { labelAr: { ar: 'هدوم', en: 'Clothes' }, compressible: true },
+kitchen:   { labelAr: { ar: 'أدوات مطبخ', en: 'Kitchenware' }, keepUpright: true, fragile: true },
+other:     { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+},
+tipsAr: [
+{ ar: 'التقيل تحت والخفيف فوق، ومتملاش الكرتونة لدرجة إنك متشيلهاش.',
+en: 'Heavy at the bottom, light on top — and do not fill it past what you can lift.' },
+],
+},
+fridge: {
+id: 'fridge',
+spaceTypeAr: { ar: 'رف تلاجة', en: 'Fridge shelf' },
+spaceKind: 'container',
+defaultSizeCm: { width: 50, depth: 35, height: 25 },
+categories: {
+bottles:   { labelAr: { ar: 'زجاجات', en: 'Bottles' }, keepUpright: true },
+jars:      { labelAr: { ar: 'برطمانات', en: 'Jars' }, keepUpright: true, fragile: true },
+leftovers: { labelAr: { ar: 'علب أكل', en: 'Food containers' }, keepUpright: true },
+produce:   { labelAr: { ar: 'خضار وفاكهة', en: 'Produce' } },
+eggs:      { labelAr: { ar: 'بيض', en: 'Eggs' }, keepUpright: true, fragile: true },
+other:     { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+},
+tipsAr: [
+{ ar: 'اللي قرب يخلص قدام — ده أكتر سبب إن الأكل بيترمي.',
+en: 'What expires soonest goes at the front — the main reason food gets thrown out.' },
+],
+},
+carBoot: {
+id: 'carBoot',
+spaceTypeAr: { ar: 'شنطة عربية', en: 'Car boot' },
+spaceKind: 'container',
+defaultSizeCm: { width: 100, depth: 60, height: 45 },
+categories: {
+luggage:   { labelAr: { ar: 'شنط', en: 'Luggage' } },
+bags:      { labelAr: { ar: 'أكياس', en: 'Bags' }, compressible: true },
+fragile:   { labelAr: { ar: 'قابل للكسر', en: 'Fragile' }, keepUpright: true, fragile: true },
+tools:     { labelAr: { ar: 'عدة', en: 'Tools' } },
+sports:    { labelAr: { ar: 'أدوات رياضة', en: 'Sports gear' } },
+other:     { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+},
+tipsAr: [
+{ ar: 'اللي هتحتاجه الأول قدام عند الباب — مش تحت كل حاجة.',
+en: 'What you need first goes by the tailgate, not under everything else.' },
+],
+},
+};
+const GENERIC_CONTAINER = {
+id: 'genericContainer',
+spaceTypeAr: { ar: 'حاوية', en: 'Container' },
+spaceKind: 'container',
+defaultSizeCm: { width: 50, depth: 40, height: 30 },
+categories: {
+rigid:       { labelAr: { ar: 'حاجة جامدة', en: 'Rigid item' } },
+fragile:     { labelAr: { ar: 'قابل للكسر', en: 'Fragile' }, keepUpright: true, fragile: true },
+soft:        { labelAr: { ar: 'حاجة لينة', en: 'Soft item' }, compressible: true },
+keepUpright: { labelAr: { ar: 'لازم واقفة', en: 'Must stay upright' }, keepUpright: true },
+other:       { labelAr: { ar: 'حاجة تانية', en: 'Something else' } },
+},
+tipsAr: [],
+};
 const GENERIC_PROFILE = {
 id: 'generic',
 spaceTypeAr: { ar: 'مساحة', en: 'Space' },
@@ -1054,6 +1202,7 @@ zone: ZONES[def.zone] ? def.zone : 'secondary',
 side: SIDES.includes(def.side) ? def.side : 'any',
 };
 for (const flag of VALID_FLAGS) if (def[flag] === true) cat[flag] = true;
+for (const flag of ['keepUpright', 'compressible']) if (def[flag] === true) cat[flag] = true;
 if (ANCHOR_SLOTS.includes(def.anchor) && !anchorsUsed.has(def.anchor)) {
 cat.anchor = def.anchor;
 anchorsUsed.add(def.anchor);
@@ -1070,8 +1219,9 @@ id: 'ai',
 spaceTypeAr: String(raw.spaceTypeAr || 'مساحة').slice(0, 40),
 spaceKind: raw.spaceKind === 'container' ? 'container' : 'surface',
 defaultSizeCm: {
-width: clampNum(size.width, 20, 400, fallback.defaultSizeCm.width),
-depth: clampNum(size.depth, 15, 200, fallback.defaultSizeCm.depth),
+width: clampNum(size.width, 10, 400, fallback.defaultSizeCm.width),
+depth: clampNum(size.depth, 10, 200, fallback.defaultSizeCm.depth),
+height: clampNum(size.height, 3, 200, fallback.defaultSizeCm.height || 30),
 },
 categories,
 tipsAr: Array.isArray(raw.tipsAr)
@@ -1084,12 +1234,17 @@ function clampNum(v, lo, hi, fallback) {
 const n = Number(v);
 return Number.isFinite(n) && n >= lo && n <= hi ? n : fallback;
 }
+const ALL_PROFILES = { ...BUILT_IN_PROFILES, ...CONTAINER_PROFILES };
 function profileOptions() {
-return Object.values(BUILT_IN_PROFILES).map((p) => ({ id: p.id, labelAr: p.spaceTypeAr }));
+return [
+{ group: 'surfaces', items: Object.values(BUILT_IN_PROFILES).map((p) => ({ id: p.id, labelAr: p.spaceTypeAr })) },
+{ group: 'containers', items: Object.values(CONTAINER_PROFILES).map((p) => ({ id: p.id, labelAr: p.spaceTypeAr })) },
+];
 }
 function getProfile(id) {
-return BUILT_IN_PROFILES[id] || GENERIC_PROFILE;
+return ALL_PROFILES[id] || GENERIC_PROFILE;
 }
+const isContainer = (profile) => profile?.spaceKind === 'container';
 
 /* js/packing.js */
 const EPS = 0.001;
@@ -1804,6 +1959,9 @@ front-dominant = جنب إيده (ماوس). كل خانة تتاخد مرة و�
 - الأعلام: tall (عالية فممكن تحجب) · keepDry (سايلة) · avoidLight (بتبوظ في الشمس) ·
 wantsLight (محتاجة ضو) · hot (بتسخن) · screen (شاشة).
 لازم تسيب فئة اسمها other لأي حاجة مش داخلة في تصنيف.
+لو المساحة container، الأعلام المهمة بقت: keepUpright (لازم تفضل واقفة) ·
+fragile (قابلة للكسر فبتترص فوق) · compressible (لينة فبتتحشر في الفراغات).
+والمناطق والنواحي مش مهمة في الحالة دي.
 `;
 async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, sample, lang = 'ar' }) {
 const isBag = mode === 'bag';
@@ -1813,8 +1971,10 @@ let prompt = `انت بتحلل صورة ${isBag ? 'حاجات هتترص في �
 `;
 if (generateProfile) {
 prompt += `المطلوب:
-1) حدد المساحة دي إيه بالظبط من اللي عليها. مثال: ترابيزة عليها مراية ومكياج = تسريحة مش مكتب.
-ترابيزة عليها شاشة وكيبورد = مكتب شغل. ترابيزة جنب سرير عليها أباجورة = كومودينو.
+1) حدد المساحة دي إيه بالظبط، **وهل هي سطح بترتب عليه ولا حاوية بترص جواها**:
+- surface = بترتب حاجات فوقه: مكتب، تسريحة، رف مطبخ، كومودينو، ترابيزة عدة.
+- container = بترص حاجات جواه: شنطة، درج، دولاب، كرتونة، تلاجة، شنطة عربية.
+مثال: ترابيزة عليها مراية ومكياج = تسريحة (surface). درج مفتوح فيه حاجات = درج (container).
 2) اكتب قواعد ترتيب النوع ده من المساحات: الفئات اللي بتتحط عليه، وكل فئة تروح فين وليه.
 فكّر زي متخصص: إيه اللي لازم يبقى في متناول الإيد، إيه اللي بيبوظ في الشمس، إيه اللي بيسخن، وإيه اللي بيحجب.
 ${RULES_BRIEF}
@@ -1823,8 +1983,8 @@ ${RULES_BRIEF}
 5) اعمل ليستة بكل حاجة على السطح.
 6) الشباك أو مصدر الضو فين بالنسبة للشخص؟
 الصيغة:
-{"spaceTypeAr":"...","profile":{"spaceTypeAr":"...","defaultSizeCm":{"width":0,"depth":0},
-"categories":[{"key":"...","labelAr":"...","zone":"...","side":"...","anchor":"...","tall":false,"keepDry":false,"avoidLight":false,"wantsLight":false,"hot":false,"screen":false}],
+{"spaceTypeAr":"...","profile":{"spaceTypeAr":"...","spaceKind":"surface|container","defaultSizeCm":{"width":0,"depth":0,"height":0},
+"categories":[{"key":"...","labelAr":"...","zone":"...","side":"...","anchor":"...","tall":false,"keepDry":false,"avoidLight":false,"wantsLight":false,"hot":false,"screen":false,"keepUpright":false,"compressible":false}],
 "tipsAr":["..."]},
 "scaleReference":{"found":true,"whatAr":"...","box":[0,0,0,0]},
 "surface":{"box":[0,0,0,0]},
@@ -1874,7 +2034,7 @@ const categories = {};
 for (const c of raw.categories) {
 if (!c || !c.key) continue;
 const def = { labelAr: c.labelAr, zone: c.zone, side: c.side };
-for (const f of ['tall', 'keepDry', 'avoidLight', 'wantsLight', 'hot', 'screen']) {
+for (const f of ['tall', 'keepDry', 'avoidLight', 'wantsLight', 'hot', 'screen', 'keepUpright', 'compressible']) {
 if (c[f] === true) def[f] = true;
 }
 if (c.anchor && c.anchor !== 'none') def.anchor = c.anchor;
@@ -1882,7 +2042,7 @@ categories[c.key] = def;
 }
 return {
 spaceTypeAr: raw.spaceTypeAr,
-spaceKind: 'surface',
+spaceKind: raw.spaceKind === 'container' ? 'container' : 'surface',
 defaultSizeCm: raw.defaultSizeCm,
 categories,
 tipsAr: raw.tipsAr,
@@ -1945,15 +2105,15 @@ throw new Error('توليد الصور مش متاح في النسخة دي — 
 /* js/app.js */
 const FREQ_KEYS = { high: 'freqHigh', medium: 'freqMedium', low: 'freqLow' };
 const state = {
-mode: 'surface',
-profile: null,      // بروفايل المساحة — جاهز أو مولّد بالـAI
+profile: null,
 image: null,
 items: [],
 scale: null,
-surface: { widthCm: 140, depthCm: 70 },
+surface: { widthCm: 140, depthCm: 70, heightCm: 30 },
 plan: null,
 bin: null,
 };
+const isBag = () => isContainer(state.profile);
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 function showScreen(name) {
@@ -1991,38 +2151,32 @@ $('#btnLang').title = t('switchTo');
 $('#scaleRef').innerHTML = Object.values(SCALE_REFERENCES)
 .map((r) => `<option value="${r.id}">${escHtml(r.labelAr)}</option>`).join('');
 $('#scaleRef').value = store.getPrefs().scaleRef || 'card';
+const groups = profileOptions();
 $('#spaceType').innerHTML =
 `<option value="auto">${escHtml(t('autoDetect'))}</option>` +
-profileOptions().map((p) => `<option value="${p.id}">${escHtml(tx(p.labelAr))}</option>`).join('');
+groups.map((g) => `<optgroup label="${escHtml(t(g.group))}">${
+g.items.map((p) => `<option value="${p.id}">${escHtml(tx(p.labelAr))}</option>`).join('')
+}</optgroup>`).join('');
 $('#spaceType').value = store.getPrefs().spaceType || 'auto';
 $('#bagPreset').innerHTML = CABIN_BAGS
 .map((b) => `<option value="${b.id}">${escHtml(b.nameAr)}${b.w ? ` — ${b.w}×${b.d}×${b.h}` : ''}</option>`).join('');
 updateHints();
 if (state.profile) renderDetectedSpace();
 if (state.items.length) renderItems();
-if (state.plan) (state.mode === 'surface' ? renderDeskResult : renderBagResult)();
+if (state.plan) (isBag() ? renderBagResult : renderDeskResult)();
 }
 function updateHints() {
-$('#scaleHint').textContent = t(state.mode === 'surface' ? 'scaleHintSurface' : 'scaleHintBag');
-$('#spaceTypeHint').textContent = t($('#spaceType').value === 'auto' ? 'autoHint' : 'pickedHint');
-}
-function setMode(mode) {
-state.mode = mode;
-for (const tab of $$('.tab')) {
-const on = tab.dataset.mode === mode;
-tab.classList.toggle('active', on);
-tab.setAttribute('aria-selected', String(on));
-}
-$('#deskOpts').classList.toggle('hidden', mode !== 'surface');
-$('#bagOpts').classList.toggle('hidden', mode !== 'bag');
-updateHints();
+const picked = $('#spaceType').value;
+$('#spaceTypeHint').textContent = t(picked === 'auto' ? 'autoHint' : 'pickedHint');
+const container = picked !== 'auto' && isContainer(getProfile(picked));
+$('#bagOpts').classList.toggle('hidden', !container);
+$('#deskOpts').classList.remove('hidden');
 }
 function init() {
 initLang();
 const prefs = store.getPrefs();
 applyLang();
 $('#dominantHand').value = prefs.dominantHand || 'right';
-setMode('surface');
 syncActionBar('capture');
 onScaleRefChange();
 renderSaved();
@@ -2030,10 +2184,6 @@ $('#btnLang').addEventListener('click', () => {
 setLang(getLang() === 'ar' ? 'en' : 'ar');
 applyLang();
 });
-$$('.tab').forEach((tab) => tab.addEventListener('click', () => {
-setMode(tab.dataset.mode);
-showScreen('capture');
-}));
 $$('[data-goto]').forEach((b) => b.addEventListener('click', () => showScreen(b.dataset.goto)));
 $('#scaleRef').addEventListener('change', onScaleRefChange);
 $('#bagPreset').addEventListener('change', () => {
@@ -2092,19 +2242,24 @@ loading(true, t('t_analyzing'));
 try {
 const chosen = $('#spaceType').value;
 const intent = $('#intent').value.trim();
-const chosenProfile = state.mode === 'surface' && chosen !== 'auto' ? getProfile(chosen) : null;
+const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
 const analysis = await analyzeScene({
 image: state.image,
-mode: state.mode,
+mode: isBag() ? 'bag' : 'surface',
 scaleRefLabel: refId === 'custom' ? `${customCm} cm wide object` : ref.labelAr,
 profile: chosenProfile,
 intent,
 sample,
 lang: getLang(),
 });
-if (state.mode === 'surface') {
-state.profile = chosenProfile
-|| (analysis.generatedProfile ? normalizeProfile(analysis.generatedProfile) : GENERIC_PROFILE);
+if (chosenProfile) {
+state.profile = chosenProfile;
+} else if (analysis.generatedProfile) {
+const kind = analysis.generatedProfile.spaceKind;
+state.profile = normalizeProfile(analysis.generatedProfile,
+kind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
+} else {
+state.profile = GENERIC_PROFILE;
 }
 const refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
 if (!refBox) {
@@ -2124,13 +2279,13 @@ const level = t(conf.score > 0.75 ? 'conf_high' : conf.score > 0.45 ? 'conf_mid'
 $('#scaleBanner').innerHTML = conf.score > 0.45
 ? t('b_scaleOk', { what: escHtml(analysis.scaleReference.whatAr || ref.labelAr), level })
 : t('b_scaleWarn', { level });
-if (state.mode === 'surface' && analysis.surface?.box) {
+if (!isBag() && analysis.surface?.box) {
 const sBox = normalizeBox(analysis.surface.box);
 if (sBox) {
 const d = boxToCm(sBox, scale);
 state.surface = { widthCm: clampCm(d.widthCm, 40, 400), depthCm: clampCm(d.depthCm, 30, 200) };
 }
-} else if (state.mode === 'surface') {
+} else {
 applyProfileSize();
 }
 if (analysis.windowSide) store.setPrefs({ windowSide: analysis.windowSide });
@@ -2164,12 +2319,8 @@ function onManual() {
 state.items = [];
 state.scale = null;
 const chosen = $('#spaceType').value;
-if (state.mode === 'surface') {
 state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
 applyProfileSize();
-} else {
-state.profile = null;
-}
 addItem();
 renderDetectedSpace();
 $('#scaleBanner').className = 'banner warn';
@@ -2187,10 +2338,9 @@ frequency: 'medium', fragile: false, confidence: 1,
 });
 }
 function renderItems() {
-const catOptions = state.mode === 'surface'
-? Object.entries(state.profile?.categories || GENERIC_PROFILE.categories).map(([k, v]) => [k, tx(v.labelAr)])
-: Object.entries(BAG_CATEGORIES).map(([k, v]) => [k, v.labelAr]);
-const surfaceEditor = state.mode === 'surface' ? `
+const cats = state.profile?.categories || GENERIC_PROFILE.categories;
+const catOptions = Object.entries(cats).map(([k, v]) => [k, tx(v.labelAr)]);
+const surfaceEditor = !isBag() ? `
 <div class="item">
 <div>
 <strong>${escHtml(t('surfaceSize'))}</strong>
@@ -2213,7 +2363,7 @@ $('#itemsList').innerHTML = surfaceEditor + state.items.map((it) => `
 <select data-f="category" aria-label="${escHtml(t('kind'))}">
 ${catOptions.map(([k, v]) => `<option value="${k}" ${it.category === k ? 'selected' : ''}>${v}</option>`).join('')}
 </select>
-${state.mode === 'surface' ? `
+${!isBag() ? `
 <select data-f="frequency" aria-label="${escHtml(t('usage'))}">
 ${Object.entries(FREQ_KEYS).map(([k, key]) => `<option value="${k}" ${it.frequency === k ? 'selected' : ''}>${escHtml(t(key))}</option>`).join('')}
 </select>` : ''}
@@ -2268,7 +2418,7 @@ return n.text?.key ? tr(n.text) : tx(n.text);
 async function onPlan() {
 const valid = state.items.filter((i) => i.widthCm > 0 && i.depthCm > 0 && i.heightCm > 0);
 if (!valid.length) return toast(t('t_needItems'));
-if (state.mode === 'surface') {
+if (!isBag()) {
 if (!(state.surface.widthCm > 20 && state.surface.depthCm > 20)) return toast(t('t_needSize'));
 const prefs = store.getPrefs();
 state.plan = layoutSurface(state.surface, valid, state.profile || GENERIC_PROFILE, {
@@ -2277,15 +2427,22 @@ windowSide: prefs.windowSide || 'none',
 });
 renderDeskResult();
 } else {
-const preset = CABIN_BAGS.find((b) => b.id === $('#bagPreset').value);
-const bin = preset.id === 'custom'
-? { widthCm: +$('#bagW').value, depthCm: +$('#bagD').value, heightCm: +$('#bagH').value, maxWeightKg: 0 }
-: { widthCm: preset.w, depthCm: preset.d, heightCm: preset.h, maxWeightKg: preset.kg };
+const preset = state.profile.usesAirlinePresets ? CABIN_BAGS.find((b) => b.id === $('#bagPreset').value) : null;
+const custom = { widthCm: +$('#bagW').value, depthCm: +$('#bagD').value, heightCm: +$('#bagH').value };
+const def = state.profile.defaultSizeCm || {};
+const bin = preset && preset.id !== 'custom'
+? { widthCm: preset.w, depthCm: preset.d, heightCm: preset.h, maxWeightKg: preset.kg }
+: {
+widthCm: custom.widthCm || def.width,
+depthCm: custom.depthCm || def.depth,
+heightCm: custom.heightCm || def.height,
+maxWeightKg: 0,
+};
 if (!(bin.widthCm > 0 && bin.depthCm > 0 && bin.heightCm > 0)) return toast(t('t_needBagSize'));
 state.bin = bin;
 const items = valid.map((i) => {
-const meta = BAG_CATEGORIES[i.category] || BAG_CATEGORIES.other;
-return { ...i, keepUpright: meta.keepUpright, fragile: i.fragile || meta.fragile, compressible: !!meta.compressible };
+const meta = state.profile.categories[i.category] || {};
+return { ...i, keepUpright: !!meta.keepUpright, fragile: i.fragile || !!meta.fragile, compressible: !!meta.compressible };
 });
 const res = pack3D(bin, items);
 state.plan = { ...res, steps: packingOrder(res.placed) };
@@ -2316,7 +2473,7 @@ $('#btnAfterImage').classList.toggle('hidden', !CAN_RENDER_IMAGE);
 }
 function renderBagResult() {
 const p = state.plan;
-$('#resultTitle').textContent = t('bagResult');
+$('#resultTitle').textContent = tx(state.profile?.spaceTypeAr) || t('bagResult');
 const weightWarn = p.stats.overWeight ? ' ⚠️' : '';
 $('#statsRow').innerHTML = `
 <div class="stat"><b>${p.stats.placedCount}</b><span>${escHtml(t('statFits'))}</span></div>
@@ -2339,7 +2496,7 @@ $('#aiNote').classList.add('hidden');
 const sample = await aiReady();
 if (!sample) return;
 try {
-const text = await explainPlan({ mode: state.mode, plan: state.plan, sample, lang: getLang() });
+const text = await explainPlan({ mode: isBag() ? 'bag' : 'surface', plan: state.plan, sample, lang: getLang() });
 if (text.trim()) {
 $('#aiNote').textContent = text.trim();
 $('#aiNote').classList.remove('hidden');
@@ -2363,10 +2520,10 @@ loading(false);
 }
 function onSave() {
 const ok = store.saveScan({
-mode: state.mode,
-title: state.mode === 'surface'
+mode: isBag() ? 'bag' : 'surface',
+title: !isBag()
 ? `${tx(state.profile?.spaceTypeAr) || t('appName')} ${Math.round(state.surface.widthCm)}×${Math.round(state.surface.depthCm)}`
-: t('bagResult'),
+: `${tx(state.profile?.spaceTypeAr) || t('bagResult')}`,
 items: state.items,
 surface: state.surface,
 profile: state.profile,
@@ -2392,9 +2549,7 @@ if (drop) { store.deleteScan(+drop); renderSaved(); return; }
 if (!load) return;
 const s = store.getScans().find((x) => x.savedAt === +load);
 if (!s) return;
-state.mode = s.mode; state.items = s.items; state.surface = s.surface || state.surface; state.profile = s.profile; state.bin = s.bin;
-$('#deskOpts').classList.toggle('hidden', state.mode !== 'surface');
-$('#bagOpts').classList.toggle('hidden', state.mode !== 'bag');
+state.items = s.items; state.surface = s.surface || state.surface; state.profile = s.profile; state.bin = s.bin;
 renderDetectedSpace();
 renderItems();
 showScreen('review');
@@ -2403,12 +2558,15 @@ showScreen('review');
 function applyProfileSize() {
 const size = state.profile?.defaultSizeCm;
 if (size?.width > 0 && size?.depth > 0) {
-state.surface = { widthCm: size.width, depthCm: size.depth };
+state.surface = { widthCm: size.width, depthCm: size.depth, heightCm: size.height || 30 };
+if (isBag()) {
+$('#bagW').value = size.width; $('#bagD').value = size.depth; $('#bagH').value = size.height || 30;
+}
 }
 }
 function renderDetectedSpace() {
 const box = $('#detectedSpace');
-if (state.mode !== 'surface' || !state.profile) { box.classList.add('hidden'); return; }
+if (!state.profile) { box.classList.add('hidden'); return; }
 box.classList.remove('hidden');
 const src = state.profile.source === 'ai' ? ' 🤖' : '';
 $('#detectedName').textContent = tx(state.profile.spaceTypeAr) + src;
@@ -2459,7 +2617,7 @@ try {
 $('#askAnswer').textContent = t('thinking');
 $('#askAnswer').classList.remove('hidden');
 const answer = await askAboutSpace({
-question, plan: state.plan, mode: state.mode, sample, lang: getLang(),
+question, plan: state.plan, mode: isBag() ? 'bag' : 'surface', sample, lang: getLang(),
 onText: ({ text }) => { $('#askAnswer').textContent = text; },
 });
 $('#askAnswer').textContent = answer.trim() || t('t_noAnswer');
