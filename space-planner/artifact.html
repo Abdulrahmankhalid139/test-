@@ -3319,7 +3319,7 @@ refBox = surfBox;
 state.userSize = { ...known };
 state.scaleInfo = { kind: 'known', widthCm: known.widthCm, depthCm: known.depthCm };
 renderScaleBanner();
-} else if (emptySpace && !analysis.scaleReference?.found) {
+} else if (emptySpace) {
 scale = null;
 refBox = null;
 state.userSize = null;
