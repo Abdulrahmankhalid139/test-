@@ -1,6 +1,6 @@
 /* خدمة العامل — بتخلي التطبيق يفتح من غير نت.
    استدعاءات Gemini بتعدي على الشبكة عادي (مش بتتخزن). */
-const CACHE = 'space-planner-v5';
+const CACHE = 'space-planner-v6';
 const SHELL = [
   './', './index.html', './css/app.css', './icon.svg', './manifest.json',
   './js/app.js', './js/i18n.js', './js/geometry.js', './js/packing.js',

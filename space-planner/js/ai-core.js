@@ -241,6 +241,67 @@ ${RULES_BRIEF}
   return json;
 }
 
+/* ═══════════ الوصف بالكلام — بديل كامل للصورة ═══════════ */
+
+/**
+ * بيفهم المساحة من جملة بالعامية بدل ما يشوفها.
+ *
+ * ليه ده موجود: فيه عروض مش بتسمح ببعت صور خالص (قيد من المنصة، مش من
+ * التطبيق). ساعتها الصورة بتقف، لكن السؤال نفسه — «المساحة دي يدخلها إيه
+ * وأرتبه إزاي؟» — مالوش دعوة بالصورة أصلاً. الوصف بالكلام بيدّي نفس
+ * المدخلات اللي الصورة بتدّيها: نوع المساحة، مقاسها، واللي جواها.
+ *
+ * وبيفضل نفس الحد: الموديل بيفهم ويقدّر، والخوارزمية هي اللي بترتّب.
+ * كل رقم بيرجع منه بيتقصّ في app.js قبل ما يوصل لأي حسبة.
+ */
+export async function describeSpace({ text, caller, lang = 'ar', profile = null }) {
+  const catLine = profile
+    ? `الفئات المسموحة: ${Object.entries(profile.categories).map(([k, v]) => `${k} (${labelOf(v.labelAr)})`).join('، ')}`
+    : 'اختار مفاتيح فئات مناسبة للمساحة دي بنفسك.';
+
+  const prompt = `المستخدم بيوصف مساحة بالكلام عشان ترتّبهاله. مشوفتش صورة — الوصف ده هو كل اللي عندك.
+
+كلامه: "${text}"
+
+المطلوب:
+1) المساحة دي إيه، وهل هي **سطح بترتب عليه** ولا **حاوية بترص جواها**؟
+   surface = بترتب فوقه (مكتب، تسريحة، رف، ترابيزة).
+   container = بترص جواه (سلة، درج، شنطة، كرتونة، تلاجة).
+2) مقاسها بالسنتيمتر. لو قال المقاس استخدمه زي ما هو. لو قال تقريب
+   («حوالي شبر»، «صغيرة») قدّر رقم معقول لنوع المساحة ده.
+3) اكتب قواعد ترتيب النوع ده.
+${RULES_BRIEF}
+4) اطلع كل حاجة قال إنه عايز يحطها، كل واحدة صف لوحدها بمقاسها التقريبي
+   بالسنتيمتر ووزنها بالكيلو. لو قال حاجة بالجمع («أقلام») اعملها صف واحد
+   بمقاس المجموعة مع بعض. **متزوّدش حاجات هو مقالهاش.**
+   ${catLine}
+5) لو مقالش عايز يحط إيه، سيب items فاضية — ده رد صح.
+
+رد بـJSON بس:
+{"profile":{"spaceTypeAr":"...","spaceKind":"surface|container","defaultSizeCm":{"width":0,"depth":0,"height":0},
+ "categories":[{"key":"...","labelAr":"...","zone":"...","side":"...","anchor":"...","tall":false,"keepDry":false,"avoidLight":false,"wantsLight":false,"hot":false,"screen":false,"keepUpright":false,"compressible":false}],
+ "tipsAr":["..."]},
+ "sizeCm":{"width":0,"depth":0,"height":0},
+ "sizeFromUser":true,
+ "items":[{"nameAr":"...","category":"...","widthCm":0,"depthCm":0,"heightCm":0,"weightKg":0,"frequency":"high|medium|low","fragile":false}]}
+
+قواعد:
+- الأسماء ${lang === 'en' ? 'بالإنجليزي' : 'بالعربي المصري'}، قصيرة.
+- sizeFromUser: true لو هو اللي قال المقاس، false لو إنت اللي قدّرته.
+- متخترعش تفاصيل هو مقالهاش.${LANG_NOTE[lang]}`;
+
+  let json;
+  try {
+    json = await caller.json(prompt, { modelTier: 'complex' });
+  } catch (err) {
+    throw friendlyError(err);
+  }
+
+  json.items = Array.isArray(json.items) ? json.items : [];
+  if (json.profile) json.generatedProfile = profileFromModel(json.profile);
+  return json;
+}
+
 /** الموديل بيرجّع الفئات كليستة — بنحولها لكائن. التنظيف بيحصل في profiles.js */
 export function profileFromModel(raw) {
   if (!raw || !Array.isArray(raw.categories)) return null;

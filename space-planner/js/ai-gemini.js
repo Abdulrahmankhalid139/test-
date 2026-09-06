@@ -20,7 +20,7 @@ import { friendlyError } from './ai-core.js';
 import { store } from './store.js';
 
 export {
-  analyzeScene, adaptProfile, explainPlan, askAboutSpace,
+  analyzeScene, describeSpace, adaptProfile, explainPlan, askAboutSpace,
   profileFromModel, fileToBase64Resized, friendlyError,
 } from './ai-core.js';
 

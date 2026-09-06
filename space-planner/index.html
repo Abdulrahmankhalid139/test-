@@ -102,7 +102,15 @@
     </div>
 
     <div class="field">
-      <label class="label"><span class="stepno">3</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
+      <label class="label"><span class="stepno">3</span> <span data-i18n="describeTitle"></span></label>
+      <p class="hint" data-i18n="describeHint"></p>
+      <textarea id="describeInput" class="input" rows="3" maxlength="600" data-i18n-ph="describePh" placeholder=""></textarea>
+      <button id="btnDescribe" class="btn ghost" type="button" data-i18n="describeBtn"></button>
+      <p class="hint" data-i18n="describeExample"></p>
+    </div>
+
+    <div class="field">
+      <label class="label"><span class="stepno">4</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
       <select id="spaceType" class="input"></select>
       <p class="hint" id="spaceTypeHint"></p>
       <input id="intent" class="input" type="text" maxlength="120" data-i18n-ph="intentPlaceholder" placeholder="">
@@ -137,6 +145,10 @@
       </div>
       <ul id="rulesList" class="rules"></ul>
       <p id="handNote" class="hint hidden"></p>
+    </div>
+    <div id="photoRef" class="photo-ref hidden">
+      <img id="photoRefImg" alt="">
+      <p class="hint" id="photoRefNote"></p>
     </div>
     <p class="hint" data-i18n="reviewHint"></p>
     <div id="itemsList" class="items"></div>

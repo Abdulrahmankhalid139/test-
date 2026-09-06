@@ -355,6 +355,11 @@ background:var(--card);padding:10px 12px}
 margin-top:5px;text-align:center;font-size:11px;color:var(--faint);
 font-weight:700;letter-spacing:.02em;
 }
+.photo-ref{margin-bottom:12px;border:1px solid var(--line);border-radius:var(--r);
+overflow:hidden;background:var(--card)}
+.photo-ref img{width:100%;max-height:260px;object-fit:contain;background:var(--paper)}
+.photo-ref .hint{margin:0;padding:8px 11px}
+#describeInput{resize:vertical;min-height:76px;line-height:1.6}
 </style>
 <header class="topbar">
   <div class="topbar-row">
@@ -436,7 +441,15 @@ font-weight:700;letter-spacing:.02em;
     </div>
 
     <div class="field">
-      <label class="label"><span class="stepno">3</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
+      <label class="label"><span class="stepno">3</span> <span data-i18n="describeTitle"></span></label>
+      <p class="hint" data-i18n="describeHint"></p>
+      <textarea id="describeInput" class="input" rows="3" maxlength="600" data-i18n-ph="describePh" placeholder=""></textarea>
+      <button id="btnDescribe" class="btn ghost" type="button" data-i18n="describeBtn"></button>
+      <p class="hint" data-i18n="describeExample"></p>
+    </div>
+
+    <div class="field">
+      <label class="label"><span class="stepno">4</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
       <select id="spaceType" class="input"></select>
       <p class="hint" id="spaceTypeHint"></p>
       <input id="intent" class="input" type="text" maxlength="120" data-i18n-ph="intentPlaceholder" placeholder="">
@@ -471,6 +484,10 @@ font-weight:700;letter-spacing:.02em;
       </div>
       <ul id="rulesList" class="rules"></ul>
       <p id="handNote" class="hint hidden"></p>
+    </div>
+    <div id="photoRef" class="photo-ref hidden">
+      <img id="photoRefImg" alt="">
+      <p class="hint" id="photoRefNote"></p>
     </div>
     <p class="hint" data-i18n="reviewHint"></p>
     <div id="itemsList" class="items"></div>
@@ -642,6 +659,16 @@ apiKeyLabel: 'مفتاح Gemini',
 apiKeyPh: 'الصق المفتاح هنا',
 apiKeyHint: 'مجاني من <b>Google AI Studio</b>. بيتخزن على جهازك بس، ومابيروحش لأي حد غير جوجل. من غيره التطبيق بيشتغل بالإدخال اليدوي عادي.',
 b_empty: '📦 المساحة دي فاضية — مفيش حاجات نقيسها، فمش محتاجين مرجع قياس. اكتب مقاسها واللي عايز تحطه فيها.',
+describeTitle: 'أو اوصفها بكلامك',
+describeHint: 'مش لازم صورة. اكتب المساحة دي إيه، قد إيه تقريباً، وعايز تحط فيها إيه — والتطبيق يفهم ويرتّب.',
+describePh: 'دي سلة معلقة على المكتب، حوالي شبر في شبر وارتفاعها شبر، عايزة أحط فيها أقلام وهايلايتر ومقص...',
+describeBtn: '🤖 افهم الوصف ورتّب',
+describeExample: 'التقريب كفاية — «حوالي شبر»، «صغيرة»، «بمقاس علبة مناديل». تقدر تعدّل كل رقم بعد كده.',
+describeNeed: 'اكتب وصف المساحة الأول',
+describeGot: 'فهمنا: {what} — و{n} حاجة. راجع الأرقام قبل الحساب.',
+describeNone: 'مفهمناش الوصف. جرب تقول المساحة دي إيه وقد إيه وعايز تحط فيها إيه.',
+b_described: '✍️ المساحة اتفهمت من وصفك إنت، من غير صورة. الأرقام دي تقديرية — عدّل أي حاجة.',
+photoKept: 'صورتك ظاهرة هنا كمرجع — التطبيق مقدرش يحللها، بس إنت تقدر تبص عليها وإنت بتظبط الأرقام.',
 emptyTitle: 'المساحة دي فاضية',
 emptyTitleManual: 'قول عايز تحط إيه',
 emptyHintManual: 'اكتب مقاس المساحة فوق، وبعدين قول عايز تحط فيها إيه بجملة عادية — والتطبيق يقولك إيه اللي يدخل وإيه اللي لأ. مش محتاج صورة.',
@@ -852,6 +879,16 @@ apiKeyLabel: 'Gemini key',
 apiKeyPh: 'Paste your key here',
 apiKeyHint: 'Free from <b>Google AI Studio</b>. Stored on your device only, and sent to nobody but Google. Without it the app still works with manual entry.',
 b_empty: '📦 This space is empty — there is nothing to measure, so no scale reference is needed. Type its size and what you want to put in it.',
+describeTitle: 'Or describe it in words',
+describeHint: 'No photo needed. Say what the space is, roughly how big, and what you want to put in it — the app works out the rest.',
+describePh: 'A basket hanging off my desk, about a hand-span square and a span tall, I want to put pens, highlighters and scissors in it...',
+describeBtn: '🤖 Read it and arrange',
+describeExample: 'Rough is fine — "about a span", "small", "the size of a tissue box". You can correct every number afterwards.',
+describeNeed: 'Describe the space first',
+describeGot: 'Understood: {what} — and {n} item(s). Check the numbers before calculating.',
+describeNone: 'We could not read that. Try saying what the space is, how big, and what you want to put in it.',
+b_described: '✍️ The space was understood from your own description, with no photo. These numbers are estimates — correct anything.',
+photoKept: 'Your photo is shown here for reference — the app could not analyse it, but you can look at it while you set the numbers.',
 emptyTitle: 'This space is empty',
 emptyTitleManual: 'Say what you want to put in',
 emptyHintManual: 'Type the size of the space above, then say what you want to put in it in a plain sentence — the app tells you what fits and what does not. No photo needed.',
@@ -2941,6 +2978,46 @@ json.objects = (json.objects || []).filter((o) => Array.isArray(o.box) && o.box.
 if (json.profile) json.generatedProfile = profileFromModel(json.profile);
 return json;
 }
+async function describeSpace({ text, caller, lang = 'ar', profile = null }) {
+const catLine = profile
+? `الفئات المسموحة: ${Object.entries(profile.categories).map(([k, v]) => `${k} (${labelOf(v.labelAr)})`).join('، ')}`
+: 'اختار مفاتيح فئات مناسبة للمساحة دي بنفسك.';
+const prompt = `المستخدم بيوصف مساحة بالكلام عشان ترتّبهاله. مشوفتش صورة — الوصف ده هو كل اللي عندك.
+كلامه: "${text}"
+المطلوب:
+1) المساحة دي إيه، وهل هي **سطح بترتب عليه** ولا **حاوية بترص جواها**؟
+surface = بترتب فوقه (مكتب، تسريحة، رف، ترابيزة).
+container = بترص جواه (سلة، درج، شنطة، كرتونة، تلاجة).
+2) مقاسها بالسنتيمتر. لو قال المقاس استخدمه زي ما هو. لو قال تقريب
+(«حوالي شبر»، «صغيرة») قدّر رقم معقول لنوع المساحة ده.
+3) اكتب قواعد ترتيب النوع ده.
+${RULES_BRIEF}
+4) اطلع كل حاجة قال إنه عايز يحطها، كل واحدة صف لوحدها بمقاسها التقريبي
+بالسنتيمتر ووزنها بالكيلو. لو قال حاجة بالجمع («أقلام») اعملها صف واحد
+بمقاس المجموعة مع بعض. **متزوّدش حاجات هو مقالهاش.**
+${catLine}
+5) لو مقالش عايز يحط إيه، سيب items فاضية — ده رد صح.
+رد بـJSON بس:
+{"profile":{"spaceTypeAr":"...","spaceKind":"surface|container","defaultSizeCm":{"width":0,"depth":0,"height":0},
+"categories":[{"key":"...","labelAr":"...","zone":"...","side":"...","anchor":"...","tall":false,"keepDry":false,"avoidLight":false,"wantsLight":false,"hot":false,"screen":false,"keepUpright":false,"compressible":false}],
+"tipsAr":["..."]},
+"sizeCm":{"width":0,"depth":0,"height":0},
+"sizeFromUser":true,
+"items":[{"nameAr":"...","category":"...","widthCm":0,"depthCm":0,"heightCm":0,"weightKg":0,"frequency":"high|medium|low","fragile":false}]}
+قواعد:
+- الأسماء ${lang === 'en' ? 'بالإنجليزي' : 'بالعربي المصري'}، قصيرة.
+- sizeFromUser: true لو هو اللي قال المقاس، false لو إنت اللي قدّرته.
+- متخترعش تفاصيل هو مقالهاش.${LANG_NOTE[lang]}`;
+let json;
+try {
+json = await caller.json(prompt, { modelTier: 'complex' });
+} catch (err) {
+throw friendlyError(err);
+}
+json.items = Array.isArray(json.items) ? json.items : [];
+if (json.profile) json.generatedProfile = profileFromModel(json.profile);
+return json;
+}
 function profileFromModel(raw) {
 if (!raw || !Array.isArray(raw.categories)) return null;
 const categories = {};
@@ -3149,6 +3226,11 @@ el.className = 'banner ok';
 el.textContent = t('b_known', { w: info.widthCm, d: info.depthCm });
 return;
 }
+if (info.kind === 'described') {
+el.className = 'banner ok';
+el.textContent = t('b_described');
+return;
+}
 if (info.kind === 'empty') {
 el.className = 'banner ok';
 el.textContent = t('b_empty');
@@ -3222,6 +3304,7 @@ $$('#viewTabs .vtab').forEach((b) => b.addEventListener('click', () => setView(b
 $('#photoOverlay').addEventListener('click', onOverlayTap);
 $('#btnUndo').addEventListener('click', onUndoMove);
 $('#btnResetLayout').addEventListener('click', onResetLayout);
+$('#btnDescribe').addEventListener('click', onDescribe);
 $('#btnFitAsk').addEventListener('click', onFitAsk);
 $('#btnFitCheck').addEventListener('click', onFitCheck);
 $('#btnAddSpace').addEventListener('click', onAddSpace);
@@ -3273,8 +3356,9 @@ const caller = await aiReady();
 if (!caller) return toast(t('t_noAIphoto'));
 if (!state.image) return toast(t('t_pickPhoto'));
 if (!(await canSendImages(caller))) {
-toast(t('t_noImages'), 6000);
-onManual();
+toast(t('t_noImages'), 7000);
+$('#describeInput').focus();
+$('#describeInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
 return;
 }
 const method = $('#sizeMethod').value;
@@ -3903,6 +3987,75 @@ state.edit = resetLayout(state.edit);
 showVerdict({});
 renderOverlay();
 $('#planView').innerHTML = renderDeskPlan(state.plan);
+}
+async function onDescribe() {
+const text = $('#describeInput').value.trim();
+if (!text) return toast(t('describeNeed'));
+const caller = await aiReady();
+if (!caller) return toast(t('t_noAI'));
+loading(true, t('t_analyzing'));
+try {
+const chosen = $('#spaceType').value;
+const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
+const r = await describeSpace({ text, caller, lang: getLang(), profile: chosenProfile });
+if (chosenProfile) {
+state.profile = chosenProfile;
+} else if (r.generatedProfile) {
+state.profile = normalizeProfile(r.generatedProfile,
+r.generatedProfile.spaceKind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
+} else {
+state.profile = GENERIC_PROFILE;
+}
+const sz = r.sizeCm || state.profile.defaultSizeCm || {};
+state.surface = {
+widthCm: clampCm(sz.width, 3, 400),
+depthCm: clampCm(sz.depth, 3, 300),
+heightCm: clampCm(sz.height, 2, 250),
+};
+state.userSize = { ...state.surface };
+const cats = Object.keys(state.profile.categories);
+state.items = (r.items || []).slice(0, 25).map((o, i) => ({
+id: `d${Date.now()}_${i}`,
+nameAr: o.nameAr || t('newItem'),
+category: cats.includes(o.category) ? o.category : 'other',
+widthCm: clampCm(o.widthCm, 0.5, 300),
+depthCm: clampCm(o.depthCm, 0.5, 300),
+heightCm: clampCm(o.heightCm, 0.2, 200),
+weightKg: clampCm(o.weightKg, 0, 30),
+frequency: ['high', 'medium', 'low'].includes(o.frequency) ? o.frequency : 'medium',
+fragile: !!o.fragile,
+confidence: 1,
+}));
+state.emptySpace = !state.items.length;
+state.emptySource = 'manual';
+if (state.emptySpace) addItem();
+state.scale = null;
+state.corners = null;
+state.edit = null;
+state.wishText = text;
+state.scaleInfo = { kind: 'described' };
+renderScaleBanner();
+renderPhotoRef();
+renderDetectedSpace();
+renderItems();
+showScreen('review');
+toast(t('describeGot', {
+what: tx(state.profile.spaceTypeAr),
+n: state.items.length,
+}));
+} catch (err) {
+toast(err.message || t('describeNone'));
+} finally {
+loading(false);
+}
+}
+function renderPhotoRef() {
+const box = $('#photoRef');
+if (!box) return;
+if (!state.image || state.scale) { box.classList.add('hidden'); return; }
+box.classList.remove('hidden');
+$('#photoRefImg').src = state.image.dataUrl;
+$('#photoRefNote').textContent = t('photoKept');
 }
 async function onWish() {
 const text = ($('#wishInput')?.value || '').trim();

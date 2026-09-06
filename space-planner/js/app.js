@@ -9,7 +9,7 @@ import { validCorners, cornersFromBox } from './homography.js';
 import { startEditing, select as selectItem, moveTo, swap, undo as undoEdit, reset as resetLayout, verdict } from './edit.js';
 import { planSpaces, moveSummary, COMPANION_SUGGESTIONS } from './multispace.js';
 import { renderDeskPlan, renderBagPlan, renderLegend } from './render.js';
-import { aiReady, canSendImages, analyzeScene, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized, CAN_RENDER_IMAGE, NEEDS_KEY } from './ai.js';
+import { aiReady, canSendImages, analyzeScene, describeSpace, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized, CAN_RENDER_IMAGE, NEEDS_KEY } from './ai.js';
 import { BUILT_IN_PROFILES, GENERIC_PROFILE, GENERIC_CONTAINER, normalizeProfile, profileOptions, getProfile, isContainer, ZONES } from './profiles.js';
 import { CABIN_BAGS, BAG_CATEGORIES } from '../data/bags.js';
 import { store } from './store.js';
@@ -190,6 +190,11 @@ function renderScaleBanner() {
 
   // مساحة فاضية: مفيش مرجع ومش محتاجينه. بنقول ده صراحة بدل ما نسيب
   // المستخدم يفتكر إن حاجة وقعت.
+  if (info.kind === 'described') {
+    el.className = 'banner ok';
+    el.textContent = t('b_described');
+    return;
+  }
   if (info.kind === 'empty') {
     el.className = 'banner ok';
     el.textContent = t('b_empty');
@@ -275,6 +280,7 @@ function init() {
   $('#photoOverlay').addEventListener('click', onOverlayTap);
   $('#btnUndo').addEventListener('click', onUndoMove);
   $('#btnResetLayout').addEventListener('click', onResetLayout);
+  $('#btnDescribe').addEventListener('click', onDescribe);
   $('#btnFitAsk').addEventListener('click', onFitAsk);
   $('#btnFitCheck').addEventListener('click', onFitCheck);
   $('#btnAddSpace').addEventListener('click', onAddSpace);
@@ -336,11 +342,11 @@ async function onAnalyze() {
   if (!caller) return toast(t('t_noAIphoto'));
   if (!state.image) return toast(t('t_pickPhoto'));
   if (!(await canSendImages(caller))) {
-    // العرض ده مش بيسمح ببعت صور. ده قيد من المنصة مش عيب في الصورة،
-    // والسؤال «إيه اللي يدخل هنا؟» ماله دعوة بالصورة أصلاً — فبنوديه
-    // للمسار اللي هيجاوبه بدل ما نسيبه واقف.
-    toast(t('t_noImages'), 6000);
-    onManual();
+    // العرض ده مش بيسمح ببعت صور — قيد من المنصة مش عيب في الصورة.
+    // بعت النصوص شغال عادي، فبنوديه لخانة الوصف بدل ما نسيبه واقف.
+    toast(t('t_noImages'), 7000);
+    $('#describeInput').focus();
+    $('#describeInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
 
@@ -1115,6 +1121,99 @@ function onResetLayout() {
   showVerdict({});
   renderOverlay();
   $('#planView').innerHTML = renderDeskPlan(state.plan);
+}
+
+/* ═══════════ الوصف بالكلام — بديل كامل للصورة ═══════════ */
+
+/**
+ * بيبني المساحة كلها من جملة المستخدم: نوعها، مقاسها، واللي جواها.
+ *
+ * ده مش «خطة بديلة» أقل من الصورة — ده نفس المدخلات بالظبط، جاية من
+ * الشخص اللي شايف المساحة بدل الموديل. وفي الحالات اللي العرض مش بيسمح
+ * فيها ببعت صور، ده الطريق الوحيد الشغال، فمابيتعاملش كأنه ناقص.
+ */
+async function onDescribe() {
+  const text = $('#describeInput').value.trim();
+  if (!text) return toast(t('describeNeed'));
+
+  const caller = await aiReady();
+  if (!caller) return toast(t('t_noAI'));
+
+  loading(true, t('t_analyzing'));
+  try {
+    const chosen = $('#spaceType').value;
+    const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
+    const r = await describeSpace({ text, caller, lang: getLang(), profile: chosenProfile });
+
+    // البروفايل المولّد بيتفلتر بنفس المصفاة اللي بتشتغل على الصورة
+    if (chosenProfile) {
+      state.profile = chosenProfile;
+    } else if (r.generatedProfile) {
+      state.profile = normalizeProfile(r.generatedProfile,
+        r.generatedProfile.spaceKind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
+    } else {
+      state.profile = GENERIC_PROFILE;
+    }
+
+    const sz = r.sizeCm || state.profile.defaultSizeCm || {};
+    state.surface = {
+      widthCm: clampCm(sz.width, 3, 400),
+      depthCm: clampCm(sz.depth, 3, 300),
+      heightCm: clampCm(sz.height, 2, 250),
+    };
+    state.userSize = { ...state.surface };
+
+    const cats = Object.keys(state.profile.categories);
+    state.items = (r.items || []).slice(0, 25).map((o, i) => ({
+      id: `d${Date.now()}_${i}`,
+      nameAr: o.nameAr || t('newItem'),
+      category: cats.includes(o.category) ? o.category : 'other',
+      widthCm: clampCm(o.widthCm, 0.5, 300),
+      depthCm: clampCm(o.depthCm, 0.5, 300),
+      heightCm: clampCm(o.heightCm, 0.2, 200),
+      weightKg: clampCm(o.weightKg, 0, 30),
+      frequency: ['high', 'medium', 'low'].includes(o.frequency) ? o.frequency : 'medium',
+      fragile: !!o.fragile,
+      confidence: 1,
+    }));
+
+    // مقالش عايز يحط إيه؟ يبقى المساحة فاضية ونسأله في الشاشة اللي جاية
+    state.emptySpace = !state.items.length;
+    state.emptySource = 'manual';
+    if (state.emptySpace) addItem();
+
+    // مفيش صورة اتحللت، فمفيش أركان ولا مقياس — ومفيش مخطط على الصورة
+    state.scale = null;
+    state.corners = null;
+    state.edit = null;
+    state.wishText = text;
+    state.scaleInfo = { kind: 'described' };
+    renderScaleBanner();
+
+    // الصورة اللي اختارها تفضل ظاهرة كمرجع بصري وهو بيظبط الأرقام
+    renderPhotoRef();
+    renderDetectedSpace();
+    renderItems();
+    showScreen('review');
+    toast(t('describeGot', {
+      what: tx(state.profile.spaceTypeAr),
+      n: state.items.length,
+    }));
+  } catch (err) {
+    toast(err.message || t('describeNone'));
+  } finally {
+    loading(false);
+  }
+}
+
+/** الصورة مش متحللة، بس لسه مفيدة — بيبص عليها وهو بيكتب الأرقام. */
+function renderPhotoRef() {
+  const box = $('#photoRef');
+  if (!box) return;
+  if (!state.image || state.scale) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  $('#photoRefImg').src = state.image.dataUrl;
+  $('#photoRefNote').textContent = t('photoKept');
 }
 
 /* ═══════════ المساحة الفاضية: قول عايز تحط إيه ═══════════ */
