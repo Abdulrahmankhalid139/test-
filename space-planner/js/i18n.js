@@ -55,6 +55,7 @@ const STRINGS = {
     takePhoto: 'صوّر أو اختار صورة',
     photoHint: 'أي مساحة — سطح أو حاجة بترص جواها',
     analyze: 'حلّل الصورة',
+    analyzeWords: 'رتّبها من كلامي',
     manual: 'أو أدخل الحاجات بنفسك',
     privacy: 'الصورة بتتبعت لـClaude عشان يحللها بس، ومش بتتخزن في أي مكان.',
 
@@ -312,6 +313,7 @@ const STRINGS = {
     takePhoto: 'Take or choose a photo',
     photoHint: 'Any space — a surface, or something you pack into',
     analyze: 'Analyse photo',
+    analyzeWords: 'Arrange it from my words',
     manual: 'Or enter items yourself',
     privacy: 'The photo goes to Claude for analysis only and is never stored.',
 

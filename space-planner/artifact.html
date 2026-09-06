@@ -621,6 +621,7 @@ airlineWarn: '⚠️ مقاسات شركات الطيران بتتغيّر — �
 takePhoto: 'صوّر أو اختار صورة',
 photoHint: 'أي مساحة — سطح أو حاجة بترص جواها',
 analyze: 'حلّل الصورة',
+analyzeWords: 'رتّبها من كلامي',
 manual: 'أو أدخل الحاجات بنفسك',
 privacy: 'الصورة بتتبعت لـClaude عشان يحللها بس، ومش بتتخزن في أي مكان.',
 apiKeyLabel: 'مفتاح Gemini',
@@ -856,6 +857,7 @@ airlineWarn: '⚠️ Airline limits change — check your airline before flying.
 takePhoto: 'Take or choose a photo',
 photoHint: 'Any space — a surface, or something you pack into',
 analyze: 'Analyse photo',
+analyzeWords: 'Arrange it from my words',
 manual: 'Or enter items yourself',
 privacy: 'The photo goes to Claude for analysis only and is never stored.',
 apiKeyLabel: 'Gemini key',
@@ -3086,12 +3088,12 @@ return profileFromModel(await caller.json(prompt, { modelTier: 'default' }));
 throw friendlyError(err);
 }
 }
-async function explainPlan({ mode, plan, caller, lang = 'ar' }) {
-const summary = mode === 'bag'
-? plan.steps.map((s) => `${s.step}. ${s.nameAr} — ${s.positionAr}`).join('\n')
-: plan.placed.map((p) => p.nameAr).join('، ');
+async function explainPlan({ mode, plan, caller, lang = 'ar', summary = '' }) {
+const lines = summary || (mode === 'bag'
+? (plan.steps || []).map((s) => `${s.step}. ${s.nameAr}`).join('\n')
+: (plan.placed || []).map((p) => p.nameAr).join('، '));
 const prompt = `دي نتيجة خوارزمية ${mode === 'bag' ? 'رص شنطة' : 'ترتيب مساحة'}:
-${summary}
+${lines}
 اكتب فقرة قصيرة (٣ لـ ٤ جمل) بالعامية المصرية تشرح منطق الترتيب ده وأهم حاجة يركز عليها.
 متكررش الليستة، وميبقاش فيها عناوين ولا نقط. كلام طبيعي زي ما صاحبك بيشرحلك.
 متخترعش أرقام أو تفاصيل مش موجودة فوق. رد بالفقرة بس.${LANG_NOTE[lang]}`;
@@ -3215,6 +3217,7 @@ g.items.map((p) => `<option value="${p.id}">${escHtml(tx(p.labelAr))}</option>`)
 }</optgroup>`).join('');
 $('#spaceType').value = keepType || 'auto';
 updateHints();
+syncGo();
 renderScaleBanner();
 if (state.profile) renderDetectedSpace();
 if (state.items.length) renderItems();
@@ -3277,6 +3280,9 @@ applyLang();
 });
 $$('[data-goto]').forEach((b) => b.addEventListener('click', () => showScreen(b.dataset.goto)));
 $('#btnPick').addEventListener('click', () => $('#fileInput').click());
+$('#whatInput').addEventListener('input', syncGo);
+$('#putInput').addEventListener('input', syncGo);
+syncGo();
 $('#fileInput').addEventListener('change', onFilePicked);
 $('#btnAnalyze').addEventListener('click', onAnalyze);
 $('#btnManual').addEventListener('click', onManual);
@@ -3325,6 +3331,11 @@ if ('serviceWorker' in navigator) {
 navigator.serviceWorker.register('sw.js').catch(() => { /* بيشتغل عادي من غيره */ });
 }
 }
+function syncGo() {
+const answered = !!($('#whatInput').value.trim() || $('#putInput').value.trim());
+$('#btnAnalyze').disabled = !state.image && !answered;
+$('#btnAnalyze').textContent = t(state.image ? 'analyze' : 'analyzeWords');
+}
 async function onFilePicked(e) {
 const file = e.target.files?.[0];
 if (!file) return;
@@ -3333,7 +3344,7 @@ const img = await fileToBase64Resized(file);
 state.image = img;
 $('#previewImg').src = img.dataUrl;
 $('#preview').classList.remove('hidden');
-$('#btnAnalyze').disabled = false;
+syncGo();
 } catch (err) {
 toast(err.message);
 }
@@ -3341,7 +3352,7 @@ toast(err.message);
 async function onAnalyze() {
 const caller = await aiReady();
 if (!caller) return toast(t('t_noAIphoto'));
-if (!state.image) return toast(t('t_pickPhoto'));
+if (!state.image) return onDescribeFromAnswers(caller);
 if (!(await canSendImages(caller))) {
 return onDescribeFromAnswers(caller, t('t_noImages'));
 }
@@ -3394,15 +3405,15 @@ const def = state.profile.defaultSizeCm || {};
 if (scale && surfBox && !isBag()) {
 const d = boxToCm(surfBox, scale);
 state.surface = {
-widthCm: clampCm(d.widthCm, 3, 400),
-depthCm: clampCm(d.depthCm, 3, 300),
-heightCm: clampCm(est.height || def.height, 2, 250),
+widthCm: clampCm(d.widthCm, 3, 400, def.width || 60),
+depthCm: clampCm(d.depthCm, 3, 300, def.depth || 40),
+heightCm: clampCm(est.height, 2, 250, def.height || 20),
 };
 } else {
 state.surface = {
-widthCm: clampCm(est.width || def.width, 3, 400),
-depthCm: clampCm(est.depth || def.depth, 3, 300),
-heightCm: clampCm(est.height || def.height, 2, 250),
+widthCm: clampCm(est.width, 3, 400, def.width || 60),
+depthCm: clampCm(est.depth, 3, 300, def.depth || 40),
+heightCm: clampCm(est.height, 2, 250, def.height || 20),
 };
 }
 state.userSize = null;
@@ -3433,10 +3444,10 @@ return {
 id: `it${i}`,
 nameAr: o.nameAr || t('newItem'),
 category: cats.includes(o.category) ? o.category : 'other',
-widthCm: clampCm(w || o.widthCm || 8, 0.5, 300),
-depthCm: clampCm(d || o.depthCm || 8, 0.5, 300),
-heightCm: clampCm(o.heightCm, 0.2, 200),
-weightKg: clampCm(o.weightKg, 0, 30),
+widthCm: clampCm(w || o.widthCm, 0.5, 300, 8),
+depthCm: clampCm(d || o.depthCm, 0.5, 300, 8),
+heightCm: clampCm(o.heightCm, 0.2, 200, 5),
+weightKg: clampCm(o.weightKg, 0, 30, 0),
 frequency: o.frequency || 'medium',
 fragile: !!o.fragile,
 confidence: Math.max(0, Math.min(1, Number(o.confidence) || 0.6)),
@@ -3511,7 +3522,11 @@ renderScaleBanner();
 renderItems();
 showScreen('review');
 }
-const clampCm = (v, lo, hi) => round1(Math.max(lo, Math.min(hi, Number(v) || lo)));
+const clampCm = (v, lo, hi, fallback = lo) => {
+const n = Number(v);
+const base = Number.isFinite(n) && n > 0 ? n : fallback;
+return round1(Math.max(lo, Math.min(hi, base)));
+};
 function addItem() {
 state.items.push({
 id: `it${Date.now()}`, nameAr: t('newItem'),
@@ -3765,7 +3780,12 @@ $('#aiNote').classList.add('hidden');
 const caller = await aiReady();
 if (!caller) return;
 try {
-const text = await explainPlan({ mode: isBag() ? 'bag' : 'surface', plan: state.plan, caller, lang: getLang() });
+const summary = isBag()
+? (state.plan.steps || []).map((s) => `${s.step}. ${s.nameAr} — ${tr(s.position)}`).join('\n')
+: (state.plan.placed || []).map((p) => `${p.nameAr} — ${tr(p.reason)}`).join('\n');
+const text = await explainPlan({
+mode: isBag() ? 'bag' : 'surface', plan: state.plan, caller, lang: getLang(), summary,
+});
 if (text.trim()) {
 $('#aiNote').textContent = text.trim();
 $('#aiNote').classList.remove('hidden');
@@ -4045,11 +4065,12 @@ r.generatedProfile.spaceKind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFI
 } else {
 state.profile = GENERIC_PROFILE;
 }
-const sz = r.sizeCm || state.profile.defaultSizeCm || {};
+const sz = r.sizeCm || {};
+const dflt = state.profile.defaultSizeCm || {};
 state.surface = {
-widthCm: clampCm(sz.width, 3, 400),
-depthCm: clampCm(sz.depth, 3, 300),
-heightCm: clampCm(sz.height, 2, 250),
+widthCm: clampCm(sz.width, 3, 400, dflt.width || 60),
+depthCm: clampCm(sz.depth, 3, 300, dflt.depth || 40),
+heightCm: clampCm(sz.height, 2, 250, dflt.height || 20),
 };
 state.userSize = null;
 state.sizeIsGuess = !r.sizeFromUser;
@@ -4058,10 +4079,10 @@ state.items = (r.items || []).slice(0, 25).map((o, i) => ({
 id: `d${Date.now()}_${i}`,
 nameAr: o.nameAr || t('newItem'),
 category: cats.includes(o.category) ? o.category : 'other',
-widthCm: clampCm(o.widthCm, 0.5, 300),
-depthCm: clampCm(o.depthCm, 0.5, 300),
-heightCm: clampCm(o.heightCm, 0.2, 200),
-weightKg: clampCm(o.weightKg, 0, 30),
+widthCm: clampCm(o.widthCm, 0.5, 300, 8),
+depthCm: clampCm(o.depthCm, 0.5, 300, 8),
+heightCm: clampCm(o.heightCm, 0.2, 200, 5),
+weightKg: clampCm(o.weightKg, 0, 30, 0),
 frequency: ['high', 'medium', 'low'].includes(o.frequency) ? o.frequency : 'medium',
 fragile: !!o.fragile,
 confidence: 1,
@@ -4114,10 +4135,10 @@ state.items = list.slice(0, 25).map((o, i) => ({
 id: `w${Date.now()}_${i}`,
 nameAr: o.nameAr || t('newItem'),
 category: cats.includes(o.category) ? o.category : 'other',
-widthCm: clampCm(o.widthCm, 0.5, 300),
-depthCm: clampCm(o.depthCm, 0.5, 300),
-heightCm: clampCm(o.heightCm, 0.2, 200),
-weightKg: clampCm(o.weightKg, 0, 30),
+widthCm: clampCm(o.widthCm, 0.5, 300, 8),
+depthCm: clampCm(o.depthCm, 0.5, 300, 8),
+heightCm: clampCm(o.heightCm, 0.2, 200, 5),
+weightKg: clampCm(o.weightKg, 0, 30, 0),
 frequency: ['high', 'medium', 'low'].includes(o.frequency) ? o.frequency : 'medium',
 fragile: !!o.fragile,
 confidence: 1,
@@ -4143,9 +4164,9 @@ const r = await caller.json(
 `قد إيه مقاس "${what}" بالسنتيمتر تقريباً؟ رد بـJSON بس:\n` +
 `{"widthCm":0,"depthCm":0,"heightCm":0,"category":"واحدة من: ${cats.join('، ')}"}`,
 { modelTier: 'quick' });
-$('#fitW').value = clampCm(r.widthCm, 0.5, 400);
-$('#fitD').value = clampCm(r.depthCm, 0.5, 400);
-$('#fitH').value = clampCm(r.heightCm, 0.2, 300);
+$('#fitW').value = clampCm(r.widthCm, 0.5, 400, 10);
+$('#fitD').value = clampCm(r.depthCm, 0.5, 400, 10);
+$('#fitH').value = clampCm(r.heightCm, 0.2, 300, 10);
 $('#fitPanel').dataset.cat = cats.includes(r.category) ? r.category : 'other';
 onFitCheck();
 } catch (err) {

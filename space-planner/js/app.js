@@ -137,6 +137,8 @@ function applyLang() {
   $('#spaceType').value = keepType || 'auto';
   updateHints();
 
+  syncGo();
+
   // اللي معروض دلوقتي يتعاد رسمه باللغة الجديدة
   renderScaleBanner();
   if (state.profile) renderDetectedSpace();
@@ -218,6 +220,9 @@ function init() {
 
   $$('[data-goto]').forEach((b) => b.addEventListener('click', () => showScreen(b.dataset.goto)));
   $('#btnPick').addEventListener('click', () => $('#fileInput').click());
+  $('#whatInput').addEventListener('input', syncGo);
+  $('#putInput').addEventListener('input', syncGo);
+  syncGo();
   $('#fileInput').addEventListener('change', onFilePicked);
   $('#btnAnalyze').addEventListener('click', onAnalyze);
   $('#btnManual').addEventListener('click', onManual);
@@ -273,6 +278,19 @@ function init() {
   }
 }
 
+/**
+ * زر «حلّل» بيشتغل بصورة **أو** بإجابة على أي سؤال.
+ *
+ * قبل كده كان مربوط بالصورة بس، فاللي عايز يوصف مساحته بالكلام من غير
+ * صورة كان بيلاقي الزر مقفول من غير سبب ظاهر — رغم إن الكلام لوحده
+ * كافي تماماً للترتيب.
+ */
+function syncGo() {
+  const answered = !!($('#whatInput').value.trim() || $('#putInput').value.trim());
+  $('#btnAnalyze').disabled = !state.image && !answered;
+  $('#btnAnalyze').textContent = t(state.image ? 'analyze' : 'analyzeWords');
+}
+
 /* ═══════════ الصورة ═══════════ */
 async function onFilePicked(e) {
   const file = e.target.files?.[0];
@@ -282,7 +300,7 @@ async function onFilePicked(e) {
     state.image = img;
     $('#previewImg').src = img.dataUrl;
     $('#preview').classList.remove('hidden');
-    $('#btnAnalyze').disabled = false;
+    syncGo();
   } catch (err) {
     toast(err.message);
   }
@@ -305,7 +323,8 @@ async function onFilePicked(e) {
 async function onAnalyze() {
   const caller = await aiReady();
   if (!caller) return toast(t('t_noAIphoto'));
-  if (!state.image) return toast(t('t_pickPhoto'));
+  // مفيش صورة؟ يبقى إجاباته هي المدخل — مش رسالة خطأ.
+  if (!state.image) return onDescribeFromAnswers(caller);
   if (!(await canSendImages(caller))) {
     // العرض ده ممنوع منه الصور (قيد من المنصة). كلام المستخدم كافي لوحده.
     // بس رسالة واحدة: لو مجاوبش، الرسالة تقول السببين مع بعض بدل ما
@@ -372,15 +391,15 @@ async function onAnalyze() {
     if (scale && surfBox && !isBag()) {
       const d = boxToCm(surfBox, scale);
       state.surface = {
-        widthCm: clampCm(d.widthCm, 3, 400),
-        depthCm: clampCm(d.depthCm, 3, 300),
-        heightCm: clampCm(est.height || def.height, 2, 250),
+        widthCm: clampCm(d.widthCm, 3, 400, def.width || 60),
+        depthCm: clampCm(d.depthCm, 3, 300, def.depth || 40),
+        heightCm: clampCm(est.height, 2, 250, def.height || 20),
       };
     } else {
       state.surface = {
-        widthCm: clampCm(est.width || def.width, 3, 400),
-        depthCm: clampCm(est.depth || def.depth, 3, 300),
-        heightCm: clampCm(est.height || def.height, 2, 250),
+        widthCm: clampCm(est.width, 3, 400, def.width || 60),
+        depthCm: clampCm(est.depth, 3, 300, def.depth || 40),
+        heightCm: clampCm(est.height, 2, 250, def.height || 20),
       };
     }
     state.userSize = null;
@@ -416,10 +435,10 @@ async function onAnalyze() {
         id: `it${i}`,
         nameAr: o.nameAr || t('newItem'),
         category: cats.includes(o.category) ? o.category : 'other',
-        widthCm: clampCm(w || o.widthCm || 8, 0.5, 300),
-        depthCm: clampCm(d || o.depthCm || 8, 0.5, 300),
-        heightCm: clampCm(o.heightCm, 0.2, 200),
-        weightKg: clampCm(o.weightKg, 0, 30),
+        widthCm: clampCm(w || o.widthCm, 0.5, 300, 8),
+        depthCm: clampCm(d || o.depthCm, 0.5, 300, 8),
+        heightCm: clampCm(o.heightCm, 0.2, 200, 5),
+        weightKg: clampCm(o.weightKg, 0, 30, 0),
         frequency: o.frequency || 'medium',
         fragile: !!o.fragile,
         confidence: Math.max(0, Math.min(1, Number(o.confidence) || 0.6)),
@@ -521,7 +540,19 @@ function onManual() {
   showScreen('review');
 }
 
-const clampCm = (v, lo, hi) => round1(Math.max(lo, Math.min(hi, Number(v) || lo)));
+/**
+ * بيقصّ رقم جاي من الموديل على حدود معقولة.
+ *
+ * `fallback` مهم: من غيره الرقم الناقص كان بيقع على **أصغر حد مسموح**.
+ * يعني الموديل لو نسي ارتفاع الحاوية، بتبقى حاوية بارتفاع ٢ سم — وكل
+ * حاجة واقفة بتترفض بحجة «أكبر من الشنطة نفسها». القيمة الناقصة لازم
+ * ترجع لمقاس نموذجي، مش لأصغر رقم في المدى.
+ */
+const clampCm = (v, lo, hi, fallback = lo) => {
+  const n = Number(v);
+  const base = Number.isFinite(n) && n > 0 ? n : fallback;
+  return round1(Math.max(lo, Math.min(hi, base)));
+};
 
 /* ═══════════ مراجعة الحاجات ═══════════ */
 function addItem() {
@@ -819,7 +850,13 @@ async function maybeExplain() {
   const caller = await aiReady();
   if (!caller) return;
   try {
-    const text = await explainPlan({ mode: isBag() ? 'bag' : 'surface', plan: state.plan, caller, lang: getLang() });
+    // الملخص بيتترجم هنا: الخطوات بترجع {key, params} والترجمة عند الواجهة
+    const summary = isBag()
+      ? (state.plan.steps || []).map((s) => `${s.step}. ${s.nameAr} — ${tr(s.position)}`).join('\n')
+      : (state.plan.placed || []).map((p) => `${p.nameAr} — ${tr(p.reason)}`).join('\n');
+    const text = await explainPlan({
+      mode: isBag() ? 'bag' : 'surface', plan: state.plan, caller, lang: getLang(), summary,
+    });
     if (text.trim()) {
       $('#aiNote').textContent = text.trim();
       $('#aiNote').classList.remove('hidden');
@@ -1187,11 +1224,12 @@ function applyDescribed(r, text) {
     state.profile = GENERIC_PROFILE;
   }
 
-  const sz = r.sizeCm || state.profile.defaultSizeCm || {};
+  const sz = r.sizeCm || {};
+  const dflt = state.profile.defaultSizeCm || {};
   state.surface = {
-    widthCm: clampCm(sz.width, 3, 400),
-    depthCm: clampCm(sz.depth, 3, 300),
-    heightCm: clampCm(sz.height, 2, 250),
+    widthCm: clampCm(sz.width, 3, 400, dflt.width || 60),
+    depthCm: clampCm(sz.depth, 3, 300, dflt.depth || 40),
+    heightCm: clampCm(sz.height, 2, 250, dflt.height || 20),
   };
   state.userSize = null;
   state.sizeIsGuess = !r.sizeFromUser;
@@ -1201,10 +1239,10 @@ function applyDescribed(r, text) {
     id: `d${Date.now()}_${i}`,
     nameAr: o.nameAr || t('newItem'),
     category: cats.includes(o.category) ? o.category : 'other',
-    widthCm: clampCm(o.widthCm, 0.5, 300),
-    depthCm: clampCm(o.depthCm, 0.5, 300),
-    heightCm: clampCm(o.heightCm, 0.2, 200),
-    weightKg: clampCm(o.weightKg, 0, 30),
+    widthCm: clampCm(o.widthCm, 0.5, 300, 8),
+    depthCm: clampCm(o.depthCm, 0.5, 300, 8),
+    heightCm: clampCm(o.heightCm, 0.2, 200, 5),
+    weightKg: clampCm(o.weightKg, 0, 30, 0),
     frequency: ['high', 'medium', 'low'].includes(o.frequency) ? o.frequency : 'medium',
     fragile: !!o.fragile,
     confidence: 1,
@@ -1278,10 +1316,10 @@ async function onWish() {
       id: `w${Date.now()}_${i}`,
       nameAr: o.nameAr || t('newItem'),
       category: cats.includes(o.category) ? o.category : 'other',
-      widthCm: clampCm(o.widthCm, 0.5, 300),
-      depthCm: clampCm(o.depthCm, 0.5, 300),
-      heightCm: clampCm(o.heightCm, 0.2, 200),
-      weightKg: clampCm(o.weightKg, 0, 30),
+      widthCm: clampCm(o.widthCm, 0.5, 300, 8),
+      depthCm: clampCm(o.depthCm, 0.5, 300, 8),
+      heightCm: clampCm(o.heightCm, 0.2, 200, 5),
+      weightKg: clampCm(o.weightKg, 0, 30, 0),
       frequency: ['high', 'medium', 'low'].includes(o.frequency) ? o.frequency : 'medium',
       fragile: !!o.fragile,
       confidence: 1,
@@ -1314,9 +1352,9 @@ async function onFitAsk() {
       `قد إيه مقاس "${what}" بالسنتيمتر تقريباً؟ رد بـJSON بس:\n` +
       `{"widthCm":0,"depthCm":0,"heightCm":0,"category":"واحدة من: ${cats.join('، ')}"}`,
       { modelTier: 'quick' });
-    $('#fitW').value = clampCm(r.widthCm, 0.5, 400);
-    $('#fitD').value = clampCm(r.depthCm, 0.5, 400);
-    $('#fitH').value = clampCm(r.heightCm, 0.2, 300);
+    $('#fitW').value = clampCm(r.widthCm, 0.5, 400, 10);
+    $('#fitD').value = clampCm(r.depthCm, 0.5, 400, 10);
+    $('#fitH').value = clampCm(r.heightCm, 0.2, 300, 10);
     $('#fitPanel').dataset.cat = cats.includes(r.category) ? r.category : 'other';
     onFitCheck();
   } catch (err) {

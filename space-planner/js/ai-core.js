@@ -368,14 +368,17 @@ ${RULES_BRIEF}
 
 /* ═══════════ ٢: الشرح بالعامية ═══════════ */
 
-export async function explainPlan({ mode, plan, caller, lang = 'ar' }) {
-  const summary = mode === 'bag'
-    ? plan.steps.map((s) => `${s.step}. ${s.nameAr} — ${s.positionAr}`).join('\n')
-    : plan.placed.map((p) => p.nameAr).join('، ');
+export async function explainPlan({ mode, plan, caller, lang = 'ar', summary = '' }) {
+  // الملخص بييجي مترجم جاهز من app.js — عنده المترجم، والنواة لأ.
+  // قبل كده كانت النواة بتقرا حقل positionAr مش موجود، فكلمة undefined
+  // كانت بتتبعت للموديل وبيرددها للمستخدم في الشرح.
+  const lines = summary || (mode === 'bag'
+    ? (plan.steps || []).map((s) => `${s.step}. ${s.nameAr}`).join('\n')
+    : (plan.placed || []).map((p) => p.nameAr).join('، '));
 
   const prompt = `دي نتيجة خوارزمية ${mode === 'bag' ? 'رص شنطة' : 'ترتيب مساحة'}:
 
-${summary}
+${lines}
 
 
 اكتب فقرة قصيرة (٣ لـ ٤ جمل) بالعامية المصرية تشرح منطق الترتيب ده وأهم حاجة يركز عليها.
