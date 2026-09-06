@@ -35,6 +35,8 @@ const state = {
   // أركان السطح في الصورة — بيها بنرسم المخطط على الصورة نفسها
   corners: null,
   cornersApprox: false,
+  // الأركان دي المستخدم حطها بإيده؟ الرسالة تحت الصورة بتتغير على أساسها
+  cornersManual: false,
   // حالة التعديل اليدوي، وبتتعمل أول ما المستخدم يفتح وضع التعديل
   edit: null,
   view: 'plan',
@@ -237,6 +239,7 @@ function init() {
 
   $$('#viewTabs .vtab').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
   $('#photoOverlay').addEventListener('click', onOverlayTap);
+  setupCornerDrag();
   $('#btnUndo').addEventListener('click', onUndoMove);
   $('#btnResetLayout').addEventListener('click', onResetLayout);
   $('#btnFitAsk').addEventListener('click', onFitAsk);
@@ -763,8 +766,9 @@ function renderDeskResult() {
       p.offDesk.map((i) => `<li><b>${esc(i.nameAr)}</b> — ${esc(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
   $('#btnAfterImage').classList.toggle('hidden', !CAN_RENDER_IMAGE);
 
-  // المخطط على الصورة متاح بس لما يبقى فيه صورة وأركان اتحددت
-  const canPhoto = !!(state.image && state.corners);
+  // المخطط على الصورة متاح لأي مساحة فيها صورة — لو مانعرفش حدودها،
+  // المستخدم بيسحب الأركان بنفسه
+  const canPhoto = !!state.image;
   $('#viewTabs').classList.toggle('hidden', !canPhoto);
   if (!canPhoto && state.view === 'photo') setView('plan');
   $('#editHint').textContent = canPhoto ? t('editHint') : '';
@@ -784,15 +788,17 @@ function renderBagResult() {
     <div class="stat"><b>${p.stats.unplacedCount}</b><span>${esc(t('statNoFit'))}</span></div>
     <div class="stat"><b>${p.stats.fillPercent}%</b><span>${esc(t('statFill'))}</span></div>
     ${p.stats.requestedWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${esc(t('statKg'))}</span></div>` : ''}`;
-  // الرص جوه حاوية مالوش «مخطط على الصورة» ولا تعديل بالإيد — دي حاجات السطح
-  $('#viewTabs').classList.add('hidden');
+  // الحاوية كمان ليها «على صورتي»: بنرسم قاعها على الصورة.
+  // اللي مالهاش هنا هو التحريك بالإيد — الرص ثلاثي الأبعاد مش بيتعدّل بلمسة.
+  const canPhotoBag = !!state.image;
+  $('#viewTabs').classList.toggle('hidden', !canPhotoBag);
+  if (!canPhotoBag && state.view === 'photo') setView('plan');
   $('#editBar').classList.add('hidden');
-  $('#editHint').textContent = '';
+  $('#editHint').textContent = canPhotoBag ? t('photoDragHint') : '';
   $('#fitPanel').classList.add('hidden');
   $('#spacesPanel').classList.add('hidden');
-  $('#photoView').classList.add('hidden');
-  $('#planView').classList.remove('hidden');
   $('#planView').innerHTML = renderBagPlan(state.bin, p.placed);
+  if (state.view === 'photo') renderOverlay();
   $('#legendView').innerHTML = renderLegend(p.placed);
   $('#notesView').innerHTML = p.stats.overWeight
     ? `<div class="note warn"><span>⚠️</span><span>${esc(t('n_overweight', {
@@ -934,26 +940,123 @@ function setView(view) {
 /** الحاجات المعروضة دلوقتي: المعدّلة لو المستخدم حرّك، وإلا اللي الخوارزمية طلعته. */
 const shownPlaced = () => (state.edit ? state.edit.placed : state.plan?.placed) || [];
 
+/**
+ * أماكن الحاجات على مستوى واحد، مهما كانت الخوارزمية اللي حسبتها.
+ *
+ * السطح بيرجّع x/y/w/d جاهزين. الحاوية بترجّع صندوق ثلاثي الأبعاد —
+ * فبناخد إسقاطه على قاع الحاوية، لأن ده اللي بتشوفه لما تبص جواها من فوق.
+ * الحاجات المحشورة في الفراغات (من غير صندوق) مالهاش مكان محدد فبتتساب.
+ */
+function footprints() {
+  if (!isBag()) return shownPlaced();
+  return (state.plan?.placed || [])
+    .filter((p) => p.box)
+    .map((p) => ({
+      ...p,
+      x: p.box.x, y: p.box.y, w: p.box.w, d: p.box.d,
+      z: p.box.z,
+    }));
+}
+
+/** المستوى اللي بنرسم عليه: السطح نفسه، أو قاع الحاوية. */
+const planePlane = () => (isBag()
+  ? { widthCm: state.bin?.widthCm || state.surface.widthCm, depthCm: state.bin?.depthCm || state.surface.depthCm }
+  : state.surface);
+
+/**
+ * أركان افتراضية في نص الصورة لما مانعرفش المساحة فين.
+ * دي نقطة بداية بس — المستخدم بيسحبها على حواف مساحته الحقيقية.
+ */
+function defaultCorners() {
+  return [
+    { x: 0.18, y: 0.82 }, { x: 0.82, y: 0.82 },
+    { x: 0.72, y: 0.34 }, { x: 0.28, y: 0.34 },
+  ];
+}
+
 function renderOverlay() {
   const box = $('#photoOverlay');
-  if (!state.image || !state.corners || !state.plan) {
+  if (!state.image || !state.plan) {
     box.innerHTML = '';
     $('#photoNote').textContent = t('photoNoImage');
     return;
   }
+  // مانعرفش المساحة فين في الصورة؟ نحط رباعي مبدئي والمستخدم يظبطه.
+  // ده أحسن بكتير من إننا نقول «مش قادرين» — هو شايف صورته وعارف حدودها.
+  if (!state.corners) {
+    state.corners = defaultCorners();
+    state.cornersManual = true;
+  }
+
   $('#photoBase').src = state.image.dataUrl;
-  const out = renderPhotoOverlay(state.surface, shownPlaced(), state.corners, {
-    imgW: 1000,
-    imgH: Math.round(1000 * (state.image.height / state.image.width)),
+  const imgW = 1000;
+  const imgH = Math.round(1000 * (state.image.height / state.image.width));
+  const out = renderPhotoOverlay(planePlane(), footprints(), state.corners, {
+    imgW, imgH,
     approx: state.cornersApprox,
     selectedId: state.edit?.selectedId,
     movedIds: state.edit ? [...state.edit.movedIds] : [],
   });
   if (!out) { box.innerHTML = ''; $('#photoNote').textContent = t('photoNoImage'); return; }
-  box.innerHTML = out.svg;
+
+  // مقابض الأركان — بتتحط فوق الرسمة عشان تتسحب
+  const handles = state.corners.map((c, i) =>
+    `<circle cx="${(c.x * imgW).toFixed(1)}" cy="${(c.y * imgH).toFixed(1)}" r="${imgW * 0.022}"
+       class="corner-handle" data-corner="${i}" fill="var(--accent)" fill-opacity="0.85"
+       stroke="#fff" stroke-width="${imgW * 0.006}"/>`).join('');
+  box.innerHTML = out.svg.replace('</svg>', handles + '</svg>');
+
   state.projected = out.projected;
   state.homography = out.homography;
-  $('#photoNote').textContent = t(state.cornersApprox ? 'photoApprox' : 'photoExact');
+  $('#photoNote').textContent = t(state.cornersManual ? 'photoDrag'
+    : state.cornersApprox ? 'photoApprox' : 'photoExact');
+}
+
+/**
+ * سحب أركان المساحة على الصورة.
+ *
+ * الأركان الأربعة هي كل اللي التحويل الإسقاطي محتاجه. فلما التطبيق
+ * مايعرفش المساحة فين — أو يعرفها غلط — المستخدم بيصلّحها بصباعه،
+ * وهو أصلاً الوحيد اللي شايف الصورة والمكان الحقيقي مع بعض.
+ */
+function setupCornerDrag() {
+  const box = $('#photoOverlay');
+  let dragging = null;
+
+  const pos = (ev) => {
+    const svg = box.querySelector('svg');
+    if (!svg) return null;
+    const r = svg.getBoundingClientRect();
+    const pt = ev.touches?.[0] || ev;
+    return {
+      x: Math.max(0, Math.min(1, (pt.clientX - r.left) / r.width)),
+      y: Math.max(0, Math.min(1, (pt.clientY - r.top) / r.height)),
+    };
+  };
+
+  const start = (ev) => {
+    const i = ev.target?.dataset?.corner;
+    if (i === undefined) return;
+    dragging = +i;
+    ev.preventDefault();
+  };
+  const move = (ev) => {
+    if (dragging === null) return;
+    const p = pos(ev);
+    if (!p) return;
+    state.corners[dragging] = p;
+    state.cornersApprox = false;
+    renderOverlay();
+    ev.preventDefault();
+  };
+  const end = () => { dragging = null; };
+
+  box.addEventListener('pointerdown', start);
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  box.addEventListener('touchstart', start, { passive: false });
+  window.addEventListener('touchmove', move, { passive: false });
+  window.addEventListener('touchend', end);
 }
 
 /** بيبدأ التعديل عند أول لمسة — قبل كده مفيش داعي نحسب حاجة. */
