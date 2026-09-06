@@ -40,6 +40,9 @@ const state = {
   view: 'plan',
   // المساحات المكمّلة اللي المستخدم ضافها (درج، رف...)
   extraSpaces: [],
+  // المساحة اتصوّرت وهي فاضية — السؤال بقى «إيه اللي يدخل؟» مش «رتّب اللي موجود»
+  emptySpace: false,
+  emptyEstimate: null,
   // إيد المستخدم اللي الموديل استنتجها من الصورة — null يعني اختياره هو اللي ساري
   handDetected: null,
   // إحنا اللي عدّينا المراجعة؟ الشريط في شاشة النتيجة بيتعلق على ده
@@ -181,6 +184,14 @@ function renderScaleBanner() {
   if (info.kind === 'known') {
     el.className = 'banner ok';
     el.textContent = t('b_known', { w: info.widthCm, d: info.depthCm });
+    return;
+  }
+
+  // مساحة فاضية: مفيش مرجع ومش محتاجينه. بنقول ده صراحة بدل ما نسيب
+  // المستخدم يفتكر إن حاجة وقعت.
+  if (info.kind === 'empty') {
+    el.className = 'banner ok';
+    el.textContent = t('b_empty');
     return;
   }
 
@@ -374,6 +385,11 @@ async function onAnalyze() {
       state.profile = GENERIC_PROFILE;
     }
 
+    // المساحة الفاضية مسار كامل مش خطأ: المستخدم بيسأل «إيه اللي يدخل هنا؟».
+    // بنقرره من عدد الحاجات، مش من علم الموديل لوحده، عشان لو قال فاضية
+    // وهو شايف حاجات نمشي باللي إحنا شايفينه فعلاً.
+    const emptySpace = !analysis.objects?.length;
+
     // نقطة المعايرة: يا حاجة معروفة في الصورة، يا المساحة نفسها اللي المستخدم قاسها.
     // في الحالتين الرياضة واحدة — اللي بيختلف هو مين المسطرة.
     const surfBox = analysis.surface?.box ? normalizeBox(analysis.surface.box) : null;
@@ -390,6 +406,22 @@ async function onAnalyze() {
       state.userSize = { ...known };
       // المقاس ده من المستخدم نفسه، مش من الصورة — مفيش خصم ثقة عليه
       state.scaleInfo = { kind: 'known', widthCm: known.widthCm, depthCm: known.depthCm };
+      renderScaleBanner();
+    } else if (emptySpace && !analysis.scaleReference?.found) {
+      // مساحة فاضية من غير مرجع: ده مش فشل.
+      // مرجع القياس موجود عشان نقيس **الحاجات اللي في الصورة**. لو مفيش
+      // حاجات، مفيش حاجة تتقاس — واللي محتاجينه هو مقاس المساحة نفسها،
+      // وده المستخدم بيكتبه في الخطوة اللي بعدها. فبنكمّل عادي.
+      scale = null;
+      refBox = null;
+      state.userSize = null;
+      const est = analysis.spaceSizeCm || {};
+      state.emptyEstimate = {
+        widthCm: clampCm(est.width, 5, 400),
+        depthCm: clampCm(est.depth, 5, 300),
+        heightCm: clampCm(est.height, 2, 250),
+      };
+      state.scaleInfo = { kind: 'empty' };
       renderScaleBanner();
     } else {
       refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
@@ -502,7 +534,13 @@ async function onAnalyze() {
       };
     });
 
-    if (!state.items.length) throw new Error(t('t_noObjects'));
+    // قبل كده كان بيرمي خطأ هنا. تصوير مساحة فاضية عشان تعرف إيه اللي
+    // يدخل فيها كان أصل الفكرة من البداية، فمنعرفش نرفضه.
+    state.emptySpace = emptySpace && !state.items.length;
+    if (state.emptySpace) {
+      if (state.emptyEstimate) state.surface = { ...state.emptyEstimate };
+      addItem();
+    }
 
     renderDetectedSpace();
     renderItems();
@@ -510,7 +548,7 @@ async function onAnalyze() {
     // ثقة عالية = مفيش داعي نوقّفه على المراجعة. وفي وضع «لاقيها إنت» زيادة:
     // لو الموديل نفسه مش واثق إنه عرف المرجع صح، بنراجع مهما كان الباقي.
     const refSure = method !== 'auto' || (Number(analysis.scaleReference?.confidence) || 0) >= 0.6;
-    state.autoAccepted = autoSkipOn() && refSure &&
+    state.autoAccepted = !state.emptySpace && autoSkipOn() && refSure &&
       overallConfidence({ scaleScore, approxRef, items: state.items }) >= AUTO_SKIP_THRESHOLD;
     if (state.autoAccepted && await onPlan()) return;
     state.autoAccepted = false;
@@ -587,7 +625,21 @@ function renderItems() {
       </div>
     </div>`;
 
-  $('#itemsList').innerHTML = spaceEditor + weightHint + state.items.map((it) => `
+  // المساحة الفاضية سؤالها مختلف: مش «راجع اللي لقيناه» لكن «قول عايز تحط إيه».
+  const emptyIntro = state.emptySpace ? `
+    <div class="item empty-intro">
+      <div>
+        <strong>${esc(t('emptyTitle'))}</strong>
+        <p class="hint">${esc(t('emptyHint'))}</p>
+        <div class="row">
+          <input id="wishInput" class="input" type="text" maxlength="200"
+                 value="${esc(state.wishText || '')}" placeholder="${esc(t('wishPh'))}">
+          <button id="btnWish" class="btn ghost small" type="button">${esc(t('wishBtn'))}</button>
+        </div>
+      </div>
+    </div>` : '';
+
+  $('#itemsList').innerHTML = spaceEditor + emptyIntro + weightHint + state.items.map((it) => `
     <div class="item ${it.confidence < 0.5 ? 'conf-low' : ''}" data-id="${it.id}">
       <div>
         <input class="item-name" data-f="nameAr" value="${esc(it.nameAr)}" aria-label="${esc(t('itemName'))}">
@@ -622,6 +674,13 @@ function renderItems() {
     if (!it) return;
     it[f] = ['widthCm', 'depthCm', 'heightCm', 'weightKg'].includes(f) ? Number(e.target.value) || 0 : e.target.value;
   };
+  const wish = $('#btnWish');
+  if (wish) {
+    wish.onclick = onWish;
+    $('#wishInput').oninput = (e) => { state.wishText = e.target.value; };
+    $('#wishInput').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); onWish(); } };
+  }
+
   $('#itemsList').onchange = (e) => {
     if (e.target.dataset.airline === undefined) return;
     const b = CABIN_BAGS.find((x) => x.id === e.target.value);
@@ -1039,6 +1098,65 @@ function onResetLayout() {
   showVerdict({});
   renderOverlay();
   $('#planView').innerHTML = renderDeskPlan(state.plan);
+}
+
+/* ═══════════ المساحة الفاضية: قول عايز تحط إيه ═══════════ */
+
+/**
+ * بيحوّل جملة زي «أقلام ومقص وشاحن» لحاجات بمقاسات.
+ *
+ * ده الجزء اللي بيخلي المساحة الفاضية مفيدة فعلاً: من غيره المستخدم
+ * هيكتب كل حاجة ومقاسها بإيده، وده شغل كتير عشان سؤال بسيط.
+ *
+ * الموديل بيدّي المقاسات التقريبية بس — القرار «يدخل ولا مايدخلش وفين»
+ * بيفضل رياضة زي أي حاجة تانية، والمستخدم بيقدر يعدّل أي رقم.
+ */
+async function onWish() {
+  const text = ($('#wishInput')?.value || '').trim();
+  if (!text) return toast(t('wishNeed'));
+
+  const caller = await aiReady();
+  if (!caller) return toast(t('t_noAI'));
+
+  loading(true, t('t_analyzing'));
+  try {
+    const cats = Object.keys((state.profile || GENERIC_PROFILE).categories);
+    const r = await caller.json(
+      `المستخدم عنده ${tx(state.profile?.spaceTypeAr) || 'مساحة'} فاضية مقاسها ` +
+      `${Math.round(state.surface.widthCm)}×${Math.round(state.surface.depthCm)}` +
+      `${isBag() ? '×' + Math.round(state.surface.heightCm || 0) : ''} سم، وعايز يحط فيها: "${text}"\n\n` +
+      `اطلعلي كل حاجة ذكرها كصف لوحده بمقاسه التقريبي الحقيقي بالسنتيمتر.\n` +
+      `لو قال حاجة بالجمع (زي «أقلام») اعملها صف واحد بمقاس المجموعة مع بعض.\n` +
+      `متزوّدش حاجات هو مقالهاش.\n\n` +
+      `رد بـJSON بس:\n` +
+      `{"items":[{"nameAr":"...","category":"واحدة من: ${cats.join('، ')}",` +
+      `"widthCm":0,"depthCm":0,"heightCm":0,"weightKg":0,"frequency":"high|medium|low"}]}`,
+      { modelTier: 'default' });
+
+    const list = Array.isArray(r.items) ? r.items : [];
+    if (!list.length) throw new Error(t('wishNone'));
+
+    // نفس التقصيص المطبّق على أي رقم جاي من الموديل
+    state.items = list.slice(0, 25).map((o, i) => ({
+      id: `w${Date.now()}_${i}`,
+      nameAr: o.nameAr || t('newItem'),
+      category: cats.includes(o.category) ? o.category : 'other',
+      widthCm: clampCm(o.widthCm, 0.5, 300),
+      depthCm: clampCm(o.depthCm, 0.5, 300),
+      heightCm: clampCm(o.heightCm, 0.2, 200),
+      weightKg: clampCm(o.weightKg, 0, 30),
+      frequency: ['high', 'medium', 'low'].includes(o.frequency) ? o.frequency : 'medium',
+      fragile: !!o.fragile,
+      confidence: 1,
+    }));
+    state.wishText = text;
+    renderItems();
+    toast(t('wishAdded', { n: state.items.length }));
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    loading(false);
+  }
 }
 
 /* ═══════════ هيدخل ولا لأ ═══════════ */

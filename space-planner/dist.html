@@ -365,6 +365,12 @@ background:var(--card);padding:10px 12px}
 .panel[open]>summary::after{content:'▴'}
 .panel .row{margin-top:8px}
 .btn.small{padding:7px 11px;font-size:12px;white-space:nowrap}
+.empty-intro{border-color:var(--mark);background:var(--card)}
+.empty-intro .row{margin-top:8px}
+.layer figcaption{
+margin-top:5px;text-align:center;font-size:11px;color:var(--faint);
+font-weight:700;letter-spacing:.02em;
+}
 </style>
 </head>
 <body>
@@ -655,6 +661,14 @@ privacy: 'الصورة بتتبعت لـClaude عشان يحللها بس، وم
 apiKeyLabel: 'مفتاح Gemini',
 apiKeyPh: 'الصق المفتاح هنا',
 apiKeyHint: 'مجاني من <b>Google AI Studio</b>. بيتخزن على جهازك بس، ومابيروحش لأي حد غير جوجل. من غيره التطبيق بيشتغل بالإدخال اليدوي عادي.',
+b_empty: '📦 المساحة دي فاضية — مفيش حاجات نقيسها، فمش محتاجين مرجع قياس. اكتب مقاسها واللي عايز تحطه فيها.',
+emptyTitle: 'المساحة دي فاضية',
+emptyHint: 'صوّرت مساحة مفيهاش حاجات — يعني سؤالك مش «رتّبلي اللي موجود» لكن «إيه اللي يدخل هنا؟». اكتب المقاس فوق، وقول عايز تحط إيه.',
+wishPh: 'أقلام، مقص، شاحن...',
+wishBtn: '🤖 هاتهم',
+wishNeed: 'اكتب اللي عايز تحطه الأول',
+wishNone: 'مفهمناش اللي كتبته — جرب تكتبهم مفصولين بفاصلة',
+wishAdded: 'ضفنا {n} حاجة — عدّل أي مقاس قبل الحساب',
 viewPlan: 'المخطط', viewPhoto: 'على صورتي',
 photoExact: 'المخطط مرسوم على صورتك بأركان السطح اللي التطبيق شافها.',
 photoApprox: '⚠️ الأركان تقريبية — التطبيق شاف حدود السطح بس مش أركانه، فالرسم على الصورة تقديري.',
@@ -855,6 +869,14 @@ privacy: 'The photo goes to Claude for analysis only and is never stored.',
 apiKeyLabel: 'Gemini key',
 apiKeyPh: 'Paste your key here',
 apiKeyHint: 'Free from <b>Google AI Studio</b>. Stored on your device only, and sent to nobody but Google. Without it the app still works with manual entry.',
+b_empty: '📦 This space is empty — there is nothing to measure, so no scale reference is needed. Type its size and what you want to put in it.',
+emptyTitle: 'This space is empty',
+emptyHint: 'You photographed a space with nothing in it — so your question is not "arrange what is here" but "what fits in here?". Type the size above, and say what you want to put in.',
+wishPh: 'pens, scissors, charger...',
+wishBtn: '🤖 Add them',
+wishNeed: 'Type what you want to put in first',
+wishNone: 'We could not read that — try separating them with commas',
+wishAdded: 'Added {n} item(s) — correct any size before calculating',
 viewPlan: 'Plan', viewPhoto: 'On my photo',
 photoExact: 'The plan is drawn onto your photo using the surface corners the app found.',
 photoApprox: '⚠️ The corners are approximate — the app saw the edges of the surface but not its corners, so this drawing is an estimate.',
@@ -2334,59 +2356,58 @@ role="img" aria-label="مخطط المكتب من فوق" class="plan-svg">${par
 function renderBagPlan(bin, placed) {
 const boxed = placed.filter((p) => p.box);
 if (!boxed.length) return '<p class="muted">' + esc(t('nothingPacked')) + '</p>';
-const levels = [...new Set(boxed.map((p) => Math.round(p.box.z)))].sort((a, b) => a - b);
-const pad = 6;
+const K = 100 / Math.max(1, bin.widthCm);
+const u = (cm) => +(cm * K).toFixed(2);
+const W = 100;
+const D = u(bin.depthCm);
+const H = u(bin.heightCm);
+const pad = 5;
 const svgs = [];
-levels.forEach((z, i) => {
-const items = boxed.filter((p) => Math.round(p.box.z) === z);
-const vbW = bin.widthCm + pad * 2;
-const vbH = bin.depthCm + pad * 2 + 10;
-const parts = [`<rect x="${pad}" y="${pad}" width="${bin.widthCm}" height="${bin.depthCm}"
-rx="2" fill="var(--card)" stroke="var(--line)" stroke-width="0.6"/>`];
-for (const p of boxed.filter((q) => Math.round(q.box.z) < z)) {
-parts.push(`<rect x="${pad + p.box.x}" y="${pad + p.box.y}" width="${p.box.w}" height="${p.box.d}"
-rx="1" fill="var(--line)" fill-opacity="0.35" stroke="none"/>`);
-}
-for (const p of items) {
+const levels = [...new Set(boxed.map((p) => Math.round(p.box.z)))].sort((a, b) => a - b);
+const piece = (p, x, y, w, h, faded) => {
 const c = colorFor(p.category);
-parts.push(`<rect x="${pad + p.box.x}" y="${pad + p.box.y}" width="${p.box.w}" height="${p.box.d}"
-rx="1.2" fill="${c}" fill-opacity="0.28" stroke="${c}" stroke-width="0.8"/>`);
-const size = fitLabel(p.nameAr, p.box.w, p.box.d);
-parts.push(size
-? `<text x="${pad + p.box.x + p.box.w / 2}" y="${pad + p.box.y + p.box.d / 2 + size * 0.35}"
-font-size="${size}" fill="var(--ink)" text-anchor="middle" font-weight="600">${esc(p.nameAr)}</text>`
-: `<text x="${pad + p.box.x + p.box.w / 2}" y="${pad + p.box.y - 1.2}"
-font-size="2.8" fill="var(--dim)" text-anchor="middle">${esc(p.nameAr)}</text>`);
+if (faded) {
+return `<rect x="${x}" y="${y}" width="${w}" height="${h}"
+rx="1" fill="var(--line)" fill-opacity="0.35" stroke="none"/>`;
+}
+const out = [`<rect x="${x}" y="${y}" width="${w}" height="${h}"
+rx="1.5" fill="${c}" fill-opacity="0.28" stroke="${c}" stroke-width="0.8"/>`];
+const size = fitLabel(p.nameAr, w, h);
+out.push(size
+? `<text x="${x + w / 2}" y="${y + h / 2 + size * 0.35}" font-size="${size}"
+fill="var(--ink)" text-anchor="middle" font-weight="600">${esc(p.nameAr)}</text>`
+: `<text x="${x + w / 2}" y="${y - 1.4}" font-size="3.4"
+fill="var(--dim)" text-anchor="middle">${esc(p.nameAr)}</text>`);
 if (p.fragile) {
-parts.push(`<text x="${pad + p.box.x + p.box.w - 1}" y="${pad + p.box.y + 4}"
-font-size="3.5" text-anchor="end">⚠</text>`);
+out.push(`<text x="${x + w - 1}" y="${y + 4.5}" font-size="4" text-anchor="end">⚠</text>`);
 }
+return out.join('');
+};
+levels.forEach((z, i) => {
+const parts = [`<rect x="${pad}" y="${pad}" width="${W}" height="${D}"
+rx="2" fill="var(--card)" stroke="var(--line)" stroke-width="0.7"/>`];
+for (const p of boxed.filter((q) => Math.round(q.box.z) < z)) {
+parts.push(piece(p, pad + u(p.box.x), pad + u(p.box.y), u(p.box.w), u(p.box.d), true));
 }
-parts.push(`<text x="${pad + bin.widthCm / 2}" y="${pad + bin.depthCm + 7}" font-size="4"
-fill="var(--dim)" text-anchor="middle">طبقة ${i + 1} — على ارتفاع ${z} سم</text>`);
+for (const p of boxed.filter((q) => Math.round(q.box.z) === z)) {
+parts.push(piece(p, pad + u(p.box.x), pad + u(p.box.y), u(p.box.w), u(p.box.d), false));
+}
 svgs.push(`<figure class="layer">
-<svg viewBox="0 0 ${vbW} ${vbH}" xmlns="http://www.w3.org/2000/svg" class="plan-svg"
-role="img" aria-label="طبقة ${i + 1}">${parts.join('')}</svg>
+<svg viewBox="0 0 ${W + pad * 2} ${D + pad * 2}" xmlns="http://www.w3.org/2000/svg"
+class="plan-svg" role="img" aria-label="${esc(t('layer'))} ${i + 1}">${parts.join('')}</svg>
+<figcaption>${esc(t('layer'))} ${i + 1} — ${esc(t('atHeight'))} ${z} ${esc(t('cm'))}</figcaption>
 </figure>`);
 });
-const sideParts = [`<rect x="${pad}" y="${pad}" width="${bin.widthCm}" height="${bin.heightCm}"
-rx="2" fill="var(--card)" stroke="var(--line)" stroke-width="0.6"/>`];
+const sideParts = [`<rect x="${pad}" y="${pad}" width="${W}" height="${H}"
+rx="2" fill="var(--card)" stroke="var(--line)" stroke-width="0.7"/>`];
 for (const p of boxed) {
-const c = colorFor(p.category);
-const y = pad + bin.heightCm - p.box.z - p.box.h; // بنقلب المحور الرأسي
-sideParts.push(`<rect x="${pad + p.box.x}" y="${y}" width="${p.box.w}" height="${p.box.h}"
-rx="1" fill="${c}" fill-opacity="0.28" stroke="${c}" stroke-width="0.7"/>`);
-const size = fitLabel(p.nameAr, p.box.w, p.box.h);
-if (size) {
-sideParts.push(`<text x="${pad + p.box.x + p.box.w / 2}" y="${y + p.box.h / 2 + size * 0.35}"
-font-size="${size}" fill="var(--ink)" text-anchor="middle" font-weight="600">${esc(p.nameAr)}</text>`);
+const y = pad + H - u(p.box.z) - u(p.box.h);
+sideParts.push(piece(p, pad + u(p.box.x), y, u(p.box.w), u(p.box.h), false));
 }
-}
-sideParts.push(`<text x="${pad + bin.widthCm / 2}" y="${pad + bin.heightCm + 7}" font-size="3.6"
-fill="var(--dim)" text-anchor="middle">منظر جانبي — التستيف</text>`);
 svgs.push(`<figure class="layer">
-<svg viewBox="0 0 ${bin.widthCm + pad * 2} ${bin.heightCm + pad * 2 + 10}"
-xmlns="http://www.w3.org/2000/svg" class="plan-svg" role="img" aria-label="side view">${sideParts.join('')}</svg>
+<svg viewBox="0 0 ${W + pad * 2} ${H + pad * 2}" xmlns="http://www.w3.org/2000/svg"
+class="plan-svg" role="img" aria-label="${esc(t('sideView'))}">${sideParts.join('')}</svg>
+<figcaption>${esc(t('sideView'))}</figcaption>
 </figure>`);
 return `<div class="layers">${svgs.join('')}</div>`;
 }
@@ -2874,6 +2895,8 @@ ${RULES_BRIEF}
 "scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
 "surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
 "windowSide":"left|right|front|back|none",
+"spaceEmpty":false,
+"spaceSizeCm":{"width":0,"depth":0,"height":0},
 "dominantHand":"right|left|unknown",
 "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
 } else if (isBag) {
@@ -2887,6 +2910,8 @@ prompt += `المطلوب:
 {"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
 "surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
 "dominantHand":"right|left|unknown",
+"spaceEmpty":false,
+"spaceSizeCm":{"width":0,"depth":0,"height":0},
 "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"weightKg":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
 } else {
 const catList = Object.entries(profile.categories).map(([k, v]) => `${k} (${v.labelAr})`).join('، ');
@@ -2901,6 +2926,8 @@ prompt += `دي صورة ${profile.spaceTypeAr}.
 {"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
 "surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
 "windowSide":"left|right|front|back|none",
+"spaceEmpty":false,
+"spaceSizeCm":{"width":0,"depth":0,"height":0},
 "dominantHand":"right|left|unknown",
 "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
 }
@@ -2910,6 +2937,12 @@ prompt += `
 - المربعات بصيغة [ymin, xmin, ymax, xmax] بمقياس من 0 لـ 1000.
 - الأسماء ${lang === 'en' ? 'بالإنجليزي' : 'بالعربي المصري'}، قصيرة وواضحة.
 - متخترعش حاجات مش ظاهرة في الصورة.
+- **المساحة الفاضية رد صح ومقبول.** لو المساحة مفيهاش حاجات (سلة فاضية، درج
+فاضي، مكتب مولّع)، رجّع objects قايمة فاضية [] وحط spaceEmpty:true.
+متخترعش حاجات عشان تملى القايمة — المستخدم ساعتها بيسأل «إيه اللي يدخل هنا؟»
+مش «رتّبلي اللي موجود»، وده سؤال مختلف بس مشروع بنفس القدر.
+- لو المساحة فاضية، قدّر مقاسها الحقيقي بالسنتيمتر في spaceSizeCm بقد ما تقدر
+من شكلها ونوعها (سلة مكتب، درج، رف). ده تقدير للاسترشاد بس والمستخدم هيصححه.
 - متحاولش تحسب العرض أو العمق بالسنتيمتر — إحنا هنحسبهم من مرجع القياس. قدّر الارتفاع بس.
 - dominantHand: استنتج من الصورة نفسها الشخص بيستخدم أنهي إيد. الأدلة: الماوس على أنهي ناحية،
 الحاجات مكوّمة ناحية مين، النوتة أو الكوباية على أنهي جنب من الكيبورد، الأباجورة على عكس إيد الكتابة.
@@ -3034,6 +3067,8 @@ cornersApprox: false,
 edit: null,
 view: 'plan',
 extraSpaces: [],
+emptySpace: false,
+emptyEstimate: null,
 handDetected: null,
 autoAccepted: false,
 scaleInfo: null,
@@ -3127,6 +3162,11 @@ return;
 if (info.kind === 'known') {
 el.className = 'banner ok';
 el.textContent = t('b_known', { w: info.widthCm, d: info.depthCm });
+return;
+}
+if (info.kind === 'empty') {
+el.className = 'banner ok';
+el.textContent = t('b_empty');
 return;
 }
 const ref = SCALE_REFERENCES[info.refId];
@@ -3287,6 +3327,7 @@ kind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
 } else {
 state.profile = GENERIC_PROFILE;
 }
+const emptySpace = !analysis.objects?.length;
 const surfBox = analysis.surface?.box ? normalizeBox(analysis.surface.box) : null;
 let scale, refBox;
 let scaleScore = 1, approxRef = false;
@@ -3297,6 +3338,18 @@ scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
 refBox = surfBox;
 state.userSize = { ...known };
 state.scaleInfo = { kind: 'known', widthCm: known.widthCm, depthCm: known.depthCm };
+renderScaleBanner();
+} else if (emptySpace && !analysis.scaleReference?.found) {
+scale = null;
+refBox = null;
+state.userSize = null;
+const est = analysis.spaceSizeCm || {};
+state.emptyEstimate = {
+widthCm: clampCm(est.width, 5, 400),
+depthCm: clampCm(est.depth, 5, 300),
+heightCm: clampCm(est.height, 2, 250),
+};
+state.scaleInfo = { kind: 'empty' };
 renderScaleBanner();
 } else {
 refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
@@ -3388,11 +3441,15 @@ fragile: !!o.fragile,
 confidence: Math.max(0, Math.min(1, Number(o.confidence) || 0.6)),
 };
 });
-if (!state.items.length) throw new Error(t('t_noObjects'));
+state.emptySpace = emptySpace && !state.items.length;
+if (state.emptySpace) {
+if (state.emptyEstimate) state.surface = { ...state.emptyEstimate };
+addItem();
+}
 renderDetectedSpace();
 renderItems();
 const refSure = method !== 'auto' || (Number(analysis.scaleReference?.confidence) || 0) >= 0.6;
-state.autoAccepted = autoSkipOn() && refSure &&
+state.autoAccepted = !state.emptySpace && autoSkipOn() && refSure &&
 overallConfidence({ scaleScore, approxRef, items: state.items }) >= AUTO_SKIP_THRESHOLD;
 if (state.autoAccepted && await onPlan()) return;
 state.autoAccepted = false;
@@ -3455,7 +3512,19 @@ ${airline}
 </div>
 </div>
 </div>`;
-$('#itemsList').innerHTML = spaceEditor + weightHint + state.items.map((it) => `
+const emptyIntro = state.emptySpace ? `
+<div class="item empty-intro">
+<div>
+<strong>${escHtml(t('emptyTitle'))}</strong>
+<p class="hint">${escHtml(t('emptyHint'))}</p>
+<div class="row">
+<input id="wishInput" class="input" type="text" maxlength="200"
+value="${escHtml(state.wishText || '')}" placeholder="${escHtml(t('wishPh'))}">
+<button id="btnWish" class="btn ghost small" type="button">${escHtml(t('wishBtn'))}</button>
+</div>
+</div>
+</div>` : '';
+$('#itemsList').innerHTML = spaceEditor + emptyIntro + weightHint + state.items.map((it) => `
 <div class="item ${it.confidence < 0.5 ? 'conf-low' : ''}" data-id="${it.id}">
 <div>
 <input class="item-name" data-f="nameAr" value="${escHtml(it.nameAr)}" aria-label="${escHtml(t('itemName'))}">
@@ -3489,6 +3558,12 @@ const it = state.items.find((x) => x.id === row.dataset.id);
 if (!it) return;
 it[f] = ['widthCm', 'depthCm', 'heightCm', 'weightKg'].includes(f) ? Number(e.target.value) || 0 : e.target.value;
 };
+const wish = $('#btnWish');
+if (wish) {
+wish.onclick = onWish;
+$('#wishInput').oninput = (e) => { state.wishText = e.target.value; };
+$('#wishInput').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); onWish(); } };
+}
 $('#itemsList').onchange = (e) => {
 if (e.target.dataset.airline === undefined) return;
 const b = CABIN_BAGS.find((x) => x.id === e.target.value);
@@ -3836,6 +3911,48 @@ state.edit = resetLayout(state.edit);
 showVerdict({});
 renderOverlay();
 $('#planView').innerHTML = renderDeskPlan(state.plan);
+}
+async function onWish() {
+const text = ($('#wishInput')?.value || '').trim();
+if (!text) return toast(t('wishNeed'));
+const caller = await aiReady();
+if (!caller) return toast(t('t_noAI'));
+loading(true, t('t_analyzing'));
+try {
+const cats = Object.keys((state.profile || GENERIC_PROFILE).categories);
+const r = await caller.json(
+`المستخدم عنده ${tx(state.profile?.spaceTypeAr) || 'مساحة'} فاضية مقاسها ` +
+`${Math.round(state.surface.widthCm)}×${Math.round(state.surface.depthCm)}` +
+`${isBag() ? '×' + Math.round(state.surface.heightCm || 0) : ''} سم، وعايز يحط فيها: "${text}"\n\n` +
+`اطلعلي كل حاجة ذكرها كصف لوحده بمقاسه التقريبي الحقيقي بالسنتيمتر.\n` +
+`لو قال حاجة بالجمع (زي «أقلام») اعملها صف واحد بمقاس المجموعة مع بعض.\n` +
+`متزوّدش حاجات هو مقالهاش.\n\n` +
+`رد بـJSON بس:\n` +
+`{"items":[{"nameAr":"...","category":"واحدة من: ${cats.join('، ')}",` +
+`"widthCm":0,"depthCm":0,"heightCm":0,"weightKg":0,"frequency":"high|medium|low"}]}`,
+{ modelTier: 'default' });
+const list = Array.isArray(r.items) ? r.items : [];
+if (!list.length) throw new Error(t('wishNone'));
+state.items = list.slice(0, 25).map((o, i) => ({
+id: `w${Date.now()}_${i}`,
+nameAr: o.nameAr || t('newItem'),
+category: cats.includes(o.category) ? o.category : 'other',
+widthCm: clampCm(o.widthCm, 0.5, 300),
+depthCm: clampCm(o.depthCm, 0.5, 300),
+heightCm: clampCm(o.heightCm, 0.2, 200),
+weightKg: clampCm(o.weightKg, 0, 30),
+frequency: ['high', 'medium', 'low'].includes(o.frequency) ? o.frequency : 'medium',
+fragile: !!o.fragile,
+confidence: 1,
+}));
+state.wishText = text;
+renderItems();
+toast(t('wishAdded', { n: state.items.length }));
+} catch (err) {
+toast(err.message);
+} finally {
+loading(false);
+}
 }
 async function onFitAsk() {
 const what = $('#fitName').value.trim();

@@ -117,69 +117,79 @@ export function renderBagPlan(bin, placed) {
   const boxed = placed.filter((p) => p.box);
   if (!boxed.length) return '<p class="muted">' + esc(t('nothingPacked')) + '</p>';
 
-  // بنجمّع القطع في طبقات حسب ارتفاع قاعدتها
-  const levels = [...new Set(boxed.map((p) => Math.round(p.box.z)))].sort((a, b) => a - b);
-  const pad = 6;
+  /**
+   * الرسم بيتعمل في مساحة موحّدة عرضها ١٠٠ وحدة، مش بالسنتيمتر.
+   *
+   * السبب: لو رسمنا بالسنتيمتر، حجم الخط بيبقى نسبة من مقاس الحاوية.
+   * خط بحجم ٤ جوه شنطة ٥٠ سم صغير ومظبوط، ونفس الخط جوه سلة ١٢ سم
+   * بيطلع تلت الصورة وبيخرج بره الإطار. التوحيد بيخلي كل الحاويات
+   * تترسم بنفس النِسَب مهما كان مقاسها الحقيقي.
+   */
+  const K = 100 / Math.max(1, bin.widthCm);
+  const u = (cm) => +(cm * K).toFixed(2);
+  const W = 100;
+  const D = u(bin.depthCm);
+  const H = u(bin.heightCm);
+  const pad = 5;
   const svgs = [];
 
+  const levels = [...new Set(boxed.map((p) => Math.round(p.box.z)))].sort((a, b) => a - b);
+
+  /** مستطيل حاجة واحدة + اسمها لو الشكل يشيله. */
+  const piece = (p, x, y, w, h, faded) => {
+    const c = colorFor(p.category);
+    if (faded) {
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}"
+        rx="1" fill="var(--line)" fill-opacity="0.35" stroke="none"/>`;
+    }
+    const out = [`<rect x="${x}" y="${y}" width="${w}" height="${h}"
+      rx="1.5" fill="${c}" fill-opacity="0.28" stroke="${c}" stroke-width="0.8"/>`];
+    const size = fitLabel(p.nameAr, w, h);
+    out.push(size
+      ? `<text x="${x + w / 2}" y="${y + h / 2 + size * 0.35}" font-size="${size}"
+          fill="var(--ink)" text-anchor="middle" font-weight="600">${esc(p.nameAr)}</text>`
+      : `<text x="${x + w / 2}" y="${y - 1.4}" font-size="3.4"
+          fill="var(--dim)" text-anchor="middle">${esc(p.nameAr)}</text>`);
+    if (p.fragile) {
+      out.push(`<text x="${x + w - 1}" y="${y + 4.5}" font-size="4" text-anchor="end">⚠</text>`);
+    }
+    return out.join('');
+  };
+
   levels.forEach((z, i) => {
-    const items = boxed.filter((p) => Math.round(p.box.z) === z);
-    const vbW = bin.widthCm + pad * 2;
-    const vbH = bin.depthCm + pad * 2 + 10;
-    const parts = [`<rect x="${pad}" y="${pad}" width="${bin.widthCm}" height="${bin.depthCm}"
-      rx="2" fill="var(--card)" stroke="var(--line)" stroke-width="0.6"/>`];
+    const parts = [`<rect x="${pad}" y="${pad}" width="${W}" height="${D}"
+      rx="2" fill="var(--card)" stroke="var(--line)" stroke-width="0.7"/>`];
 
     // الطبقات اللي تحت بتبان باهتة كمرجع
     for (const p of boxed.filter((q) => Math.round(q.box.z) < z)) {
-      parts.push(`<rect x="${pad + p.box.x}" y="${pad + p.box.y}" width="${p.box.w}" height="${p.box.d}"
-        rx="1" fill="var(--line)" fill-opacity="0.35" stroke="none"/>`);
+      parts.push(piece(p, pad + u(p.box.x), pad + u(p.box.y), u(p.box.w), u(p.box.d), true));
+    }
+    for (const p of boxed.filter((q) => Math.round(q.box.z) === z)) {
+      parts.push(piece(p, pad + u(p.box.x), pad + u(p.box.y), u(p.box.w), u(p.box.d), false));
     }
 
-    for (const p of items) {
-      const c = colorFor(p.category);
-      parts.push(`<rect x="${pad + p.box.x}" y="${pad + p.box.y}" width="${p.box.w}" height="${p.box.d}"
-        rx="1.2" fill="${c}" fill-opacity="0.28" stroke="${c}" stroke-width="0.8"/>`);
-      const size = fitLabel(p.nameAr, p.box.w, p.box.d);
-      parts.push(size
-        ? `<text x="${pad + p.box.x + p.box.w / 2}" y="${pad + p.box.y + p.box.d / 2 + size * 0.35}"
-            font-size="${size}" fill="var(--ink)" text-anchor="middle" font-weight="600">${esc(p.nameAr)}</text>`
-        : `<text x="${pad + p.box.x + p.box.w / 2}" y="${pad + p.box.y - 1.2}"
-            font-size="2.8" fill="var(--dim)" text-anchor="middle">${esc(p.nameAr)}</text>`);
-      if (p.fragile) {
-        parts.push(`<text x="${pad + p.box.x + p.box.w - 1}" y="${pad + p.box.y + 4}"
-          font-size="3.5" text-anchor="end">⚠</text>`);
-      }
-    }
-
-    parts.push(`<text x="${pad + bin.widthCm / 2}" y="${pad + bin.depthCm + 7}" font-size="4"
-      fill="var(--dim)" text-anchor="middle">طبقة ${i + 1} — على ارتفاع ${z} سم</text>`);
-
+    // العنوان بقى HTML مش SVG — النص مابيتمططش مع مقاس الحاوية،
+    // وبيتترجم زي أي نص تاني في الصفحة.
     svgs.push(`<figure class="layer">
-      <svg viewBox="0 0 ${vbW} ${vbH}" xmlns="http://www.w3.org/2000/svg" class="plan-svg"
-        role="img" aria-label="طبقة ${i + 1}">${parts.join('')}</svg>
+      <svg viewBox="0 0 ${W + pad * 2} ${D + pad * 2}" xmlns="http://www.w3.org/2000/svg"
+        class="plan-svg" role="img" aria-label="${esc(t('layer'))} ${i + 1}">${parts.join('')}</svg>
+      <figcaption>${esc(t('layer'))} ${i + 1} — ${esc(t('atHeight'))} ${z} ${esc(t('cm'))}</figcaption>
     </figure>`);
   });
 
   // منظر جانبي: بيوري التستيف من الجنب
-  const sideParts = [`<rect x="${pad}" y="${pad}" width="${bin.widthCm}" height="${bin.heightCm}"
-    rx="2" fill="var(--card)" stroke="var(--line)" stroke-width="0.6"/>`];
+  const sideParts = [`<rect x="${pad}" y="${pad}" width="${W}" height="${H}"
+    rx="2" fill="var(--card)" stroke="var(--line)" stroke-width="0.7"/>`];
   for (const p of boxed) {
-    const c = colorFor(p.category);
-    const y = pad + bin.heightCm - p.box.z - p.box.h; // بنقلب المحور الرأسي
-    sideParts.push(`<rect x="${pad + p.box.x}" y="${y}" width="${p.box.w}" height="${p.box.h}"
-      rx="1" fill="${c}" fill-opacity="0.28" stroke="${c}" stroke-width="0.7"/>`);
-    const size = fitLabel(p.nameAr, p.box.w, p.box.h);
-    if (size) {
-      sideParts.push(`<text x="${pad + p.box.x + p.box.w / 2}" y="${y + p.box.h / 2 + size * 0.35}"
-        font-size="${size}" fill="var(--ink)" text-anchor="middle" font-weight="600">${esc(p.nameAr)}</text>`);
-    }
+    // بنقلب المحور الرأسي: القاع في الصورة تحت
+    const y = pad + H - u(p.box.z) - u(p.box.h);
+    sideParts.push(piece(p, pad + u(p.box.x), y, u(p.box.w), u(p.box.h), false));
   }
-  sideParts.push(`<text x="${pad + bin.widthCm / 2}" y="${pad + bin.heightCm + 7}" font-size="3.6"
-    fill="var(--dim)" text-anchor="middle">منظر جانبي — التستيف</text>`);
 
   svgs.push(`<figure class="layer">
-    <svg viewBox="0 0 ${bin.widthCm + pad * 2} ${bin.heightCm + pad * 2 + 10}"
-      xmlns="http://www.w3.org/2000/svg" class="plan-svg" role="img" aria-label="side view">${sideParts.join('')}</svg>
+    <svg viewBox="0 0 ${W + pad * 2} ${H + pad * 2}" xmlns="http://www.w3.org/2000/svg"
+      class="plan-svg" role="img" aria-label="${esc(t('sideView'))}">${sideParts.join('')}</svg>
+    <figcaption>${esc(t('sideView'))}</figcaption>
   </figure>`);
 
   return `<div class="layers">${svgs.join('')}</div>`;

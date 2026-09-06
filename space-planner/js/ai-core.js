@@ -170,6 +170,8 @@ ${RULES_BRIEF}
  "scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
  "surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
  "windowSide":"left|right|front|back|none",
+ "spaceEmpty":false,
+ "spaceSizeCm":{"width":0,"depth":0,"height":0},
  "dominantHand":"right|left|unknown",
  "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
   } else if (isBag) {
@@ -184,6 +186,8 @@ ${RULES_BRIEF}
 {"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
  "surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
  "dominantHand":"right|left|unknown",
+ "spaceEmpty":false,
+ "spaceSizeCm":{"width":0,"depth":0,"height":0},
  "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"weightKg":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
   } else {
     const catList = Object.entries(profile.categories).map(([k, v]) => `${k} (${v.labelAr})`).join('، ');
@@ -200,6 +204,8 @@ ${RULES_BRIEF}
 {"scaleReference":{"found":true,"refId":"","whatAr":"...","box":[0,0,0,0],"confidence":0.9},
  "surface":{"box":[0,0,0,0],"corners":[[0,0],[0,0],[0,0],[0,0]]},
  "windowSide":"left|right|front|back|none",
+ "spaceEmpty":false,
+ "spaceSizeCm":{"width":0,"depth":0,"height":0},
  "dominantHand":"right|left|unknown",
  "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
   }
@@ -212,6 +218,12 @@ ${RULES_BRIEF}
 - المربعات بصيغة [ymin, xmin, ymax, xmax] بمقياس من 0 لـ 1000.
 - الأسماء ${lang === 'en' ? 'بالإنجليزي' : 'بالعربي المصري'}، قصيرة وواضحة.
 - متخترعش حاجات مش ظاهرة في الصورة.
+- **المساحة الفاضية رد صح ومقبول.** لو المساحة مفيهاش حاجات (سلة فاضية، درج
+  فاضي، مكتب مولّع)، رجّع objects قايمة فاضية [] وحط spaceEmpty:true.
+  متخترعش حاجات عشان تملى القايمة — المستخدم ساعتها بيسأل «إيه اللي يدخل هنا؟»
+  مش «رتّبلي اللي موجود»، وده سؤال مختلف بس مشروع بنفس القدر.
+- لو المساحة فاضية، قدّر مقاسها الحقيقي بالسنتيمتر في spaceSizeCm بقد ما تقدر
+  من شكلها ونوعها (سلة مكتب، درج، رف). ده تقدير للاسترشاد بس والمستخدم هيصححه.
 - متحاولش تحسب العرض أو العمق بالسنتيمتر — إحنا هنحسبهم من مرجع القياس. قدّر الارتفاع بس.
 - dominantHand: استنتج من الصورة نفسها الشخص بيستخدم أنهي إيد. الأدلة: الماوس على أنهي ناحية،
   الحاجات مكوّمة ناحية مين، النوتة أو الكوباية على أنهي جنب من الكيبورد، الأباجورة على عكس إيد الكتابة.

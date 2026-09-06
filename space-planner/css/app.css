@@ -411,3 +411,11 @@ h3{font-size:13.5px;margin:18px 0 7px}
 .panel[open]>summary::after{content:'▴'}
 .panel .row{margin-top:8px}
 .btn.small{padding:7px 11px;font-size:12px;white-space:nowrap}
+
+/* المساحة الفاضية: الصف ده هو السؤال نفسه، فبيبان مختلف عن صفوف الحاجات */
+.empty-intro{border-color:var(--mark);background:var(--card)}
+.empty-intro .row{margin-top:8px}
+.layer figcaption{
+  margin-top:5px;text-align:center;font-size:11px;color:var(--faint);
+  font-weight:700;letter-spacing:.02em;
+}
