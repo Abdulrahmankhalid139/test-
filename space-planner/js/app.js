@@ -1,7 +1,7 @@
 /**
  * app.js — الربط بين الكاميرا، الذكاء، الحساب، والرسم.
  */
-import { SCALE_REFERENCES, scaleRefGroups, toCm, normalizeBox, computeScale, boxToCm, perspectiveCorrect, scaleConfidence, round1 } from './geometry.js';
+import { SCALE_REFERENCES, SIZE_COMPARISONS, nearestComparison, normalizeBox, computeScale, boxToCm, perspectiveCorrect, scaleConfidence, round1 } from './geometry.js';
 import { pack3D, packingOrder } from './packing.js';
 import { layoutSurface, tryFit } from './surface.js';
 import { renderPhotoOverlay, imageToPlan, hitTest } from './overlay.js';
@@ -41,6 +41,8 @@ const state = {
   // المساحات المكمّلة اللي المستخدم ضافها (درج، رف...)
   extraSpaces: [],
   // المساحة اتصوّرت وهي فاضية — السؤال بقى «إيه اللي يدخل؟» مش «رتّب اللي موجود»
+  // المقاس تخمين مش قياس — بنقوله للمستخدم ونديله طريقة يصلحه بالمقارنة
+  sizeIsGuess: false,
   emptySpace: false,
   emptySource: 'photo',
   emptyEstimate: null,
@@ -123,13 +125,6 @@ function applyLang() {
   $('#btnLang').textContent = getLang() === 'ar' ? 'EN' : 'ع';
   $('#btnLang').title = t('switchTo');
 
-  // القوايم بتتبني من بيانات، فبتتعاد — والاختيار الحالي بيرجع مكانه
-  const keepRef = $('#scaleRef').value;
-  $('#scaleRef').innerHTML = scaleRefGroups().map((g) => `<optgroup label="${esc(t(g.group))}">${
-    g.items.map((r) => `<option value="${r.id}">${esc(tx(r.labelAr))}</option>`).join('')
-  }</optgroup>`).join('');
-  $('#scaleRef').value = keepRef || store.getPrefs().scaleRef || 'card';
-
   // نوع المساحة بيبدأ دايماً «اكتشف تلقائياً» — مش بيتخزن من مرة للتانية
   const keepType = $('#spaceType').value;
   $('#spaceType').innerHTML =
@@ -139,7 +134,6 @@ function applyLang() {
     }</optgroup>`).join('');
   $('#spaceType').value = keepType || 'auto';
   updateHints();
-  updateSizeMethod();
 
   // اللي معروض دلوقتي يتعاد رسمه باللغة الجديدة
   renderScaleBanner();
@@ -148,25 +142,7 @@ function applyLang() {
   if (state.plan) (isBag() ? renderBagResult : renderDeskResult)();
 }
 
-function updateHints() {
-  const picked = $('#spaceType').value;
-  $('#spaceTypeHint').textContent = t(picked === 'auto' ? 'autoHint' : 'pickedHint');
-  // الارتفاع بيتسأل عنه بس لو المستخدم قال بنفسه إن دي حاجة بترص جواها.
-  // قبل ما نشوف الصورة مفيش حاجة اسمها «شنطة» — فمفيش مقاسات طيران هنا.
-  const container = picked !== 'auto' && isContainer(getProfile(picked));
-  $('#sizeH').classList.toggle('hidden', !container);
-}
-
-/** تلات طرق للمقاس: الموديل يلاقي المسطرة، حاجة إحنا مختارينها، أو مقاس المساحة نفسها. */
-function updateSizeMethod() {
-  const method = $('#sizeMethod').value;
-  $('#sizeMethodHint').textContent = t(
-    method === 'auto' ? 'methodAutoHint' : method === 'ref' ? 'methodRefHint' : 'methodKnownHint');
-  $('#refWrap').classList.toggle('hidden', method !== 'ref');
-  $('#knownWrap').classList.toggle('hidden', method !== 'known');
-  $('#spanWrap').classList.toggle('hidden', $('#sizeUnit').value !== 'span');
-  store.setPrefs({ sizeMethod: method });
-}
+function updateHints() { /* مفيش تلميحات على شاشة التصوير بعد التبسيط */ }
 
 /**
  * بيكتب بانر المقاس من state.scaleInfo.
@@ -190,6 +166,11 @@ function renderScaleBanner() {
 
   // مساحة فاضية: مفيش مرجع ومش محتاجينه. بنقول ده صراحة بدل ما نسيب
   // المستخدم يفتكر إن حاجة وقعت.
+  if (info.kind === 'guessed') {
+    el.className = 'banner warn';
+    el.textContent = t('b_guessed');
+    return;
+  }
   if (info.kind === 'described') {
     el.className = 'banner ok';
     el.textContent = t('b_described');
@@ -217,16 +198,6 @@ function renderScaleBanner() {
       : t('b_scaleWarn', { level });
 }
 
-/** بيقرا المقاس اللي المستخدم كتبه ويحوّله لسنتيمترات مهما كانت وحدته. */
-function readKnownSize() {
-  const unit = $('#sizeUnit').value;
-  const span = parseFloat($('#spanCm').value) || 22;
-  const w = toCm($('#sizeW').value, unit, span);
-  const d = toCm($('#sizeD').value, unit, span);
-  const h = toCm($('#sizeH').value, unit, span);
-  return { widthCm: w, depthCm: d, heightCm: h };
-}
-
 /* ═══════════ التهيئة ═══════════ */
 function init() {
   initLang();
@@ -234,13 +205,8 @@ function init() {
   applyLang();
   $('#dominantHand').value = prefs.dominantHand || 'right';
   // «لاقيها إنت» هي الافتراضي — أقل خطوة على المستخدم
-  $('#sizeMethod').value = prefs.sizeMethod || 'auto';
   $('#optAutoSkip').checked = autoSkipOn();
-  $('#sizeUnit').value = prefs.sizeUnit || 'cm';
-  $('#spanCm').value = prefs.spanCm || 22;
-  updateSizeMethod();
   syncActionBar('capture');
-  onScaleRefChange();
   renderSaved();
 
   $('#btnLang').addEventListener('click', () => {
@@ -249,13 +215,6 @@ function init() {
   });
 
   $$('[data-goto]').forEach((b) => b.addEventListener('click', () => showScreen(b.dataset.goto)));
-  $('#scaleRef').addEventListener('change', onScaleRefChange);
-  $('#sizeMethod').addEventListener('change', updateSizeMethod);
-  $('#sizeUnit').addEventListener('change', () => {
-    store.setPrefs({ sizeUnit: $('#sizeUnit').value });
-    updateSizeMethod();
-  });
-  $('#spanCm').addEventListener('change', () => store.setPrefs({ spanCm: +$('#spanCm').value || 22 }));
   $('#btnPick').addEventListener('click', () => $('#fileInput').click());
   $('#fileInput').addEventListener('change', onFilePicked);
   $('#btnAnalyze').addEventListener('click', onAnalyze);
@@ -280,7 +239,6 @@ function init() {
   $('#photoOverlay').addEventListener('click', onOverlayTap);
   $('#btnUndo').addEventListener('click', onUndoMove);
   $('#btnResetLayout').addEventListener('click', onResetLayout);
-  $('#btnDescribe').addEventListener('click', onDescribe);
   $('#btnFitAsk').addEventListener('click', onFitAsk);
   $('#btnFitCheck').addEventListener('click', onFitCheck);
   $('#btnAddSpace').addEventListener('click', onAddSpace);
@@ -312,15 +270,6 @@ function init() {
   }
 }
 
-function onScaleRefChange() {
-  const ref = SCALE_REFERENCES[$('#scaleRef').value] || SCALE_REFERENCES.card;
-  $('#customRefWrap').classList.toggle('hidden', ref.id !== 'custom');
-  // بنقول للمستخدم إن المرجع ده تقريبي بدل ما ندّعي دقة مش موجودة
-  $('#scaleHint').textContent = ref.id === 'custom' ? tx(ref.hintAr)
-    : `${tx(ref.hintAr)}${ref.approx ? ' · ' + t('approxNote') : ''}`;
-  store.setPrefs({ scaleRef: ref.id });
-}
-
 /* ═══════════ الصورة ═══════════ */
 async function onFilePicked(e) {
   const file = e.target.files?.[0];
@@ -337,214 +286,136 @@ async function onFilePicked(e) {
 }
 
 /* ═══════════ التحليل ═══════════ */
+
+/**
+ * الصورة بتتقبل دايماً.
+ *
+ * قبل كده كان فيه خمس نقط ممكن ترفض الصورة: مرجع القياس مالقهوش، المرجع
+ * مش في الكتالوج، مفيش حاجات، المقاس مكتوبش... كل واحدة فيهم كانت
+ * منطقية لوحدها، ومع بعض كانوا بيرفضوا الصورة اللي المستخدم صوّرها فعلاً.
+ *
+ * دلوقتي مفيش رفض. الموديل بيشوف اللي يقدر يشوفه، وبيقدّر المقاس، وأي
+ * حاجة ناقصة بتتسأل في الشاشة اللي بعدها بمقارنة («قد علبة مناديل»)
+ * مش بمسطرة. الرقم اللي بييجي من المرجع أدق، فبناخده لو لقيناه —
+ * لكن غيابه مش سبب نوقّف بيه حد.
+ */
 async function onAnalyze() {
   const caller = await aiReady();
   if (!caller) return toast(t('t_noAIphoto'));
   if (!state.image) return toast(t('t_pickPhoto'));
   if (!(await canSendImages(caller))) {
-    // العرض ده مش بيسمح ببعت صور — قيد من المنصة مش عيب في الصورة.
-    // بعت النصوص شغال عادي، فبنوديه لخانة الوصف بدل ما نسيبه واقف.
-    toast(t('t_noImages'), 7000);
-    $('#describeInput').focus();
-    $('#describeInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    return;
+    // العرض ده ممنوع منه الصور (قيد من المنصة). كلام المستخدم كافي لوحده.
+    // بس رسالة واحدة: لو مجاوبش، الرسالة تقول السببين مع بعض بدل ما
+    // التوست التاني يمسح الأول قبل ما يقراه.
+    return onDescribeFromAnswers(caller, t('t_noImages'));
   }
 
-  const method = $('#sizeMethod').value;
-  const refId = $('#scaleRef').value;
-  const ref = SCALE_REFERENCES[refId] || SCALE_REFERENCES.card;
-  const customCm = parseFloat($('#customRefCm').value);
-  const customName = $('#customRefName').value.trim();
-  const known = readKnownSize();
-
-  // وضع «لاقيها إنت» مش بياخد مدخلات — الموديل هو اللي هيدوّر
-  if (method === 'ref' && refId === 'custom' && !(customCm > 0)) return toast(t('t_needRefCm'));
-  if (method === 'known' && !(known.widthCm > 0 && known.depthCm > 0)) return toast(t('t_needKnownSize'));
-
-  store.setPrefs({ dominantHand: $('#dominantHand').value, customRefCm: customCm || 0 });
+  const whatIsIt = $('#whatInput').value.trim();
+  const whatToPut = $('#putInput').value.trim();
+  store.setPrefs({ dominantHand: $('#dominantHand').value });
 
   loading(true, t('t_analyzing'));
   try {
     const chosen = $('#spaceType').value;
     const intent = $('#intent').value.trim();
-    // لو المستخدم اختار نوع، بنستخدم قواعده الجاهزة. لو "اكتشف تلقائياً"، الموديل هيولّدها.
     const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
 
     const analysis = await analyzeScene({
       image: state.image,
-      mode: isBag() ? 'bag' : 'surface',
-      scaleRefLabel: method === 'auto'
-        ? ''
-        : method === 'known'
-          ? `the space itself (${known.widthCm} cm wide)`
-          : refId === 'custom'
-            ? `${customName || 'reference object'} (${customCm} cm wide)`
-            : tx(ref.labelAr),
+      mode: chosenProfile && isContainer(chosenProfile) ? 'bag' : 'surface',
+      scaleRefLabel: '',
       profile: chosenProfile,
       intent,
       caller,
       lang: getLang(),
-      sizeMethod: method,
+      sizeMethod: 'auto',
+      whatIsIt,
+      whatToPut,
     });
 
-    // البروفايل المولّد بيتفلتر قبل ما يوصل للخوارزمية.
-    // الموديل بيقول كمان هل دي حاجة بترتب عليها ولا بترص جواها.
+    // البروفايل: اختيار المستخدم أولاً، وإلا المولّد بعد ما يتفلتر
     if (chosenProfile) {
       state.profile = chosenProfile;
     } else if (analysis.generatedProfile) {
-      const kind = analysis.generatedProfile.spaceKind;
       state.profile = normalizeProfile(analysis.generatedProfile,
-        kind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
+        analysis.generatedProfile.spaceKind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
     } else {
       state.profile = GENERIC_PROFILE;
     }
 
-    // المساحة الفاضية مسار كامل مش خطأ: المستخدم بيسأل «إيه اللي يدخل هنا؟».
-    // بنقرره من عدد الحاجات، مش من علم الموديل لوحده، عشان لو قال فاضية
-    // وهو شايف حاجات نمشي باللي إحنا شايفينه فعلاً.
-    const emptySpace = !analysis.objects?.length;
-
-    // نقطة المعايرة: يا حاجة معروفة في الصورة، يا المساحة نفسها اللي المستخدم قاسها.
-    // في الحالتين الرياضة واحدة — اللي بيختلف هو مين المسطرة.
+    // المقياس: لو الموديل لقى مرجع من الكتالوج بنعاير عليه، وإلا بنكمّل
+    // بتقديره للمقاس. مفيش رمي أخطاء هنا خالص.
     const surfBox = analysis.surface?.box ? normalizeBox(analysis.surface.box) : null;
-    let scale, refBox;
-    // مدخلات حساب الثقة الإجمالية بعدين
-    let scaleScore = 1, approxRef = false;
+    const refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
+    const rid = analysis.scaleReference?.refId;
+    const ref = typeof rid === 'string' && rid !== 'custom' ? SCALE_REFERENCES[rid] : null;
 
-    if (method === 'known') {
-      if (!surfBox) throw new Error(t('t_spaceNotFound'));
-      // العرض بس — العمق في الصورة مايل فما ينفعش يعاير عليه
-      const k = known.widthCm / surfBox.w;
-      scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
-      refBox = surfBox;
-      state.userSize = { ...known };
-      // المقاس ده من المستخدم نفسه، مش من الصورة — مفيش خصم ثقة عليه
-      state.scaleInfo = { kind: 'known', widthCm: known.widthCm, depthCm: known.depthCm };
-      renderScaleBanner();
-    } else if (emptySpace) {
-      // مساحة فاضية: ده مش فشل مهما كان حال مرجع القياس.
-      //
-      // مرجع القياس موجود عشان يقيس **الحاجات اللي في الصورة**. لو مفيش
-      // حاجات، مفيش حاجة تتقاس — واللي محتاجينه هو مقاس المساحة نفسها.
-      //
-      // مهم إن الشرط هنا يبقى «فاضية» بس، مش «فاضية ومالقاش مرجع»: الموديل
-      // ساعات بيقول لقيت مرجع وهو شايف حاجة مش في الكتالوج، وساعتها كنا
-      // بنقع في نفس رسالة الخطأ القديمة رغم إن مالهاش أي لازمة أصلاً.
-      scale = null;
-      refBox = null;
-      state.userSize = null;
-      const est = analysis.spaceSizeCm || {};
-      state.emptyEstimate = {
-        widthCm: clampCm(est.width, 5, 400),
-        depthCm: clampCm(est.depth, 5, 300),
-        heightCm: clampCm(est.height, 2, 250),
-      };
-      state.scaleInfo = { kind: 'empty' };
-      renderScaleBanner();
-    } else {
-      refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
-
-      // «لاقيها إنت»: الموديل بيقول لقى إيه وفين بس. المقاس بالسنتيمتر بييجي من
-      // SCALE_REFERENCES — مش من كلامه. حاجة مش في الكتالوج = مبنقيسش عليها خالص.
-      let usedRef = ref;
-      if (method === 'auto') {
-        const rid = analysis.scaleReference?.refId;
-        const picked = typeof rid === 'string' && rid !== 'custom' ? SCALE_REFERENCES[rid] : null;
-        if (!refBox) throw new Error(t('t_autoRefNone'));
-        if (!picked) throw new Error(t('t_autoRefUnknown', { what: analysis.scaleReference?.whatAr || '—' }));
-        usedRef = picked;
-      } else {
-        if (!refBox) {
-          throw new Error(t('t_refNotFound', {
-            what: refId === 'custom' ? (customName || t('scaleRef')) : tx(ref.labelAr),
-          }));
-        }
-      }
-
-      if (method === 'ref' && refId === 'custom') {
-        const k = customCm / refBox.w;
-        scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
-        // مرجع كتبه المستخدم بنفسه مش مواصفة موثّقة — بيتعامل كتقريبي
-        approxRef = true;
-      } else {
-        scale = computeScale(refBox, usedRef.widthCm, usedRef.heightCm);
-        approxRef = !!usedRef.approx;
-      }
-      state.userSize = null;
-
-      const conf = scaleConfidence(scale, refBox);
-      scaleScore = conf.score;
+    let scale = null;
+    if (refBox && ref?.widthCm) {
+      scale = computeScale(refBox, ref.widthCm, ref.heightCm);
       state.scaleInfo = {
-        kind: method === 'auto' ? 'auto' : 'ref',
-        refId: usedRef.id,
+        kind: 'auto', refId: ref.id,
         whatAr: analysis.scaleReference.whatAr,
-        score: conf.score,
+        score: scaleConfidence(scale, refBox).score,
       };
-      renderScaleBanner();
+    } else {
+      state.scaleInfo = { kind: 'guessed' };
     }
     state.scale = scale;
 
-    // أركان السطح — بيها بنرسم المخطط على الصورة بمنظورها.
-    // الموديل ممكن يرجّع أركان بايظة، فبنتحقق منها؛ ولو مش صالحة
-    // بنقرّب من المربع ونعلّم النتيجة إنها تقديرية بدل ما نرسم غلط.
+    // مقاس المساحة: من المرجع لو موجود، وإلا من تقدير الموديل، وإلا النموذجي
+    const est = analysis.spaceSizeCm || {};
+    const def = state.profile.defaultSizeCm || {};
+    if (scale && surfBox && !isBag()) {
+      const d = boxToCm(surfBox, scale);
+      state.surface = {
+        widthCm: clampCm(d.widthCm, 3, 400),
+        depthCm: clampCm(d.depthCm, 3, 300),
+        heightCm: clampCm(est.height || def.height, 2, 250),
+      };
+    } else {
+      state.surface = {
+        widthCm: clampCm(est.width || def.width, 3, 400),
+        depthCm: clampCm(est.depth || def.depth, 3, 300),
+        heightCm: clampCm(est.height || def.height, 2, 250),
+      };
+    }
+    state.userSize = null;
+    state.sizeIsGuess = !scale;
+
+    // أركان السطح للرسم على الصورة
     const rawCorners = validCorners(analysis.surface?.corners);
     if (rawCorners) {
       state.corners = rawCorners;
       state.cornersApprox = false;
     } else if (surfBox) {
-      const fb = cornersFromBox(surfBox);
-      state.corners = fb?.corners || null;
+      state.corners = cornersFromBox(surfBox)?.corners || null;
       state.cornersApprox = true;
     } else {
       state.corners = null;
     }
 
-    // مقاس المساحة: اللي المستخدم كتبه بيغلب أي تقدير من الصورة
-    if (state.userSize) {
-      const def = state.profile?.defaultSizeCm || {};
-      state.surface = {
-        widthCm: known.widthCm,
-        depthCm: known.depthCm,
-        heightCm: known.heightCm || def.height || 30,
-      };
-    } else if (surfBox && !isBag()) {
-      const d = boxToCm(surfBox, scale);
-      state.surface = {
-        widthCm: clampCm(d.widthCm, 40, 400),
-        depthCm: clampCm(d.depthCm, 30, 200),
-        heightCm: state.profile?.defaultSizeCm?.height || 30,
-      };
-    } else {
-      applyProfileSize();
-    }
     if (analysis.windowSide) store.setPrefs({ windowSide: analysis.windowSide });
+    applyDetectedHand(analysis.dominantHand);
 
-    // إيد المستخدم: بنقبل "right" أو "left" بس. "unknown" أو أي حاجة تانية
-    // معناها سيب اختياره زي ما هو — التخمين هنا بيقلب الترتيب كله.
-    const hand = analysis.dominantHand;
-    state.handDetected = hand === 'right' || hand === 'left' ? hand : null;
-    if (state.handDetected) {
-      const changed = $('#dominantHand').value !== state.handDetected;
-      $('#dominantHand').value = state.handDetected;
-      store.setPrefs({ dominantHand: state.handDetected });
-      // ممنوع نغيّر اختياره من ورا ضهره — لو اتغيّر فعلاً بنقوله على طول،
-      // والملاحظة بتفضل ظاهرة في المراجعة كمان
-      if (changed) toast(t('handDetected', { hand: t(state.handDetected) }));
-    }
-
-    // الحاجات: الموديل حدد المربعات، والرياضة حسبت السنتيمترات
-    state.items = analysis.objects.map((o, i) => {
+    // الحاجات: اللي في الصورة + اللي المستخدم قال إنه عايز يحطه
+    const cats = Object.keys(state.profile.categories);
+    state.items = (analysis.objects || []).slice(0, 30).map((o, i) => {
       const box = normalizeBox(o.box);
-      const dims = boxToCm(box, scale);
-      const corr = perspectiveCorrect(box, refBox);
+      let w = 0, d = 0;
+      if (scale && box) {
+        const dims = boxToCm(box, scale);
+        const corr = refBox ? perspectiveCorrect(box, refBox) : 1;
+        w = dims.widthCm * corr;
+        d = dims.depthCm * corr;
+      }
       return {
         id: `it${i}`,
         nameAr: o.nameAr || t('newItem'),
-        category: o.category || 'other',
-        widthCm: clampCm(dims.widthCm * corr, 0.5, 300),
-        depthCm: clampCm(dims.depthCm * corr, 0.5, 300),
-        heightCm: clampCm(Number(o.heightCm) || 5, 0.2, 200),
-        // الوزن رقم من الموديل زي أي رقم تاني — بيتقصّ قبل ما يوصل لحد الطيران
+        category: cats.includes(o.category) ? o.category : 'other',
+        widthCm: clampCm(w || o.widthCm || 8, 0.5, 300),
+        depthCm: clampCm(d || o.depthCm || 8, 0.5, 300),
+        heightCm: clampCm(o.heightCm, 0.2, 200),
         weightKg: clampCm(o.weightKg, 0, 30),
         frequency: o.frequency || 'medium',
         fragile: !!o.fragile,
@@ -552,28 +423,72 @@ async function onAnalyze() {
       };
     });
 
-    // قبل كده كان بيرمي خطأ هنا. تصوير مساحة فاضية عشان تعرف إيه اللي
-    // يدخل فيها كان أصل الفكرة من البداية، فمنعرفش نرفضه.
-    state.emptySpace = emptySpace && !state.items.length;
+    state.emptySpace = !state.items.length;
+    state.emptySource = 'photo';
     if (state.emptySpace) {
-      state.emptySource = 'photo';
-      if (state.emptyEstimate) state.surface = { ...state.emptyEstimate };
       addItem();
+      // المساحة الفاضية شرحها أهم من شرح المقاس: هي اللي بتفسّر ليه
+      // القايمة فاضية وإيه المطلوب منه. تحذير المقاس بيفضل على المحرر نفسه.
+      if (!scale) state.scaleInfo = { kind: 'empty' };
     }
 
+    state.edit = null;
+    renderScaleBanner();
+    renderPhotoRef();
     renderDetectedSpace();
     renderItems();
-
-    // ثقة عالية = مفيش داعي نوقّفه على المراجعة. وفي وضع «لاقيها إنت» زيادة:
-    // لو الموديل نفسه مش واثق إنه عرف المرجع صح، بنراجع مهما كان الباقي.
-    const refSure = method !== 'auto' || (Number(analysis.scaleReference?.confidence) || 0) >= 0.6;
-    state.autoAccepted = !state.emptySpace && autoSkipOn() && refSure &&
-      overallConfidence({ scaleScore, approxRef, items: state.items }) >= AUTO_SKIP_THRESHOLD;
-    if (state.autoAccepted && await onPlan()) return;
-    state.autoAccepted = false;
     showScreen('review');
   } catch (err) {
-    toast(err.message);
+    // حتى الخطأ مش بيرجّعنا لنقطة الصفر: بنكمّل بكلام المستخدم
+    toast(err.message, 5000);
+    onDescribeFromAnswers(caller);
+  } finally {
+    loading(false);
+  }
+}
+
+/**
+ * الإيد اللي الموديل استنتجها من الصورة.
+ *
+ * بنقبل «يمين» أو «شمال» بس — أي حاجة تانية (وأهمها "unknown") معناها
+ * إن اختيار المستخدم هو اللي يفضل ساري. ومبنغيّرش اختياره في صمت:
+ * الملاحظة بتفضل ظاهرة في شاشة المراجعة.
+ */
+function applyDetectedHand(hand) {
+  if (hand !== 'right' && hand !== 'left') { state.handDetected = null; return; }
+  const before = $('#dominantHand').value;
+  $('#dominantHand').value = hand;
+  store.setPrefs({ dominantHand: hand });
+  state.handDetected = hand;
+  if (before !== hand) toast(t('handDetected', { hand: t(hand) }), 5000);
+}
+
+/**
+ * الطريق التاني: من إجابات المستخدم لوحدها، من غير ما الصورة تتحلل.
+ * بيتنده لما الصور ممنوعة، أو لما التحليل يفشل لأي سبب.
+ */
+async function onDescribeFromAnswers(caller, why = '') {
+  const whatIsIt = $('#whatInput').value.trim();
+  const whatToPut = $('#putInput').value.trim();
+  if (!whatIsIt && !whatToPut) {
+    // مجاوبش على حاجة — بنوديه للسؤالين بدل ما نسيبه واقف
+    $('#whatInput').focus();
+    $('#whatInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return toast(why ? `${why} ${t('answerFirst')}` : t('answerFirst'), 8000);
+  }
+  if (why) toast(why, 5000);
+  const c = caller || await aiReady();
+  if (!c) return toast(t('t_noAI'));
+
+  loading(true, t('t_analyzing'));
+  try {
+    const chosen = $('#spaceType').value;
+    const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
+    const text = [whatIsIt, whatToPut && `عايز أحط فيها: ${whatToPut}`].filter(Boolean).join('. ');
+    const r = await describeSpace({ text, caller: c, lang: getLang(), profile: chosenProfile });
+    applyDescribed(r, text);
+  } catch (err) {
+    toast(err.message || t('describeNone'));
   } finally {
     loading(false);
   }
@@ -589,8 +504,7 @@ function onManual() {
   const chosen = $('#spaceType').value;
   state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
   // لو كتب المقاس في خطوة المقاس، منستهبلش ونرجّعه للمقاس النموذجي
-  const known = $('#sizeMethod').value === 'known' ? readKnownSize() : null;
-  state.userSize = known && known.widthCm > 0 && known.depthCm > 0 ? known : null;
+  state.userSize = null;
   applyProfileSize();
   // مفيش صورة يعني مفيش حاجات اتشافت — وده بالظبط حالة «المساحة الفاضية»:
   // اكتب المقاس، وقول عايز تحط إيه. الفرق الوحيد إن مفيش صورة أصلاً.
@@ -634,15 +548,26 @@ function renderItems() {
   // الوزن بيتعرض في الحاويات بس — السطح مالوش حد وزن فالخانة هتزحمه على الفاضي
   const weightHint = bag ? `<p class="hint">${esc(t('weightHint'))}</p>` : '';
 
+  // «قد إيه؟» بالمقارنة مش بالمسطرة — المستخدم مش معاه متر ومش هيقيس.
+  const near = nearestComparison(state.surface);
+  const compare = `
+        <label class="wide">${esc(t('sizeLikeQ'))}
+          <select data-compare>
+            <option value="">${esc(t('sizeKeep'))}</option>
+            ${SIZE_COMPARISONS.map((c) => `<option value="${c.id}" ${near?.id === c.id ? 'selected' : ''}>${esc(tx(c.labelAr))}</option>`).join('')}
+          </select>
+        </label>`;
+
   const spaceEditor = `
     <div class="item space-size">
       <div>
         <strong>${esc(bag ? t('spaceSize') : t('surfaceSize'))}</strong>
-        <p class="hint">${esc(bag ? t('containerSizeHint') : t('surfaceSizeHint'))}</p>
+        <p class="hint">${esc(state.sizeIsGuess ? t('sizeGuessHint') : (bag ? t('containerSizeHint') : t('surfaceSizeHint')))}</p>
         <div class="item-dims">
           <label>${esc(t('width'))}<input type="number" data-surface="widthCm" value="${state.surface.widthCm}" step="1" min="1"></label>
           <label>${esc(t('depth'))}<input type="number" data-surface="depthCm" value="${state.surface.depthCm}" step="1" min="1"></label>
           ${bag ? `<label>${esc(t('height'))}<input type="number" data-surface="heightCm" value="${state.surface.heightCm || 30}" step="1" min="1"></label>` : ''}
+          ${compare}
           ${airline}
         </div>
       </div>
@@ -705,6 +630,19 @@ function renderItems() {
   }
 
   $('#itemsList').onchange = (e) => {
+    if (e.target.dataset.compare !== undefined) {
+      const c = SIZE_COMPARISONS.find((x) => x.id === e.target.value);
+      if (!c) return;
+      state.surface = {
+        widthCm: c.widthCm,
+        depthCm: c.depthCm,
+        heightCm: c.heightCm || state.surface.heightCm || 20,
+      };
+      state.userSize = { ...state.surface };
+      state.sizeIsGuess = false;
+      renderItems();
+      return;
+    }
     if (e.target.dataset.airline === undefined) return;
     const b = CABIN_BAGS.find((x) => x.id === e.target.value);
     if (!b?.w) return;
@@ -1132,78 +1070,58 @@ function onResetLayout() {
  * الشخص اللي شايف المساحة بدل الموديل. وفي الحالات اللي العرض مش بيسمح
  * فيها ببعت صور، ده الطريق الوحيد الشغال، فمابيتعاملش كأنه ناقص.
  */
-async function onDescribe() {
-  const text = $('#describeInput').value.trim();
-  if (!text) return toast(t('describeNeed'));
+/** بيطبّق نتيجة الوصف على الحالة — نفس المكان للمسارين. */
+function applyDescribed(r, text) {
+  const chosen = $('#spaceType').value;
+  const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
 
-  const caller = await aiReady();
-  if (!caller) return toast(t('t_noAI'));
-
-  loading(true, t('t_analyzing'));
-  try {
-    const chosen = $('#spaceType').value;
-    const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
-    const r = await describeSpace({ text, caller, lang: getLang(), profile: chosenProfile });
-
-    // البروفايل المولّد بيتفلتر بنفس المصفاة اللي بتشتغل على الصورة
-    if (chosenProfile) {
-      state.profile = chosenProfile;
-    } else if (r.generatedProfile) {
-      state.profile = normalizeProfile(r.generatedProfile,
-        r.generatedProfile.spaceKind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
-    } else {
-      state.profile = GENERIC_PROFILE;
-    }
-
-    const sz = r.sizeCm || state.profile.defaultSizeCm || {};
-    state.surface = {
-      widthCm: clampCm(sz.width, 3, 400),
-      depthCm: clampCm(sz.depth, 3, 300),
-      heightCm: clampCm(sz.height, 2, 250),
-    };
-    state.userSize = { ...state.surface };
-
-    const cats = Object.keys(state.profile.categories);
-    state.items = (r.items || []).slice(0, 25).map((o, i) => ({
-      id: `d${Date.now()}_${i}`,
-      nameAr: o.nameAr || t('newItem'),
-      category: cats.includes(o.category) ? o.category : 'other',
-      widthCm: clampCm(o.widthCm, 0.5, 300),
-      depthCm: clampCm(o.depthCm, 0.5, 300),
-      heightCm: clampCm(o.heightCm, 0.2, 200),
-      weightKg: clampCm(o.weightKg, 0, 30),
-      frequency: ['high', 'medium', 'low'].includes(o.frequency) ? o.frequency : 'medium',
-      fragile: !!o.fragile,
-      confidence: 1,
-    }));
-
-    // مقالش عايز يحط إيه؟ يبقى المساحة فاضية ونسأله في الشاشة اللي جاية
-    state.emptySpace = !state.items.length;
-    state.emptySource = 'manual';
-    if (state.emptySpace) addItem();
-
-    // مفيش صورة اتحللت، فمفيش أركان ولا مقياس — ومفيش مخطط على الصورة
-    state.scale = null;
-    state.corners = null;
-    state.edit = null;
-    state.wishText = text;
-    state.scaleInfo = { kind: 'described' };
-    renderScaleBanner();
-
-    // الصورة اللي اختارها تفضل ظاهرة كمرجع بصري وهو بيظبط الأرقام
-    renderPhotoRef();
-    renderDetectedSpace();
-    renderItems();
-    showScreen('review');
-    toast(t('describeGot', {
-      what: tx(state.profile.spaceTypeAr),
-      n: state.items.length,
-    }));
-  } catch (err) {
-    toast(err.message || t('describeNone'));
-  } finally {
-    loading(false);
+  if (chosenProfile) {
+    state.profile = chosenProfile;
+  } else if (r.generatedProfile) {
+    state.profile = normalizeProfile(r.generatedProfile,
+      r.generatedProfile.spaceKind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
+  } else {
+    state.profile = GENERIC_PROFILE;
   }
+
+  const sz = r.sizeCm || state.profile.defaultSizeCm || {};
+  state.surface = {
+    widthCm: clampCm(sz.width, 3, 400),
+    depthCm: clampCm(sz.depth, 3, 300),
+    heightCm: clampCm(sz.height, 2, 250),
+  };
+  state.userSize = null;
+  state.sizeIsGuess = !r.sizeFromUser;
+
+  const cats = Object.keys(state.profile.categories);
+  state.items = (r.items || []).slice(0, 25).map((o, i) => ({
+    id: `d${Date.now()}_${i}`,
+    nameAr: o.nameAr || t('newItem'),
+    category: cats.includes(o.category) ? o.category : 'other',
+    widthCm: clampCm(o.widthCm, 0.5, 300),
+    depthCm: clampCm(o.depthCm, 0.5, 300),
+    heightCm: clampCm(o.heightCm, 0.2, 200),
+    weightKg: clampCm(o.weightKg, 0, 30),
+    frequency: ['high', 'medium', 'low'].includes(o.frequency) ? o.frequency : 'medium',
+    fragile: !!o.fragile,
+    confidence: 1,
+  }));
+
+  state.emptySpace = !state.items.length;
+  state.emptySource = 'manual';
+  if (state.emptySpace) addItem();
+
+  state.scale = null;
+  state.corners = null;
+  state.edit = null;
+  state.wishText = text;
+  state.scaleInfo = { kind: 'described' };
+  renderScaleBanner();
+  renderPhotoRef();
+  renderDetectedSpace();
+  renderItems();
+  showScreen('review');
+  toast(t('describeGot', { what: tx(state.profile.spaceTypeAr), n: state.items.length }));
 }
 
 /** الصورة مش متحللة، بس لسه مفيدة — بيبص عليها وهو بيكتب الأرقام. */

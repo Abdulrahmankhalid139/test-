@@ -63,63 +63,28 @@
 
 
     <div class="field">
-      <label class="label"><span class="stepno">2</span> <span data-i18n="step1">المقاس</span></label>
-      <p class="hint" data-i18n="sizeStepQ"></p>
-      <select id="sizeMethod" class="input">
-        <option value="auto" data-i18n="methodAuto"></option>
-        <option value="ref" data-i18n="methodRef"></option>
-        <option value="known" data-i18n="methodKnown"></option>
-      </select>
-      <p class="hint" id="sizeMethodHint"></p>
-
-      <div id="refWrap">
-        <select id="scaleRef" class="input"></select>
-        <p class="hint" id="scaleHint"></p>
-        <div id="customRefWrap" class="row hidden">
-          <input id="customRefName" class="input" type="text" maxlength="40" data-i18n-ph="customRefName" placeholder="">
-          <input id="customRefCm" class="input" type="number" min="0.5" step="0.1" data-i18n-ph="customRefCm" placeholder="">
-        </div>
-      </div>
-
-      <div id="knownWrap" class="hidden">
-        <div class="row">
-          <input id="sizeW" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeW" placeholder="">
-          <input id="sizeD" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeD" placeholder="">
-          <input id="sizeH" class="input hidden" type="number" min="1" step="0.5" data-i18n-ph="sizeH" placeholder="">
-        </div>
-        <select id="sizeUnit" class="input">
-          <option value="cm" data-i18n="unitCm"></option>
-          <option value="span" data-i18n="unitSpan"></option>
-          <option value="inch" data-i18n="unitInch"></option>
-        </select>
-        <div id="spanWrap" class="hidden">
-          <label class="label sub" data-i18n="spanIs"></label>
-          <input id="spanCm" class="input" type="number" min="10" max="35" step="0.5" value="22">
-          <p class="hint" data-i18n="spanHint"></p>
-        </div>
-        <p class="hint" data-i18n="knownHint"></p>
-      </div>
+      <label class="label"><span class="stepno">2</span> <span data-i18n="qWhat"></span></label>
+      <p class="hint" data-i18n="qWhatHint"></p>
+      <input id="whatInput" class="input" type="text" maxlength="160" data-i18n-ph="qWhatPh" placeholder="">
     </div>
 
     <div class="field">
-      <label class="label"><span class="stepno">3</span> <span data-i18n="describeTitle"></span></label>
-      <p class="hint" data-i18n="describeHint"></p>
-      <textarea id="describeInput" class="input" rows="3" maxlength="600" data-i18n-ph="describePh" placeholder=""></textarea>
-      <button id="btnDescribe" class="btn ghost" type="button" data-i18n="describeBtn"></button>
-      <p class="hint" data-i18n="describeExample"></p>
+      <label class="label"><span class="stepno">3</span> <span data-i18n="qPut"></span></label>
+      <p class="hint" data-i18n="qPutHint"></p>
+      <input id="putInput" class="input" type="text" maxlength="300" data-i18n-ph="qPutPh" placeholder="">
     </div>
 
-    <div class="field">
-      <label class="label"><span class="stepno">4</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
+    <details class="panel" id="morePanel">
+      <summary data-i18n="moreOptions"></summary>
+      <label class="label sub" data-i18n="spaceTypeQ"></label>
       <select id="spaceType" class="input"></select>
-      <p class="hint" id="spaceTypeHint"></p>
-      <input id="intent" class="input" type="text" maxlength="120" data-i18n-ph="intentPlaceholder" placeholder="">
-      <p class="hint" data-i18n="intentExample"></p>
+      <label class="label sub" data-i18n="handQ"></label>
       <select id="dominantHand" class="input">
         <option value="right" data-i18n="handRight"></option>
         <option value="left" data-i18n="handLeft"></option>
       </select>
-    </div>
+      <input id="intent" class="input" type="text" maxlength="120" data-i18n-ph="intentPlaceholder" placeholder="">
+    </details>
 
     <p class="hint center" data-i18n="privacy"></p>
 

@@ -242,3 +242,37 @@ export function scaleConfidence(scale, refBox) {
   const labelAr = score > 0.75 ? 'عالية' : score > 0.45 ? 'متوسطة' : 'منخفضة';
   return { score, labelAr };
 }
+
+/**
+ * «قد إيه؟» من غير مسطرة.
+ *
+ * المستخدم مش معاه متر ومش هيقيس، وسؤاله عن السنتيمترات بيوقّفه. بس هو
+ * عارف إن الحاجة دي «حوالي قد علبة مناديل» — والمقارنة دي رقم كافي تماماً
+ * للترتيب. فالسؤال بقى مقارنة بدل قياس.
+ *
+ * المقاسات دي تقريبية عن قصد، ومعلّم عليها كده في الواجهة.
+ */
+export const SIZE_COMPARISONS = [
+  { id: 'mug',      labelAr: { ar: 'قد كوباية قهوة',      en: 'About a coffee mug' },        widthCm: 9,   depthCm: 9,   heightCm: 10 },
+  { id: 'tissue',   labelAr: { ar: 'قد علبة مناديل',       en: 'About a tissue box' },         widthCm: 12,  depthCm: 12,  heightCm: 13 },
+  { id: 'book',     labelAr: { ar: 'قد كتاب',              en: 'About a book' },               widthCm: 15,  depthCm: 22,  heightCm: 3 },
+  { id: 'shoebox',  labelAr: { ar: 'قد علبة جزمة',         en: 'About a shoebox' },            widthCm: 33,  depthCm: 20,  heightCm: 12 },
+  { id: 'drawer',   labelAr: { ar: 'قد درج مكتب',          en: 'About a desk drawer' },        widthCm: 45,  depthCm: 40,  heightCm: 12 },
+  { id: 'shelf',    labelAr: { ar: 'قد رف',                en: 'About a shelf' },              widthCm: 80,  depthCm: 30,  heightCm: 35 },
+  { id: 'cabinBag', labelAr: { ar: 'قد شنطة طيران',        en: 'About a cabin bag' },          widthCm: 55,  depthCm: 40,  heightCm: 23 },
+  { id: 'smallDesk',labelAr: { ar: 'قد مكتب صغير',         en: 'About a small desk' },         widthCm: 100, depthCm: 50,  heightCm: 0 },
+  { id: 'bigDesk',  labelAr: { ar: 'قد مكتب كبير',         en: 'About a large desk' },         widthCm: 160, depthCm: 75,  heightCm: 0 },
+];
+
+/** أقرب مقارنة لمقاس معروف — عشان نوري المستخدم اللي فهمناه بلغته هو. */
+export function nearestComparison(size) {
+  if (!size?.widthCm) return null;
+  let best = null;
+  for (const c of SIZE_COMPARISONS) {
+    // المسافة في فراغ لوغاريتمي: الفرق بين ١٠ و٢٠ سم أهم من بين ١٠٠ و١١٠
+    const d = Math.abs(Math.log((size.widthCm || 1) / c.widthCm))
+            + Math.abs(Math.log((size.depthCm || 1) / c.depthCm));
+    if (!best || d < best.d) best = { c, d };
+  }
+  return best?.c || null;
+}

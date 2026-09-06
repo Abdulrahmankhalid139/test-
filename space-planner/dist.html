@@ -421,63 +421,28 @@ overflow:hidden;background:var(--card)}
 
 
     <div class="field">
-      <label class="label"><span class="stepno">2</span> <span data-i18n="step1">المقاس</span></label>
-      <p class="hint" data-i18n="sizeStepQ"></p>
-      <select id="sizeMethod" class="input">
-        <option value="auto" data-i18n="methodAuto"></option>
-        <option value="ref" data-i18n="methodRef"></option>
-        <option value="known" data-i18n="methodKnown"></option>
-      </select>
-      <p class="hint" id="sizeMethodHint"></p>
-
-      <div id="refWrap">
-        <select id="scaleRef" class="input"></select>
-        <p class="hint" id="scaleHint"></p>
-        <div id="customRefWrap" class="row hidden">
-          <input id="customRefName" class="input" type="text" maxlength="40" data-i18n-ph="customRefName" placeholder="">
-          <input id="customRefCm" class="input" type="number" min="0.5" step="0.1" data-i18n-ph="customRefCm" placeholder="">
-        </div>
-      </div>
-
-      <div id="knownWrap" class="hidden">
-        <div class="row">
-          <input id="sizeW" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeW" placeholder="">
-          <input id="sizeD" class="input" type="number" min="1" step="0.5" data-i18n-ph="sizeD" placeholder="">
-          <input id="sizeH" class="input hidden" type="number" min="1" step="0.5" data-i18n-ph="sizeH" placeholder="">
-        </div>
-        <select id="sizeUnit" class="input">
-          <option value="cm" data-i18n="unitCm"></option>
-          <option value="span" data-i18n="unitSpan"></option>
-          <option value="inch" data-i18n="unitInch"></option>
-        </select>
-        <div id="spanWrap" class="hidden">
-          <label class="label sub" data-i18n="spanIs"></label>
-          <input id="spanCm" class="input" type="number" min="10" max="35" step="0.5" value="22">
-          <p class="hint" data-i18n="spanHint"></p>
-        </div>
-        <p class="hint" data-i18n="knownHint"></p>
-      </div>
+      <label class="label"><span class="stepno">2</span> <span data-i18n="qWhat"></span></label>
+      <p class="hint" data-i18n="qWhatHint"></p>
+      <input id="whatInput" class="input" type="text" maxlength="160" data-i18n-ph="qWhatPh" placeholder="">
     </div>
 
     <div class="field">
-      <label class="label"><span class="stepno">3</span> <span data-i18n="describeTitle"></span></label>
-      <p class="hint" data-i18n="describeHint"></p>
-      <textarea id="describeInput" class="input" rows="3" maxlength="600" data-i18n-ph="describePh" placeholder=""></textarea>
-      <button id="btnDescribe" class="btn ghost" type="button" data-i18n="describeBtn"></button>
-      <p class="hint" data-i18n="describeExample"></p>
+      <label class="label"><span class="stepno">3</span> <span data-i18n="qPut"></span></label>
+      <p class="hint" data-i18n="qPutHint"></p>
+      <input id="putInput" class="input" type="text" maxlength="300" data-i18n-ph="qPutPh" placeholder="">
     </div>
 
-    <div class="field">
-      <label class="label"><span class="stepno">4</span> <span data-i18n="spaceTypeQ">المساحة دي إيه؟</span></label>
+    <details class="panel" id="morePanel">
+      <summary data-i18n="moreOptions"></summary>
+      <label class="label sub" data-i18n="spaceTypeQ"></label>
       <select id="spaceType" class="input"></select>
-      <p class="hint" id="spaceTypeHint"></p>
-      <input id="intent" class="input" type="text" maxlength="120" data-i18n-ph="intentPlaceholder" placeholder="">
-      <p class="hint" data-i18n="intentExample"></p>
+      <label class="label sub" data-i18n="handQ"></label>
       <select id="dominantHand" class="input">
         <option value="right" data-i18n="handRight"></option>
         <option value="left" data-i18n="handLeft"></option>
       </select>
-    </div>
+      <input id="intent" class="input" type="text" maxlength="120" data-i18n-ph="intentPlaceholder" placeholder="">
+    </details>
 
     <p class="hint center" data-i18n="privacy"></p>
 
@@ -679,6 +644,19 @@ apiKeyLabel: 'مفتاح Gemini',
 apiKeyPh: 'الصق المفتاح هنا',
 apiKeyHint: 'مجاني من <b>Google AI Studio</b>. بيتخزن على جهازك بس، ومابيروحش لأي حد غير جوجل. من غيره التطبيق بيشتغل بالإدخال اليدوي عادي.',
 b_empty: '📦 المساحة دي فاضية — مفيش حاجات نقيسها، فمش محتاجين مرجع قياس. اكتب مقاسها واللي عايز تحطه فيها.',
+qWhat: 'الحاجة دي إيه؟',
+qWhatHint: 'اختياري. لو التطبيق عرفها من الصورة مش هتحتاج تكتب — ولو مش عارف، كلامك هو اللي هيمشي.',
+qWhatPh: 'سلة معلقة على المكتب / درج / تسريحة...',
+qPut: 'عايز تحط فيها إيه؟',
+qPutHint: 'اكتبهم بفاصلة. التطبيق يقدّر مقاساتهم لوحده.',
+qPutPh: 'أقلام، هايلايتر، مقص، شاحن...',
+moreOptions: 'خيارات زيادة (مش لازم)',
+handQ: 'بتستخدم أنهي إيد؟',
+answerFirst: 'جاوب على سؤال واحد عالأقل: الحاجة دي إيه، أو عايز تحط فيها إيه.',
+sizeLikeQ: 'قد إيه تقريباً؟',
+sizeKeep: 'سيب المقاس زي ما هو',
+sizeGuessHint: '⚠️ المقاس ده تخمين — مالقيناش في الصورة حاجة مقاسها معروف نقيس عليها. اختار «قد إيه» من تحت أو عدّل الأرقام.',
+b_guessed: '📐 قدّرنا المقاس من شكل المساحة نفسها. مالقيناش مرجع قياس، فالأرقام تقريبية — صلّحها بـ«قد إيه تقريباً».',
 describeTitle: 'أو اوصفها بكلامك',
 describeHint: 'مش لازم صورة. اكتب المساحة دي إيه، قد إيه تقريباً، وعايز تحط فيها إيه — والتطبيق يفهم ويرتّب.',
 describePh: 'دي سلة معلقة على المكتب، حوالي شبر في شبر وارتفاعها شبر، عايزة أحط فيها أقلام وهايلايتر ومقص...',
@@ -822,7 +800,7 @@ t_needKnownSize: 'اكتب عرض وعمق المساحة الأول',
 t_spaceNotFound: 'مالقيناش المساحة نفسها في الصورة. صوّرها كاملة في الكادر وحاول تاني.',
 t_noAI: 'الميزة دي محتاجة Claude — مش متاحة في العرض ده',
 t_noAIphoto: 'تحليل الصور مش متاح هنا — استخدم «أدخل الحاجات بنفسك»',
-t_noImages: 'العرض ده مش بيسمح ببعت صور لـClaude — ده قيد من المنصة مش مشكلة في صورتك. ودّيناك للإدخال اليدوي: اكتب المقاس وقول عايز تحط إيه، والباقي هيشتغل عادي.',
+t_noImages: 'العرض ده مش بيسمح ببعت صور لـClaude — قيد من المنصة، مش مشكلة في صورتك.',
 t_writeIntent: 'اكتب عايز إيه من المساحة',
 t_needSpace: 'محتاجين نعرف المساحة الأول',
 t_writeQuestion: 'اكتب سؤالك',
@@ -899,6 +877,19 @@ apiKeyLabel: 'Gemini key',
 apiKeyPh: 'Paste your key here',
 apiKeyHint: 'Free from <b>Google AI Studio</b>. Stored on your device only, and sent to nobody but Google. Without it the app still works with manual entry.',
 b_empty: '📦 This space is empty — there is nothing to measure, so no scale reference is needed. Type its size and what you want to put in it.',
+qWhat: 'What is this thing?',
+qWhatHint: 'Optional. If the app works it out from the photo you need not type anything — and if it cannot, your words decide.',
+qWhatPh: 'A basket hanging off my desk / a drawer / a dressing table...',
+qPut: 'What do you want to put in it?',
+qPutHint: 'Separate them with commas. The app estimates their sizes itself.',
+qPutPh: 'pens, highlighters, scissors, charger...',
+moreOptions: 'More options (not required)',
+handQ: 'Which hand do you use?',
+answerFirst: 'Answer at least one: what the thing is, or what you want to put in it.',
+sizeLikeQ: 'Roughly the size of what?',
+sizeKeep: 'Leave the size as it is',
+sizeGuessHint: '⚠️ This size is a guess — we found nothing in the photo of a known size to measure against. Pick a comparison below, or edit the numbers.',
+b_guessed: '📐 We estimated the size from the shape of the space itself. No scale reference was found, so the numbers are approximate — correct them with "roughly the size of what?".',
 describeTitle: 'Or describe it in words',
 describeHint: 'No photo needed. Say what the space is, roughly how big, and what you want to put in it — the app works out the rest.',
 describePh: 'A basket hanging off my desk, about a hand-span square and a span tall, I want to put pens, highlighters and scissors in it...',
@@ -1042,7 +1033,7 @@ t_needKnownSize: 'Type the width and depth of the space first',
 t_spaceNotFound: 'We could not find the space itself in the photo. Fit all of it in frame and try again.',
 t_noAI: 'This feature needs Claude — not available in this view',
 t_noAIphoto: 'Photo analysis is not available here — use "Enter items yourself"',
-t_noImages: 'This view cannot send images to Claude — that is a platform limit, not a problem with your photo. We have switched you to manual entry: type the size and say what you want to put in, and everything else works as normal.',
+t_noImages: 'This view cannot send images to Claude — a platform limit, not a problem with your photo.',
 t_writeIntent: 'Say what you want from the space',
 t_needSpace: 'We need to know the space first',
 t_writeQuestion: 'Type your question',
@@ -1301,6 +1292,27 @@ else if (scale.aspectError > 0.18) score -= 0.2;
 score = Math.max(0.1, Math.min(1, score));
 const labelAr = score > 0.75 ? 'عالية' : score > 0.45 ? 'متوسطة' : 'منخفضة';
 return { score, labelAr };
+}
+const SIZE_COMPARISONS = [
+{ id: 'mug',      labelAr: { ar: 'قد كوباية قهوة',      en: 'About a coffee mug' },        widthCm: 9,   depthCm: 9,   heightCm: 10 },
+{ id: 'tissue',   labelAr: { ar: 'قد علبة مناديل',       en: 'About a tissue box' },         widthCm: 12,  depthCm: 12,  heightCm: 13 },
+{ id: 'book',     labelAr: { ar: 'قد كتاب',              en: 'About a book' },               widthCm: 15,  depthCm: 22,  heightCm: 3 },
+{ id: 'shoebox',  labelAr: { ar: 'قد علبة جزمة',         en: 'About a shoebox' },            widthCm: 33,  depthCm: 20,  heightCm: 12 },
+{ id: 'drawer',   labelAr: { ar: 'قد درج مكتب',          en: 'About a desk drawer' },        widthCm: 45,  depthCm: 40,  heightCm: 12 },
+{ id: 'shelf',    labelAr: { ar: 'قد رف',                en: 'About a shelf' },              widthCm: 80,  depthCm: 30,  heightCm: 35 },
+{ id: 'cabinBag', labelAr: { ar: 'قد شنطة طيران',        en: 'About a cabin bag' },          widthCm: 55,  depthCm: 40,  heightCm: 23 },
+{ id: 'smallDesk',labelAr: { ar: 'قد مكتب صغير',         en: 'About a small desk' },         widthCm: 100, depthCm: 50,  heightCm: 0 },
+{ id: 'bigDesk',  labelAr: { ar: 'قد مكتب كبير',         en: 'About a large desk' },         widthCm: 160, depthCm: 75,  heightCm: 0 },
+];
+function nearestComparison(size) {
+if (!size?.widthCm) return null;
+let best = null;
+for (const c of SIZE_COMPARISONS) {
+const d = Math.abs(Math.log((size.widthCm || 1) / c.widthCm))
++ Math.abs(Math.log((size.depthCm || 1) / c.depthCm));
+if (!best || d < best.d) best = { c, d };
+}
+return best?.c || null;
 }
 
 /* js/profiles.js */
@@ -2895,7 +2907,7 @@ reject(new Error('مقدرناش نفتح الصورة دي'));
 img.src = url;
 });
 }
-async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, caller, lang = 'ar', sizeMethod = 'ref' }) {
+async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, caller, lang = 'ar', sizeMethod = 'ref', whatIsIt = '', whatToPut = '' }) {
 const isBag = mode === 'bag';
 const generateProfile = !isBag && !profile;
 const known = sizeMethod === 'known';
@@ -2973,11 +2985,19 @@ prompt += `دي صورة ${profile.spaceTypeAr}.
 "objects":[{"nameAr":"...","category":"...","box":[0,0,0,0],"heightCm":0,"frequency":"high|medium|low","fragile":false,"confidence":0.9}]}`;
 }
 if (intent) prompt += `\n\nصاحب المساحة عايز: "${intent}" — خلي التصنيف والقواعد تخدم الهدف ده.`;
+if (whatIsIt) prompt += `\n\nصاحب المساحة بيقول إن دي: "${whatIsIt}". صدّقه — هو شايفها وإنت لأ.`;
+if (whatToPut) {
+prompt += `\n\nوعايز يحط فيها: "${whatToPut}". اطلع كل حاجة قالها كصف في objects` +
+` بمقاسها التقريبي بالسنتيمتر، حتى لو مش ظاهرة في الصورة — دي حاجات ناوي يحطها مش موجودة دلوقتي.`;
+}
 prompt += `
 قواعد مهمة:
 - المربعات بصيغة [ymin, xmin, ymax, xmax] بمقياس من 0 لـ 1000.
 - الأسماء ${lang === 'en' ? 'بالإنجليزي' : 'بالعربي المصري'}، قصيرة وواضحة.
 - متخترعش حاجات مش ظاهرة في الصورة.
+- **قدّر مقاس المساحة بالسنتيمتر في spaceSizeCm دايماً**، سواء لقيت مرجع قياس
+أو لأ. لو مفيش مرجع، خمّن من نوع الحاجة نفسها وشكلها ونسبتها لأي حاجة
+حواليها. تقدير معقول أنفع بكتير من لا حاجة — المستخدم هيصححه بسهولة.
 - **المساحة الفاضية رد صح ومقبول.** لو المساحة مفيهاش حاجات (سلة فاضية، درج
 فاضي، مكتب مولّع)، رجّع objects قايمة فاضية [] وحط spaceEmpty:true.
 متخترعش حاجات عشان تملى القايمة — المستخدم ساعتها بيسأل «إيه اللي يدخل هنا؟»
@@ -3148,6 +3168,7 @@ cornersApprox: false,
 edit: null,
 view: 'plan',
 extraSpaces: [],
+sizeIsGuess: false,
 emptySpace: false,
 emptySource: 'photo',
 emptyEstimate: null,
@@ -3198,11 +3219,6 @@ for (const el of $$('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
 for (const el of $$('[data-i18n-ph]')) el.placeholder = t(el.dataset.i18nPh);
 $('#btnLang').textContent = getLang() === 'ar' ? 'EN' : 'ع';
 $('#btnLang').title = t('switchTo');
-const keepRef = $('#scaleRef').value;
-$('#scaleRef').innerHTML = scaleRefGroups().map((g) => `<optgroup label="${escHtml(t(g.group))}">${
-g.items.map((r) => `<option value="${r.id}">${escHtml(tx(r.labelAr))}</option>`).join('')
-}</optgroup>`).join('');
-$('#scaleRef').value = keepRef || store.getPrefs().scaleRef || 'card';
 const keepType = $('#spaceType').value;
 $('#spaceType').innerHTML =
 `<option value="auto">${escHtml(t('autoDetect'))}</option>` +
@@ -3211,27 +3227,12 @@ g.items.map((p) => `<option value="${p.id}">${escHtml(tx(p.labelAr))}</option>`)
 }</optgroup>`).join('');
 $('#spaceType').value = keepType || 'auto';
 updateHints();
-updateSizeMethod();
 renderScaleBanner();
 if (state.profile) renderDetectedSpace();
 if (state.items.length) renderItems();
 if (state.plan) (isBag() ? renderBagResult : renderDeskResult)();
 }
-function updateHints() {
-const picked = $('#spaceType').value;
-$('#spaceTypeHint').textContent = t(picked === 'auto' ? 'autoHint' : 'pickedHint');
-const container = picked !== 'auto' && isContainer(getProfile(picked));
-$('#sizeH').classList.toggle('hidden', !container);
-}
-function updateSizeMethod() {
-const method = $('#sizeMethod').value;
-$('#sizeMethodHint').textContent = t(
-method === 'auto' ? 'methodAutoHint' : method === 'ref' ? 'methodRefHint' : 'methodKnownHint');
-$('#refWrap').classList.toggle('hidden', method !== 'ref');
-$('#knownWrap').classList.toggle('hidden', method !== 'known');
-$('#spanWrap').classList.toggle('hidden', $('#sizeUnit').value !== 'span');
-store.setPrefs({ sizeMethod: method });
-}
+function updateHints() { /* مفيش تلميحات على شاشة التصوير بعد التبسيط */ }
 function renderScaleBanner() {
 const el = $('#scaleBanner');
 const info = state.scaleInfo;
@@ -3244,6 +3245,11 @@ return;
 if (info.kind === 'known') {
 el.className = 'banner ok';
 el.textContent = t('b_known', { w: info.widthCm, d: info.depthCm });
+return;
+}
+if (info.kind === 'guessed') {
+el.className = 'banner warn';
+el.textContent = t('b_guessed');
 return;
 }
 if (info.kind === 'described') {
@@ -3269,39 +3275,19 @@ level,
 ? t('b_scaleOk', { what: escHtml(info.whatAr || (ref ? tx(ref.labelAr) : t('scaleRef'))), level })
 : t('b_scaleWarn', { level });
 }
-function readKnownSize() {
-const unit = $('#sizeUnit').value;
-const span = parseFloat($('#spanCm').value) || 22;
-const w = toCm($('#sizeW').value, unit, span);
-const d = toCm($('#sizeD').value, unit, span);
-const h = toCm($('#sizeH').value, unit, span);
-return { widthCm: w, depthCm: d, heightCm: h };
-}
 function init() {
 initLang();
 const prefs = store.getPrefs();
 applyLang();
 $('#dominantHand').value = prefs.dominantHand || 'right';
-$('#sizeMethod').value = prefs.sizeMethod || 'auto';
 $('#optAutoSkip').checked = autoSkipOn();
-$('#sizeUnit').value = prefs.sizeUnit || 'cm';
-$('#spanCm').value = prefs.spanCm || 22;
-updateSizeMethod();
 syncActionBar('capture');
-onScaleRefChange();
 renderSaved();
 $('#btnLang').addEventListener('click', () => {
 setLang(getLang() === 'ar' ? 'en' : 'ar');
 applyLang();
 });
 $$('[data-goto]').forEach((b) => b.addEventListener('click', () => showScreen(b.dataset.goto)));
-$('#scaleRef').addEventListener('change', onScaleRefChange);
-$('#sizeMethod').addEventListener('change', updateSizeMethod);
-$('#sizeUnit').addEventListener('change', () => {
-store.setPrefs({ sizeUnit: $('#sizeUnit').value });
-updateSizeMethod();
-});
-$('#spanCm').addEventListener('change', () => store.setPrefs({ spanCm: +$('#spanCm').value || 22 }));
 $('#btnPick').addEventListener('click', () => $('#fileInput').click());
 $('#fileInput').addEventListener('change', onFilePicked);
 $('#btnAnalyze').addEventListener('click', onAnalyze);
@@ -3324,7 +3310,6 @@ $$('#viewTabs .vtab').forEach((b) => b.addEventListener('click', () => setView(b
 $('#photoOverlay').addEventListener('click', onOverlayTap);
 $('#btnUndo').addEventListener('click', onUndoMove);
 $('#btnResetLayout').addEventListener('click', onResetLayout);
-$('#btnDescribe').addEventListener('click', onDescribe);
 $('#btnFitAsk').addEventListener('click', onFitAsk);
 $('#btnFitCheck').addEventListener('click', onFitCheck);
 $('#btnAddSpace').addEventListener('click', onAddSpace);
@@ -3351,13 +3336,6 @@ if ('serviceWorker' in navigator) {
 navigator.serviceWorker.register('sw.js').catch(() => { /* بيشتغل عادي من غيره */ });
 }
 }
-function onScaleRefChange() {
-const ref = SCALE_REFERENCES[$('#scaleRef').value] || SCALE_REFERENCES.card;
-$('#customRefWrap').classList.toggle('hidden', ref.id !== 'custom');
-$('#scaleHint').textContent = ref.id === 'custom' ? tx(ref.hintAr)
-: `${tx(ref.hintAr)}${ref.approx ? ' · ' + t('approxNote') : ''}`;
-store.setPrefs({ scaleRef: ref.id });
-}
 async function onFilePicked(e) {
 const file = e.target.files?.[0];
 if (!file) return;
@@ -3376,20 +3354,11 @@ const caller = await aiReady();
 if (!caller) return toast(t('t_noAIphoto'));
 if (!state.image) return toast(t('t_pickPhoto'));
 if (!(await canSendImages(caller))) {
-toast(t('t_noImages'), 7000);
-$('#describeInput').focus();
-$('#describeInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
-return;
+return onDescribeFromAnswers(caller, t('t_noImages'));
 }
-const method = $('#sizeMethod').value;
-const refId = $('#scaleRef').value;
-const ref = SCALE_REFERENCES[refId] || SCALE_REFERENCES.card;
-const customCm = parseFloat($('#customRefCm').value);
-const customName = $('#customRefName').value.trim();
-const known = readKnownSize();
-if (method === 'ref' && refId === 'custom' && !(customCm > 0)) return toast(t('t_needRefCm'));
-if (method === 'known' && !(known.widthCm > 0 && known.depthCm > 0)) return toast(t('t_needKnownSize'));
-store.setPrefs({ dominantHand: $('#dominantHand').value, customRefCm: customCm || 0 });
+const whatIsIt = $('#whatInput').value.trim();
+const whatToPut = $('#putInput').value.trim();
+store.setPrefs({ dominantHand: $('#dominantHand').value });
 loading(true, t('t_analyzing'));
 try {
 const chosen = $('#spaceType').value;
@@ -3397,159 +3366,140 @@ const intent = $('#intent').value.trim();
 const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
 const analysis = await analyzeScene({
 image: state.image,
-mode: isBag() ? 'bag' : 'surface',
-scaleRefLabel: method === 'auto'
-? ''
-: method === 'known'
-? `the space itself (${known.widthCm} cm wide)`
-: refId === 'custom'
-? `${customName || 'reference object'} (${customCm} cm wide)`
-: tx(ref.labelAr),
+mode: chosenProfile && isContainer(chosenProfile) ? 'bag' : 'surface',
+scaleRefLabel: '',
 profile: chosenProfile,
 intent,
 caller,
 lang: getLang(),
-sizeMethod: method,
+sizeMethod: 'auto',
+whatIsIt,
+whatToPut,
 });
 if (chosenProfile) {
 state.profile = chosenProfile;
 } else if (analysis.generatedProfile) {
-const kind = analysis.generatedProfile.spaceKind;
 state.profile = normalizeProfile(analysis.generatedProfile,
-kind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
+analysis.generatedProfile.spaceKind === 'container' ? GENERIC_CONTAINER : GENERIC_PROFILE);
 } else {
 state.profile = GENERIC_PROFILE;
 }
-const emptySpace = !analysis.objects?.length;
 const surfBox = analysis.surface?.box ? normalizeBox(analysis.surface.box) : null;
-let scale, refBox;
-let scaleScore = 1, approxRef = false;
-if (method === 'known') {
-if (!surfBox) throw new Error(t('t_spaceNotFound'));
-const k = known.widthCm / surfBox.w;
-scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
-refBox = surfBox;
-state.userSize = { ...known };
-state.scaleInfo = { kind: 'known', widthCm: known.widthCm, depthCm: known.depthCm };
-renderScaleBanner();
-} else if (emptySpace) {
-scale = null;
-refBox = null;
-state.userSize = null;
-const est = analysis.spaceSizeCm || {};
-state.emptyEstimate = {
-widthCm: clampCm(est.width, 5, 400),
-depthCm: clampCm(est.depth, 5, 300),
-heightCm: clampCm(est.height, 2, 250),
-};
-state.scaleInfo = { kind: 'empty' };
-renderScaleBanner();
-} else {
-refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
-let usedRef = ref;
-if (method === 'auto') {
+const refBox = analysis.scaleReference?.found ? normalizeBox(analysis.scaleReference.box) : null;
 const rid = analysis.scaleReference?.refId;
-const picked = typeof rid === 'string' && rid !== 'custom' ? SCALE_REFERENCES[rid] : null;
-if (!refBox) throw new Error(t('t_autoRefNone'));
-if (!picked) throw new Error(t('t_autoRefUnknown', { what: analysis.scaleReference?.whatAr || '—' }));
-usedRef = picked;
-} else {
-if (!refBox) {
-throw new Error(t('t_refNotFound', {
-what: refId === 'custom' ? (customName || t('scaleRef')) : tx(ref.labelAr),
-}));
-}
-}
-if (method === 'ref' && refId === 'custom') {
-const k = customCm / refBox.w;
-scale = { cmPerUnitX: k, cmPerUnitY: k, rotated: false, aspectError: 0 };
-approxRef = true;
-} else {
-scale = computeScale(refBox, usedRef.widthCm, usedRef.heightCm);
-approxRef = !!usedRef.approx;
-}
-state.userSize = null;
-const conf = scaleConfidence(scale, refBox);
-scaleScore = conf.score;
+const ref = typeof rid === 'string' && rid !== 'custom' ? SCALE_REFERENCES[rid] : null;
+let scale = null;
+if (refBox && ref?.widthCm) {
+scale = computeScale(refBox, ref.widthCm, ref.heightCm);
 state.scaleInfo = {
-kind: method === 'auto' ? 'auto' : 'ref',
-refId: usedRef.id,
+kind: 'auto', refId: ref.id,
 whatAr: analysis.scaleReference.whatAr,
-score: conf.score,
+score: scaleConfidence(scale, refBox).score,
 };
-renderScaleBanner();
+} else {
+state.scaleInfo = { kind: 'guessed' };
 }
 state.scale = scale;
+const est = analysis.spaceSizeCm || {};
+const def = state.profile.defaultSizeCm || {};
+if (scale && surfBox && !isBag()) {
+const d = boxToCm(surfBox, scale);
+state.surface = {
+widthCm: clampCm(d.widthCm, 3, 400),
+depthCm: clampCm(d.depthCm, 3, 300),
+heightCm: clampCm(est.height || def.height, 2, 250),
+};
+} else {
+state.surface = {
+widthCm: clampCm(est.width || def.width, 3, 400),
+depthCm: clampCm(est.depth || def.depth, 3, 300),
+heightCm: clampCm(est.height || def.height, 2, 250),
+};
+}
+state.userSize = null;
+state.sizeIsGuess = !scale;
 const rawCorners = validCorners(analysis.surface?.corners);
 if (rawCorners) {
 state.corners = rawCorners;
 state.cornersApprox = false;
 } else if (surfBox) {
-const fb = cornersFromBox(surfBox);
-state.corners = fb?.corners || null;
+state.corners = cornersFromBox(surfBox)?.corners || null;
 state.cornersApprox = true;
 } else {
 state.corners = null;
 }
-if (state.userSize) {
-const def = state.profile?.defaultSizeCm || {};
-state.surface = {
-widthCm: known.widthCm,
-depthCm: known.depthCm,
-heightCm: known.heightCm || def.height || 30,
-};
-} else if (surfBox && !isBag()) {
-const d = boxToCm(surfBox, scale);
-state.surface = {
-widthCm: clampCm(d.widthCm, 40, 400),
-depthCm: clampCm(d.depthCm, 30, 200),
-heightCm: state.profile?.defaultSizeCm?.height || 30,
-};
-} else {
-applyProfileSize();
-}
 if (analysis.windowSide) store.setPrefs({ windowSide: analysis.windowSide });
-const hand = analysis.dominantHand;
-state.handDetected = hand === 'right' || hand === 'left' ? hand : null;
-if (state.handDetected) {
-const changed = $('#dominantHand').value !== state.handDetected;
-$('#dominantHand').value = state.handDetected;
-store.setPrefs({ dominantHand: state.handDetected });
-if (changed) toast(t('handDetected', { hand: t(state.handDetected) }));
-}
-state.items = analysis.objects.map((o, i) => {
+applyDetectedHand(analysis.dominantHand);
+const cats = Object.keys(state.profile.categories);
+state.items = (analysis.objects || []).slice(0, 30).map((o, i) => {
 const box = normalizeBox(o.box);
+let w = 0, d = 0;
+if (scale && box) {
 const dims = boxToCm(box, scale);
-const corr = perspectiveCorrect(box, refBox);
+const corr = refBox ? perspectiveCorrect(box, refBox) : 1;
+w = dims.widthCm * corr;
+d = dims.depthCm * corr;
+}
 return {
 id: `it${i}`,
 nameAr: o.nameAr || t('newItem'),
-category: o.category || 'other',
-widthCm: clampCm(dims.widthCm * corr, 0.5, 300),
-depthCm: clampCm(dims.depthCm * corr, 0.5, 300),
-heightCm: clampCm(Number(o.heightCm) || 5, 0.2, 200),
+category: cats.includes(o.category) ? o.category : 'other',
+widthCm: clampCm(w || o.widthCm || 8, 0.5, 300),
+depthCm: clampCm(d || o.depthCm || 8, 0.5, 300),
+heightCm: clampCm(o.heightCm, 0.2, 200),
 weightKg: clampCm(o.weightKg, 0, 30),
 frequency: o.frequency || 'medium',
 fragile: !!o.fragile,
 confidence: Math.max(0, Math.min(1, Number(o.confidence) || 0.6)),
 };
 });
-state.emptySpace = emptySpace && !state.items.length;
-if (state.emptySpace) {
+state.emptySpace = !state.items.length;
 state.emptySource = 'photo';
-if (state.emptyEstimate) state.surface = { ...state.emptyEstimate };
+if (state.emptySpace) {
 addItem();
+if (!scale) state.scaleInfo = { kind: 'empty' };
 }
+state.edit = null;
+renderScaleBanner();
+renderPhotoRef();
 renderDetectedSpace();
 renderItems();
-const refSure = method !== 'auto' || (Number(analysis.scaleReference?.confidence) || 0) >= 0.6;
-state.autoAccepted = !state.emptySpace && autoSkipOn() && refSure &&
-overallConfidence({ scaleScore, approxRef, items: state.items }) >= AUTO_SKIP_THRESHOLD;
-if (state.autoAccepted && await onPlan()) return;
-state.autoAccepted = false;
 showScreen('review');
 } catch (err) {
-toast(err.message);
+toast(err.message, 5000);
+onDescribeFromAnswers(caller);
+} finally {
+loading(false);
+}
+}
+function applyDetectedHand(hand) {
+if (hand !== 'right' && hand !== 'left') { state.handDetected = null; return; }
+const before = $('#dominantHand').value;
+$('#dominantHand').value = hand;
+store.setPrefs({ dominantHand: hand });
+state.handDetected = hand;
+if (before !== hand) toast(t('handDetected', { hand: t(hand) }), 5000);
+}
+async function onDescribeFromAnswers(caller, why = '') {
+const whatIsIt = $('#whatInput').value.trim();
+const whatToPut = $('#putInput').value.trim();
+if (!whatIsIt && !whatToPut) {
+$('#whatInput').focus();
+$('#whatInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+return toast(why ? `${why} ${t('answerFirst')}` : t('answerFirst'), 8000);
+}
+if (why) toast(why, 5000);
+const c = caller || await aiReady();
+if (!c) return toast(t('t_noAI'));
+loading(true, t('t_analyzing'));
+try {
+const chosen = $('#spaceType').value;
+const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
+const text = [whatIsIt, whatToPut && `عايز أحط فيها: ${whatToPut}`].filter(Boolean).join('. ');
+const r = await describeSpace({ text, caller: c, lang: getLang(), profile: chosenProfile });
+applyDescribed(r, text);
+} catch (err) {
+toast(err.message || t('describeNone'));
 } finally {
 loading(false);
 }
@@ -3561,8 +3511,7 @@ state.handDetected = null;
 state.autoAccepted = false;
 const chosen = $('#spaceType').value;
 state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
-const known = $('#sizeMethod').value === 'known' ? readKnownSize() : null;
-state.userSize = known && known.widthCm > 0 && known.depthCm > 0 ? known : null;
+state.userSize = null;
 applyProfileSize();
 state.emptySpace = true;
 state.emptySource = 'manual';
@@ -3595,15 +3544,24 @@ ${CABIN_BAGS.filter((b) => b.w).map((b) => `<option value="${b.id}" ${state.airl
 </label>
 <p class="hint wide">${escHtml(t('airlineWarn'))}</p>` : '';
 const weightHint = bag ? `<p class="hint">${escHtml(t('weightHint'))}</p>` : '';
+const near = nearestComparison(state.surface);
+const compare = `
+<label class="wide">${escHtml(t('sizeLikeQ'))}
+<select data-compare>
+<option value="">${escHtml(t('sizeKeep'))}</option>
+${SIZE_COMPARISONS.map((c) => `<option value="${c.id}" ${near?.id === c.id ? 'selected' : ''}>${escHtml(tx(c.labelAr))}</option>`).join('')}
+</select>
+</label>`;
 const spaceEditor = `
 <div class="item space-size">
 <div>
 <strong>${escHtml(bag ? t('spaceSize') : t('surfaceSize'))}</strong>
-<p class="hint">${escHtml(bag ? t('containerSizeHint') : t('surfaceSizeHint'))}</p>
+<p class="hint">${escHtml(state.sizeIsGuess ? t('sizeGuessHint') : (bag ? t('containerSizeHint') : t('surfaceSizeHint')))}</p>
 <div class="item-dims">
 <label>${escHtml(t('width'))}<input type="number" data-surface="widthCm" value="${state.surface.widthCm}" step="1" min="1"></label>
 <label>${escHtml(t('depth'))}<input type="number" data-surface="depthCm" value="${state.surface.depthCm}" step="1" min="1"></label>
 ${bag ? `<label>${escHtml(t('height'))}<input type="number" data-surface="heightCm" value="${state.surface.heightCm || 30}" step="1" min="1"></label>` : ''}
+${compare}
 ${airline}
 </div>
 </div>
@@ -3661,6 +3619,19 @@ $('#wishInput').oninput = (e) => { state.wishText = e.target.value; };
 $('#wishInput').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); onWish(); } };
 }
 $('#itemsList').onchange = (e) => {
+if (e.target.dataset.compare !== undefined) {
+const c = SIZE_COMPARISONS.find((x) => x.id === e.target.value);
+if (!c) return;
+state.surface = {
+widthCm: c.widthCm,
+depthCm: c.depthCm,
+heightCm: c.heightCm || state.surface.heightCm || 20,
+};
+state.userSize = { ...state.surface };
+state.sizeIsGuess = false;
+renderItems();
+return;
+}
 if (e.target.dataset.airline === undefined) return;
 const b = CABIN_BAGS.find((x) => x.id === e.target.value);
 if (!b?.w) return;
@@ -4008,16 +3979,9 @@ showVerdict({});
 renderOverlay();
 $('#planView').innerHTML = renderDeskPlan(state.plan);
 }
-async function onDescribe() {
-const text = $('#describeInput').value.trim();
-if (!text) return toast(t('describeNeed'));
-const caller = await aiReady();
-if (!caller) return toast(t('t_noAI'));
-loading(true, t('t_analyzing'));
-try {
+function applyDescribed(r, text) {
 const chosen = $('#spaceType').value;
 const chosenProfile = chosen !== 'auto' ? getProfile(chosen) : null;
-const r = await describeSpace({ text, caller, lang: getLang(), profile: chosenProfile });
 if (chosenProfile) {
 state.profile = chosenProfile;
 } else if (r.generatedProfile) {
@@ -4032,7 +3996,8 @@ widthCm: clampCm(sz.width, 3, 400),
 depthCm: clampCm(sz.depth, 3, 300),
 heightCm: clampCm(sz.height, 2, 250),
 };
-state.userSize = { ...state.surface };
+state.userSize = null;
+state.sizeIsGuess = !r.sizeFromUser;
 const cats = Object.keys(state.profile.categories);
 state.items = (r.items || []).slice(0, 25).map((o, i) => ({
 id: `d${Date.now()}_${i}`,
@@ -4059,15 +4024,7 @@ renderPhotoRef();
 renderDetectedSpace();
 renderItems();
 showScreen('review');
-toast(t('describeGot', {
-what: tx(state.profile.spaceTypeAr),
-n: state.items.length,
-}));
-} catch (err) {
-toast(err.message || t('describeNone'));
-} finally {
-loading(false);
-}
+toast(t('describeGot', { what: tx(state.profile.spaceTypeAr), n: state.items.length }));
 }
 function renderPhotoRef() {
 const box = $('#photoRef');
