@@ -9,7 +9,7 @@ import { validCorners, cornersFromBox } from './homography.js';
 import { startEditing, select as selectItem, moveTo, swap, undo as undoEdit, reset as resetLayout, verdict } from './edit.js';
 import { planSpaces, moveSummary, COMPANION_SUGGESTIONS } from './multispace.js';
 import { renderDeskPlan, renderBagPlan, renderLegend } from './render.js';
-import { aiReady, canSendImages, analyzeScene, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized, CAN_RENDER_IMAGE } from './ai.js';
+import { aiReady, canSendImages, analyzeScene, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized, CAN_RENDER_IMAGE, NEEDS_KEY } from './ai.js';
 import { BUILT_IN_PROFILES, GENERIC_PROFILE, GENERIC_CONTAINER, normalizeProfile, profileOptions, getProfile, isContainer, ZONES } from './profiles.js';
 import { CABIN_BAGS, BAG_CATEGORIES } from '../data/bags.js';
 import { store } from './store.js';
@@ -281,6 +281,11 @@ function init() {
     runSpaces();
   });
 
+  // خانة المفتاح بتظهر بس في النسخة اللي محتاجاه — نسخة الآرتيفاكت مش محتاجة
+  $('#keyWrap').classList.toggle('hidden', !NEEDS_KEY);
+  $('#apiKey').value = store.getPrefs().geminiKey || '';
+  $('#apiKey').addEventListener('change', () => store.setPrefs({ geminiKey: $('#apiKey').value.trim() }));
+
   $('#btnSettings').addEventListener('click', () => $('#settingsDialog').showModal());
   setupInstall();
 
@@ -315,10 +320,10 @@ async function onFilePicked(e) {
 
 /* ═══════════ التحليل ═══════════ */
 async function onAnalyze() {
-  const sample = await aiReady();
-  if (!sample) return toast(t('t_noAIphoto'));
+  const caller = await aiReady();
+  if (!caller) return toast(t('t_noAIphoto'));
   if (!state.image) return toast(t('t_pickPhoto'));
-  if (!(await canSendImages(sample))) return toast(t('t_noImages'));
+  if (!(await canSendImages(caller))) return toast(t('t_noImages'));
 
   const method = $('#sizeMethod').value;
   const refId = $('#scaleRef').value;
@@ -352,7 +357,7 @@ async function onAnalyze() {
             : tx(ref.labelAr),
       profile: chosenProfile,
       intent,
-      sample,
+      caller,
       lang: getLang(),
       sizeMethod: method,
     });
@@ -785,10 +790,10 @@ function renderBagResult() {
 /* ═══════════ إضافات الـAI ═══════════ */
 async function maybeExplain() {
   $('#aiNote').classList.add('hidden');
-  const sample = await aiReady();
-  if (!sample) return;
+  const caller = await aiReady();
+  if (!caller) return;
   try {
-    const text = await explainPlan({ mode: isBag() ? 'bag' : 'surface', plan: state.plan, sample, lang: getLang() });
+    const text = await explainPlan({ mode: isBag() ? 'bag' : 'surface', plan: state.plan, caller, lang: getLang() });
     if (text.trim()) {
       $('#aiNote').textContent = text.trim();
       $('#aiNote').classList.remove('hidden');
@@ -797,11 +802,11 @@ async function maybeExplain() {
 }
 
 async function onAfterImage() {
-  const sample = await aiReady();
+  const caller = await aiReady();
   if (!state.image) return toast(t('t_noOriginal'));
   loading(true, t('t_drawing'));
   try {
-    const url = await renderAfterImage({ image: state.image, plan: state.plan, sample });
+    const url = await renderAfterImage({ image: state.image, plan: state.plan, caller });
     $('#afterImage').src = url;
     $('#afterImageWrap').classList.remove('hidden');
     $('#afterImageWrap').scrollIntoView({ behavior: 'smooth' });
@@ -1045,12 +1050,12 @@ function onResetLayout() {
 async function onFitAsk() {
   const what = $('#fitName').value.trim();
   if (!what) return toast(t('fitNeedSize'));
-  const sample = await aiReady();
-  if (!sample) return toast(t('t_noAI'));
+  const caller = await aiReady();
+  if (!caller) return toast(t('t_noAI'));
   loading(true, t('t_analyzing'));
   try {
     const cats = Object.keys((state.profile || GENERIC_PROFILE).categories);
-    const r = await sample.json(
+    const r = await caller.json(
       `قد إيه مقاس "${what}" بالسنتيمتر تقريباً؟ رد بـJSON بس:\n` +
       `{"widthCm":0,"depthCm":0,"heightCm":0,"category":"واحدة من: ${cats.join('، ')}"}`,
       { modelTier: 'quick' });
@@ -1165,15 +1170,15 @@ function runSpaces() {
 /* ═══════════ ٦: التوجيه بالكلام ═══════════ */
 
 async function onAdaptProfile() {
-  const sample = await aiReady();
-  if (!sample) return toast(t('t_noAI'));
+  const caller = await aiReady();
+  if (!caller) return toast(t('t_noAI'));
   const intent = $('#adaptIntent').value.trim();
   if (!intent) return toast(t('t_writeIntent'));
   if (!state.profile) return toast(t('t_needSpace'));
 
   loading(true, t('t_rewriting'));
   try {
-    const adapted = await adaptProfile({ profile: state.profile, intent, sample, lang: getLang() });
+    const adapted = await adaptProfile({ profile: state.profile, intent, caller, lang: getLang() });
     if (!adapted) throw new Error(t('t_noRules'));
     const before = state.profile.spaceTypeAr;
     state.profile = normalizeProfile(adapted, state.profile);
@@ -1197,8 +1202,8 @@ async function onAdaptProfile() {
 /* ═══════════ ٧: اسأل عن مساحتك ═══════════ */
 
 async function onAsk() {
-  const sample = await aiReady();
-  if (!sample) return toast(t('t_noAI'));
+  const caller = await aiReady();
+  if (!caller) return toast(t('t_noAI'));
   const question = $('#askInput').value.trim();
   if (!question) return toast(t('t_writeQuestion'));
   if (!state.plan) return toast(t('t_calcFirst'));
@@ -1208,7 +1213,7 @@ async function onAsk() {
     $('#askAnswer').textContent = t('thinking');
     $('#askAnswer').classList.remove('hidden');
     const answer = await askAboutSpace({
-      question, plan: state.plan, mode: isBag() ? 'bag' : 'surface', sample, lang: getLang(),
+      question, plan: state.plan, mode: isBag() ? 'bag' : 'surface', caller, lang: getLang(),
       onText: ({ text }) => { $('#askAnswer').textContent = text; },
     });
     $('#askAnswer').textContent = answer.trim() || t('t_noAnswer');

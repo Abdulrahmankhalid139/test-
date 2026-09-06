@@ -587,6 +587,11 @@ background:var(--card);padding:10px 12px}
     <p class="hint" data-i18n="aboutPrivacy"></p>
     <label class="check"><input type="checkbox" id="optAutoSkip" checked> <span data-i18n="optAutoSkip"></span></label>
     <p class="hint" data-i18n="optAutoSkipHint"></p>
+    <div id="keyWrap" class="hidden">
+      <label class="label" for="apiKey" data-i18n="apiKeyLabel"></label>
+      <input id="apiKey" class="input" type="password" autocomplete="off" data-i18n-ph="apiKeyPh" placeholder="">
+      <p class="hint" data-i18n-html="apiKeyHint"></p>
+    </div>
     <button id="btnInstall" type="button" class="btn ghost hidden" data-i18n="install"></button>
     <div class="row">
       <button value="ok" class="btn primary" data-i18n="ok"></button>
@@ -647,6 +652,9 @@ photoHint: 'أي مساحة — سطح أو حاجة بترص جواها',
 analyze: 'حلّل الصورة',
 manual: 'أو أدخل الحاجات بنفسك',
 privacy: 'الصورة بتتبعت لـClaude عشان يحللها بس، ومش بتتخزن في أي مكان.',
+apiKeyLabel: 'مفتاح Gemini',
+apiKeyPh: 'الصق المفتاح هنا',
+apiKeyHint: 'مجاني من <b>Google AI Studio</b>. بيتخزن على جهازك بس، ومابيروحش لأي حد غير جوجل. من غيره التطبيق بيشتغل بالإدخال اليدوي عادي.',
 viewPlan: 'المخطط', viewPhoto: 'على صورتي',
 photoExact: 'المخطط مرسوم على صورتك بأركان السطح اللي التطبيق شافها.',
 photoApprox: '⚠️ الأركان تقريبية — التطبيق شاف حدود السطح بس مش أركانه، فالرسم على الصورة تقديري.',
@@ -844,6 +852,9 @@ photoHint: 'Any space — a surface, or something you pack into',
 analyze: 'Analyse photo',
 manual: 'Or enter items yourself',
 privacy: 'The photo goes to Claude for analysis only and is never stored.',
+apiKeyLabel: 'Gemini key',
+apiKeyPh: 'Paste your key here',
+apiKeyHint: 'Free from <b>Google AI Studio</b>. Stored on your device only, and sent to nobody but Google. Without it the app still works with manual entry.',
 viewPlan: 'Plan', viewPhoto: 'On my photo',
 photoExact: 'The plan is drawn onto your photo using the surface corners the app found.',
 photoApprox: '⚠️ The corners are approximate — the app saw the edges of the surface but not its corners, so this drawing is an estimate.',
@@ -2714,6 +2725,7 @@ dominantHand: 'right',
 windowSide: 'none',
 scaleRef: 'card',
 customRefCm: 0,
+geminiKey: '',
 autoSkip: true,
 }),
 setPrefs: (p) => safeSet(KEY_PREFS, { ...store.getPrefs(), ...p }),
@@ -2752,7 +2764,7 @@ food:       { labelAr:'أكل',               keepUpright:true,  fragile:false }
 other:      { labelAr:'حاجة تانية',        keepUpright:false, fragile:false },
 };
 
-/* js/ai.js */
+/* js/ai-core.js */
 const LANG_NOTE = {
 ar: '',
 en: '\n\nIMPORTANT: write your entire answer in English, not Arabic.',
@@ -2769,20 +2781,30 @@ const BAG_CATS_LIST = [
 'laptop', 'electronics', 'camera', 'glass', 'shoes', 'clothes',
 'toiletries', 'book', 'food', 'other',
 ];
-async function aiReady() {
-try {
-return (await window.claude?.use?.('sample')) || null;
-} catch {
-return null;
-}
-}
-async function canSendImages(sample) {
-try {
-const limits = await sample.limits();
-return !!limits?.images;
-} catch {
-return false;
-}
+const RULES_BRIEF = `
+القواعد بتتكتب بالمفردات دي بس:
+- zone: ${ZONE_ENUM.join(' / ')} (قدامه مباشرة / في متناول إيده / مد دراع / في العمق / بعيد)
+- side: ${SIDE_ENUM.join(' / ')} (ناحية إيده المسيطرة / الناحية التانية / في النص / أي مكان)
+- anchor: الحاجة الرئيسية اللي المساحة بتتبني حواليها — ${ANCHOR_ENUM.join(' / ')}.
+back-center = اللي بيبص لها (شاشة/مراية) · front-center = اللي بيشتغل عليه (كيبورد/تختة) ·
+front-dominant = جنب إيده (ماوس). كل خانة تتاخد مرة واحدة بالكتير.
+- الأعلام: tall (عالية فممكن تحجب) · keepDry (سايلة) · avoidLight (بتبوظ في الشمس) ·
+wantsLight (محتاجة ضو) · hot (بتسخن) · screen (شاشة).
+لازم تسيب فئة اسمها other لأي حاجة مش داخلة في تصنيف.
+لو المساحة container، الأعلام المهمة بقت: keepUpright (لازم تفضل واقفة) ·
+fragile (قابلة للكسر فبتترص فوق) · compressible (لينة فبتتحشر في الفراغات).
+والمناطق والنواحي مش مهمة في الحالة دي.
+`;
+function friendlyError(err) {
+const code = err?.code;
+if (code === 'not_granted') return new Error('لازم توافق على استخدام Claude عشان الميزة دي تشتغل');
+if (code === 'rate_limited') return new Error('في ضغط دلوقتي — استنى شوية وجرب تاني');
+if (code === 'images_unavailable') return new Error('العرض ده مش بيسمح ببعت صور. استخدم «أدخل الحاجات بنفسك»');
+if (code === 'image_rejected') return new Error('الصورة دي مترفضت — جرب صورة تانية بصيغة JPG');
+if (code === 'invalid_json') return new Error('رد الموديل مكانش مفهوم — جرب تاني');
+if (code === 'no_key') return new Error('محتاج مفتاح API — افتح الإعدادات وحطه');
+if (code === 'cancelled') return new Error('اتلغى');
+return new Error(err?.message || 'حصل خطأ — جرب تاني');
 }
 function fileToBase64Resized(file, maxSide = 1280) {
 return new Promise((resolve, reject) => {
@@ -2811,31 +2833,7 @@ reject(new Error('مقدرناش نفتح الصورة دي'));
 img.src = url;
 });
 }
-function friendlyError(err) {
-const code = err?.code;
-if (code === 'not_granted') return new Error('لازم توافق على استخدام Claude عشان الميزة دي تشتغل');
-if (code === 'rate_limited') return new Error('في ضغط دلوقتي — استنى شوية وجرب تاني');
-if (code === 'images_unavailable') return new Error('العرض ده مش بيسمح ببعت صور. استخدم «أدخل الحاجات بنفسك»');
-if (code === 'image_rejected') return new Error('الصورة دي مترفضت — جرب صورة تانية بصيغة JPG');
-if (code === 'invalid_json') return new Error('رد الموديل مكانش مفهوم — جرب تاني');
-if (code === 'cancelled') return new Error('اتلغى');
-return new Error(err?.message || 'حصل خطأ — جرب تاني');
-}
-const RULES_BRIEF = `
-القواعد بتتكتب بالمفردات دي بس:
-- zone: ${ZONE_ENUM.join(' / ')} (قدامه مباشرة / في متناول إيده / مد دراع / في العمق / بعيد)
-- side: ${SIDE_ENUM.join(' / ')} (ناحية إيده المسيطرة / الناحية التانية / في النص / أي مكان)
-- anchor: الحاجة الرئيسية اللي المساحة بتتبني حواليها — ${ANCHOR_ENUM.join(' / ')}.
-back-center = اللي بيبص لها (شاشة/مراية) · front-center = اللي بيشتغل عليه (كيبورد/تختة) ·
-front-dominant = جنب إيده (ماوس). كل خانة تتاخد مرة واحدة بالكتير.
-- الأعلام: tall (عالية فممكن تحجب) · keepDry (سايلة) · avoidLight (بتبوظ في الشمس) ·
-wantsLight (محتاجة ضو) · hot (بتسخن) · screen (شاشة).
-لازم تسيب فئة اسمها other لأي حاجة مش داخلة في تصنيف.
-لو المساحة container، الأعلام المهمة بقت: keepUpright (لازم تفضل واقفة) ·
-fragile (قابلة للكسر فبتترص فوق) · compressible (لينة فبتتحشر في الفراغات).
-والمناطق والنواحي مش مهمة في الحالة دي.
-`;
-async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, sample, lang = 'ar', sizeMethod = 'ref' }) {
+async function analyzeScene({ image, mode, scaleRefLabel, profile, intent, caller, lang = 'ar', sizeMethod = 'ref' }) {
 const isBag = mode === 'bag';
 const generateProfile = !isBag && !profile;
 const known = sizeMethod === 'known';
@@ -2918,7 +2916,7 @@ prompt += `
 لو الأدلة مش واضحة رجّع "unknown" — ده أحسن بكتير من تخمين، لأن الترتيب كله بينقلب عليه.${LANG_NOTE[lang]}`;
 let json;
 try {
-json = await sample.json(prompt, { images: image.blob, modelTier: 'complex' });
+json = await caller.json(prompt, { images: image.blob || image.base64, modelTier: 'complex' });
 } catch (err) {
 throw friendlyError(err);
 }
@@ -2946,7 +2944,7 @@ categories,
 tipsAr: raw.tipsAr,
 };
 }
-async function adaptProfile({ profile, intent, sample, lang = 'ar' }) {
+async function adaptProfile({ profile, intent, caller, lang = 'ar' }) {
 const current = Object.entries(profile.categories)
 .map(([k, v]) => `${k} | ${labelOf(v.labelAr)} | ${v.zone} | ${v.side}${v.anchor ? ' | anchor:' + v.anchor : ''}`)
 .join('\n');
@@ -2962,12 +2960,12 @@ ${RULES_BRIEF}
 "categories":[{"key":"...","labelAr":"...","zone":"...","side":"...","anchor":"...","tall":false,"keepDry":false,"avoidLight":false,"wantsLight":false,"hot":false,"screen":false}],
 "tipsAr":["..."]}`;
 try {
-return profileFromModel(await sample.json(prompt, { modelTier: 'default' }));
+return profileFromModel(await caller.json(prompt, { modelTier: 'default' }));
 } catch (err) {
 throw friendlyError(err);
 }
 }
-async function explainPlan({ mode, plan, sample, lang = 'ar' }) {
+async function explainPlan({ mode, plan, caller, lang = 'ar' }) {
 const summary = mode === 'bag'
 ? plan.steps.map((s) => `${s.step}. ${s.nameAr} — ${s.positionAr}`).join('\n')
 : plan.placed.map((p) => p.nameAr).join('، ');
@@ -2976,10 +2974,10 @@ ${summary}
 اكتب فقرة قصيرة (٣ لـ ٤ جمل) بالعامية المصرية تشرح منطق الترتيب ده وأهم حاجة يركز عليها.
 متكررش الليستة، وميبقاش فيها عناوين ولا نقط. كلام طبيعي زي ما صاحبك بيشرحلك.
 متخترعش أرقام أو تفاصيل مش موجودة فوق. رد بالفقرة بس.${LANG_NOTE[lang]}`;
-const res = await sample(prompt, { modelTier: 'quick' });
+const res = await caller(prompt, { modelTier: 'quick' });
 return res.text || '';
 }
-async function askAboutSpace({ question, plan, mode, sample, onText, lang = 'ar' }) {
+async function askAboutSpace({ question, plan, mode, caller, onText, lang = 'ar' }) {
 const context = mode === 'bag'
 ? `شنطة، ترتيب الرص:\n${plan.steps.map((s) => `${s.step}. ${s.nameAr}`).join('\n')}` +
 (plan.unplaced?.length ? `\nمدخلش: ${plan.unplaced.map((u) => u.nameAr).join('، ')}` : '')
@@ -2992,12 +2990,30 @@ ${context}
 جاوبه بالعامية المصرية في ٤ جمل بالكتير، بناءً على المساحة والمقاسات اللي فوق بالظبط.
 لو السؤال محتاج معلومة مش موجودة فوق، قوله إنك مش شايفها في الصورة بدل ما تخترع.
 كن عملي ومحدد — اقترح حاجة يعملها.${LANG_NOTE[lang]}`;
-const res = await sample(prompt, { modelTier: 'default', onText, cache: false });
+const res = await caller(prompt, { modelTier: 'default', onText, cache: false });
 return res.text || '';
 }
+
+/* js/ai.js */
+async function aiReady() {
+try {
+return (await window.claude?.use?.('sample')) || null;
+} catch {
+return null;
+}
+}
+async function canSendImages(caller) {
+try {
+const limits = await caller.limits();
+return !!limits?.images;
+} catch {
+return false;
+}
+}
+const NEEDS_KEY = false;
 const CAN_RENDER_IMAGE = false;
 async function renderAfterImage() {
-throw new Error('توليد الصور مش متاح في النسخة دي — المخطط المرسوم هو الدقيق أصلاً');
+throw friendlyError(new Error('توليد الصور مش متاح في النسخة دي — المخطط المرسوم هو الدقيق أصلاً'));
 }
 
 /* js/app.js */
@@ -3198,6 +3214,9 @@ state.extraSpaces.splice(+i, 1);
 renderSpaces();
 runSpaces();
 });
+$('#keyWrap').classList.toggle('hidden', !NEEDS_KEY);
+$('#apiKey').value = store.getPrefs().geminiKey || '';
+$('#apiKey').addEventListener('change', () => store.setPrefs({ geminiKey: $('#apiKey').value.trim() }));
 $('#btnSettings').addEventListener('click', () => $('#settingsDialog').showModal());
 setupInstall();
 if ('serviceWorker' in navigator) {
@@ -3225,10 +3244,10 @@ toast(err.message);
 }
 }
 async function onAnalyze() {
-const sample = await aiReady();
-if (!sample) return toast(t('t_noAIphoto'));
+const caller = await aiReady();
+if (!caller) return toast(t('t_noAIphoto'));
 if (!state.image) return toast(t('t_pickPhoto'));
-if (!(await canSendImages(sample))) return toast(t('t_noImages'));
+if (!(await canSendImages(caller))) return toast(t('t_noImages'));
 const method = $('#sizeMethod').value;
 const refId = $('#scaleRef').value;
 const ref = SCALE_REFERENCES[refId] || SCALE_REFERENCES.card;
@@ -3255,7 +3274,7 @@ scaleRefLabel: method === 'auto'
 : tx(ref.labelAr),
 profile: chosenProfile,
 intent,
-sample,
+caller,
 lang: getLang(),
 sizeMethod: method,
 });
@@ -3611,10 +3630,10 @@ $('#btnAfterImage').classList.add('hidden');
 }
 async function maybeExplain() {
 $('#aiNote').classList.add('hidden');
-const sample = await aiReady();
-if (!sample) return;
+const caller = await aiReady();
+if (!caller) return;
 try {
-const text = await explainPlan({ mode: isBag() ? 'bag' : 'surface', plan: state.plan, sample, lang: getLang() });
+const text = await explainPlan({ mode: isBag() ? 'bag' : 'surface', plan: state.plan, caller, lang: getLang() });
 if (text.trim()) {
 $('#aiNote').textContent = text.trim();
 $('#aiNote').classList.remove('hidden');
@@ -3622,11 +3641,11 @@ $('#aiNote').classList.remove('hidden');
 } catch { /* الشرح رفاهية — المخطط هو الأساس */ }
 }
 async function onAfterImage() {
-const sample = await aiReady();
+const caller = await aiReady();
 if (!state.image) return toast(t('t_noOriginal'));
 loading(true, t('t_drawing'));
 try {
-const url = await renderAfterImage({ image: state.image, plan: state.plan, sample });
+const url = await renderAfterImage({ image: state.image, plan: state.plan, caller });
 $('#afterImage').src = url;
 $('#afterImageWrap').classList.remove('hidden');
 $('#afterImageWrap').scrollIntoView({ behavior: 'smooth' });
@@ -3821,12 +3840,12 @@ $('#planView').innerHTML = renderDeskPlan(state.plan);
 async function onFitAsk() {
 const what = $('#fitName').value.trim();
 if (!what) return toast(t('fitNeedSize'));
-const sample = await aiReady();
-if (!sample) return toast(t('t_noAI'));
+const caller = await aiReady();
+if (!caller) return toast(t('t_noAI'));
 loading(true, t('t_analyzing'));
 try {
 const cats = Object.keys((state.profile || GENERIC_PROFILE).categories);
-const r = await sample.json(
+const r = await caller.json(
 `قد إيه مقاس "${what}" بالسنتيمتر تقريباً؟ رد بـJSON بس:\n` +
 `{"widthCm":0,"depthCm":0,"heightCm":0,"category":"واحدة من: ${cats.join('، ')}"}`,
 { modelTier: 'quick' });
@@ -3923,14 +3942,14 @@ sum.homelessCount
 ].join('');
 }
 async function onAdaptProfile() {
-const sample = await aiReady();
-if (!sample) return toast(t('t_noAI'));
+const caller = await aiReady();
+if (!caller) return toast(t('t_noAI'));
 const intent = $('#adaptIntent').value.trim();
 if (!intent) return toast(t('t_writeIntent'));
 if (!state.profile) return toast(t('t_needSpace'));
 loading(true, t('t_rewriting'));
 try {
-const adapted = await adaptProfile({ profile: state.profile, intent, sample, lang: getLang() });
+const adapted = await adaptProfile({ profile: state.profile, intent, caller, lang: getLang() });
 if (!adapted) throw new Error(t('t_noRules'));
 const before = state.profile.spaceTypeAr;
 state.profile = normalizeProfile(adapted, state.profile);
@@ -3949,8 +3968,8 @@ loading(false);
 }
 }
 async function onAsk() {
-const sample = await aiReady();
-if (!sample) return toast(t('t_noAI'));
+const caller = await aiReady();
+if (!caller) return toast(t('t_noAI'));
 const question = $('#askInput').value.trim();
 if (!question) return toast(t('t_writeQuestion'));
 if (!state.plan) return toast(t('t_calcFirst'));
@@ -3959,7 +3978,7 @@ try {
 $('#askAnswer').textContent = t('thinking');
 $('#askAnswer').classList.remove('hidden');
 const answer = await askAboutSpace({
-question, plan: state.plan, mode: isBag() ? 'bag' : 'surface', sample, lang: getLang(),
+question, plan: state.plan, mode: isBag() ? 'bag' : 'surface', caller, lang: getLang(),
 onText: ({ text }) => { $('#askAnswer').textContent = text; },
 });
 $('#askAnswer').textContent = answer.trim() || t('t_noAnswer');

@@ -34,6 +34,8 @@ export const store = {
     windowSide: 'none',
     scaleRef: 'card',
     customRefCm: 0,
+    // مفتاح Gemini — بيتخزن على جهاز المستخدم بس، ومابيتبعتش لأي حد غير جوجل
+    geminiKey: '',
     // تخطي المراجعة شغال افتراضياً. القراية بتتعمل بـ !== false عشان
     // اللي عنده تفضيلات محفوظة من قبل الميزة دي ميلاقيش undefined = مقفول.
     autoSkip: true,

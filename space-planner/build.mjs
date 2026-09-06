@@ -15,15 +15,11 @@ const AI_MODULE = process.argv.includes('--gemini') ? 'js/ai-gemini.js' : 'js/ai
 const ORDER = [
   'js/i18n.js', 'js/geometry.js', 'js/profiles.js', 'js/packing.js', 'js/surface.js',
   'js/homography.js', 'js/render.js', 'js/overlay.js', 'js/edit.js', 'js/multispace.js',
-  'js/store.js', 'data/bags.js', AI_MODULE, 'js/app.js',
+  'js/store.js', 'data/bags.js', 'js/ai-core.js', AI_MODULE, 'js/app.js',
 ];
 
 // تصادمات الأسماء بين الموديولات — لازم تتحل قبل الدمج
 const RENAMES = {
-  'js/ai-gemini.js': [
-    // ليستة أسماء فئات الشنطة في vision.js بتتصادم مع كائن الفئات في bags.js
-    [/\bBAG_CATEGORIES\b/g, 'BAG_CATS_LIST'],
-  ],
   'js/app.js': [
     // esc معرّفة في render.js كـ function وفي app.js كـ const
     [/\bconst esc = /, 'const escHtml = '],
@@ -69,7 +65,8 @@ for (const file of ORDER) {
   src = src
     .replace(/^import\s+[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, '')  // الاستيرادات
     .replace(/^export\s+(const|function|async function|class|let)\s/gm, '$1 ')
-    .replace(/^export\s*\{[^}]*\};?\s*$/gm, '');
+    // إعادة التصدير ممكن تبقى على أكتر من سطر، فالنمط مايقدرش يكون مربوط بسطر واحد
+    .replace(/^export\s*\{[\s\S]*?\}\s*(from\s*['"][^'"]+['"])?;?[ \t]*$/gm, '');
 
   if (MINIFY) {
     src = stripFullLineComments(src);

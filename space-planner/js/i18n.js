@@ -58,6 +58,9 @@ const STRINGS = {
     manual: 'أو أدخل الحاجات بنفسك',
     privacy: 'الصورة بتتبعت لـClaude عشان يحللها بس، ومش بتتخزن في أي مكان.',
 
+    apiKeyLabel: 'مفتاح Gemini',
+    apiKeyPh: 'الصق المفتاح هنا',
+    apiKeyHint: 'مجاني من <b>Google AI Studio</b>. بيتخزن على جهازك بس، ومابيروحش لأي حد غير جوجل. من غيره التطبيق بيشتغل بالإدخال اليدوي عادي.',
     viewPlan: 'المخطط', viewPhoto: 'على صورتي',
     photoExact: 'المخطط مرسوم على صورتك بأركان السطح اللي التطبيق شافها.',
     photoApprox: '⚠️ الأركان تقريبية — التطبيق شاف حدود السطح بس مش أركانه، فالرسم على الصورة تقديري.',
@@ -277,6 +280,9 @@ const STRINGS = {
     manual: 'Or enter items yourself',
     privacy: 'The photo goes to Claude for analysis only and is never stored.',
 
+    apiKeyLabel: 'Gemini key',
+    apiKeyPh: 'Paste your key here',
+    apiKeyHint: 'Free from <b>Google AI Studio</b>. Stored on your device only, and sent to nobody but Google. Without it the app still works with manual entry.',
     viewPlan: 'Plan', viewPhoto: 'On my photo',
     photoExact: 'The plan is drawn onto your photo using the surface corners the app found.',
     photoApprox: '⚠️ The corners are approximate — the app saw the edges of the surface but not its corners, so this drawing is an estimate.',
