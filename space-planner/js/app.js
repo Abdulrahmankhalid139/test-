@@ -42,6 +42,7 @@ const state = {
   extraSpaces: [],
   // المساحة اتصوّرت وهي فاضية — السؤال بقى «إيه اللي يدخل؟» مش «رتّب اللي موجود»
   emptySpace: false,
+  emptySource: 'photo',
   emptyEstimate: null,
   // إيد المستخدم اللي الموديل استنتجها من الصورة — null يعني اختياره هو اللي ساري
   handDetected: null,
@@ -334,7 +335,14 @@ async function onAnalyze() {
   const caller = await aiReady();
   if (!caller) return toast(t('t_noAIphoto'));
   if (!state.image) return toast(t('t_pickPhoto'));
-  if (!(await canSendImages(caller))) return toast(t('t_noImages'));
+  if (!(await canSendImages(caller))) {
+    // العرض ده مش بيسمح ببعت صور. ده قيد من المنصة مش عيب في الصورة،
+    // والسؤال «إيه اللي يدخل هنا؟» ماله دعوة بالصورة أصلاً — فبنوديه
+    // للمسار اللي هيجاوبه بدل ما نسيبه واقف.
+    toast(t('t_noImages'), 6000);
+    onManual();
+    return;
+  }
 
   const method = $('#sizeMethod').value;
   const refId = $('#scaleRef').value;
@@ -542,6 +550,7 @@ async function onAnalyze() {
     // يدخل فيها كان أصل الفكرة من البداية، فمنعرفش نرفضه.
     state.emptySpace = emptySpace && !state.items.length;
     if (state.emptySpace) {
+      state.emptySource = 'photo';
       if (state.emptyEstimate) state.surface = { ...state.emptyEstimate };
       addItem();
     }
@@ -577,6 +586,10 @@ function onManual() {
   const known = $('#sizeMethod').value === 'known' ? readKnownSize() : null;
   state.userSize = known && known.widthCm > 0 && known.depthCm > 0 ? known : null;
   applyProfileSize();
+  // مفيش صورة يعني مفيش حاجات اتشافت — وده بالظبط حالة «المساحة الفاضية»:
+  // اكتب المقاس، وقول عايز تحط إيه. الفرق الوحيد إن مفيش صورة أصلاً.
+  state.emptySpace = true;
+  state.emptySource = 'manual';
   addItem();
   renderDetectedSpace();
   state.scaleInfo = { kind: 'manual' };
@@ -633,8 +646,8 @@ function renderItems() {
   const emptyIntro = state.emptySpace ? `
     <div class="item empty-intro">
       <div>
-        <strong>${esc(t('emptyTitle'))}</strong>
-        <p class="hint">${esc(t('emptyHint'))}</p>
+        <strong>${esc(t(state.emptySource === 'manual' ? 'emptyTitleManual' : 'emptyTitle'))}</strong>
+        <p class="hint">${esc(t(state.emptySource === 'manual' ? 'emptyHintManual' : 'emptyHint'))}</p>
         <div class="row">
           <input id="wishInput" class="input" type="text" maxlength="200"
                  value="${esc(state.wishText || '')}" placeholder="${esc(t('wishPh'))}">

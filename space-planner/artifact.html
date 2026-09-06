@@ -643,6 +643,8 @@ apiKeyPh: 'الصق المفتاح هنا',
 apiKeyHint: 'مجاني من <b>Google AI Studio</b>. بيتخزن على جهازك بس، ومابيروحش لأي حد غير جوجل. من غيره التطبيق بيشتغل بالإدخال اليدوي عادي.',
 b_empty: '📦 المساحة دي فاضية — مفيش حاجات نقيسها، فمش محتاجين مرجع قياس. اكتب مقاسها واللي عايز تحطه فيها.',
 emptyTitle: 'المساحة دي فاضية',
+emptyTitleManual: 'قول عايز تحط إيه',
+emptyHintManual: 'اكتب مقاس المساحة فوق، وبعدين قول عايز تحط فيها إيه بجملة عادية — والتطبيق يقولك إيه اللي يدخل وإيه اللي لأ. مش محتاج صورة.',
 emptyHint: 'صوّرت مساحة مفيهاش حاجات — يعني سؤالك مش «رتّبلي اللي موجود» لكن «إيه اللي يدخل هنا؟». اكتب المقاس فوق، وقول عايز تحط إيه.',
 wishPh: 'أقلام، مقص، شاحن...',
 wishBtn: '🤖 هاتهم',
@@ -773,7 +775,7 @@ t_needKnownSize: 'اكتب عرض وعمق المساحة الأول',
 t_spaceNotFound: 'مالقيناش المساحة نفسها في الصورة. صوّرها كاملة في الكادر وحاول تاني.',
 t_noAI: 'الميزة دي محتاجة Claude — مش متاحة في العرض ده',
 t_noAIphoto: 'تحليل الصور مش متاح هنا — استخدم «أدخل الحاجات بنفسك»',
-t_noImages: 'العرض ده مش بيسمح ببعت صور — استخدم «أدخل الحاجات بنفسك»',
+t_noImages: 'العرض ده مش بيسمح ببعت صور لـClaude — ده قيد من المنصة مش مشكلة في صورتك. ودّيناك للإدخال اليدوي: اكتب المقاس وقول عايز تحط إيه، والباقي هيشتغل عادي.',
 t_writeIntent: 'اكتب عايز إيه من المساحة',
 t_needSpace: 'محتاجين نعرف المساحة الأول',
 t_writeQuestion: 'اكتب سؤالك',
@@ -851,6 +853,8 @@ apiKeyPh: 'Paste your key here',
 apiKeyHint: 'Free from <b>Google AI Studio</b>. Stored on your device only, and sent to nobody but Google. Without it the app still works with manual entry.',
 b_empty: '📦 This space is empty — there is nothing to measure, so no scale reference is needed. Type its size and what you want to put in it.',
 emptyTitle: 'This space is empty',
+emptyTitleManual: 'Say what you want to put in',
+emptyHintManual: 'Type the size of the space above, then say what you want to put in it in a plain sentence — the app tells you what fits and what does not. No photo needed.',
 emptyHint: 'You photographed a space with nothing in it — so your question is not "arrange what is here" but "what fits in here?". Type the size above, and say what you want to put in.',
 wishPh: 'pens, scissors, charger...',
 wishBtn: '🤖 Add them',
@@ -981,7 +985,7 @@ t_needKnownSize: 'Type the width and depth of the space first',
 t_spaceNotFound: 'We could not find the space itself in the photo. Fit all of it in frame and try again.',
 t_noAI: 'This feature needs Claude — not available in this view',
 t_noAIphoto: 'Photo analysis is not available here — use "Enter items yourself"',
-t_noImages: 'This view cannot send images — use "Enter items yourself"',
+t_noImages: 'This view cannot send images to Claude — that is a platform limit, not a problem with your photo. We have switched you to manual entry: type the size and say what you want to put in, and everything else works as normal.',
 t_writeIntent: 'Say what you want from the space',
 t_needSpace: 'We need to know the space first',
 t_writeQuestion: 'Type your question',
@@ -3048,6 +3052,7 @@ edit: null,
 view: 'plan',
 extraSpaces: [],
 emptySpace: false,
+emptySource: 'photo',
 emptyEstimate: null,
 handDetected: null,
 autoAccepted: false,
@@ -3267,7 +3272,11 @@ async function onAnalyze() {
 const caller = await aiReady();
 if (!caller) return toast(t('t_noAIphoto'));
 if (!state.image) return toast(t('t_pickPhoto'));
-if (!(await canSendImages(caller))) return toast(t('t_noImages'));
+if (!(await canSendImages(caller))) {
+toast(t('t_noImages'), 6000);
+onManual();
+return;
+}
 const method = $('#sizeMethod').value;
 const refId = $('#scaleRef').value;
 const ref = SCALE_REFERENCES[refId] || SCALE_REFERENCES.card;
@@ -3423,6 +3432,7 @@ confidence: Math.max(0, Math.min(1, Number(o.confidence) || 0.6)),
 });
 state.emptySpace = emptySpace && !state.items.length;
 if (state.emptySpace) {
+state.emptySource = 'photo';
 if (state.emptyEstimate) state.surface = { ...state.emptyEstimate };
 addItem();
 }
@@ -3450,6 +3460,8 @@ state.profile = chosen === 'auto' ? BUILT_IN_PROFILES.desk : getProfile(chosen);
 const known = $('#sizeMethod').value === 'known' ? readKnownSize() : null;
 state.userSize = known && known.widthCm > 0 && known.depthCm > 0 ? known : null;
 applyProfileSize();
+state.emptySpace = true;
+state.emptySource = 'manual';
 addItem();
 renderDetectedSpace();
 state.scaleInfo = { kind: 'manual' };
@@ -3495,8 +3507,8 @@ ${airline}
 const emptyIntro = state.emptySpace ? `
 <div class="item empty-intro">
 <div>
-<strong>${escHtml(t('emptyTitle'))}</strong>
-<p class="hint">${escHtml(t('emptyHint'))}</p>
+<strong>${escHtml(t(state.emptySource === 'manual' ? 'emptyTitleManual' : 'emptyTitle'))}</strong>
+<p class="hint">${escHtml(t(state.emptySource === 'manual' ? 'emptyHintManual' : 'emptyHint'))}</p>
 <div class="row">
 <input id="wishInput" class="input" type="text" maxlength="200"
 value="${escHtml(state.wishText || '')}" placeholder="${escHtml(t('wishPh'))}">
