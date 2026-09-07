@@ -517,6 +517,12 @@ font:inherit;font-size:11.5px;font-weight:700;padding:4px 10px;cursor:pointer;
       <p class="hint" id="photoNote"></p>
     </div>
 
+    <div id="afterImageWrap" class="hidden">
+      <img id="afterImage" alt="">
+      <p class="hint" id="afterNote"></p>
+    </div>
+    <p class="hint" id="realImageHint"></p>
+
     <div id="editTools" class="edit-tools hidden">
       <button id="btnMoveMode" class="tool" type="button"><span>✋</span><span data-i18n="moveMode"></span></button>
       <button id="btnRemoveItem" class="tool" type="button" disabled><span>🗑</span><span data-i18n="removeItem"></span></button>
@@ -570,11 +576,6 @@ font:inherit;font-size:11.5px;font-weight:700;padding:4px 10px;cursor:pointer;
     <div class="actions">
       <button id="btnRealImage" class="btn primary hidden" data-i18n="realImage"></button>
       <button id="btnSave" class="btn ghost" data-i18n="save"></button>
-    </div>
-    <p class="hint" id="realImageHint"></p>
-    <div id="afterImageWrap" class="hidden">
-      <img id="afterImage" alt="">
-      <p class="hint" id="afterNote"></p>
     </div>
   </section>
 
@@ -777,6 +778,8 @@ askBtn: 'اسأل', thinking: 'بفكر...',
 realImage: '📸 ورّيني الشكل النهائي',
 realImageHint: 'صورة واقعية للترتيب ده — بتتولّد بحسابك وبتكلّف ٢ كريدت.',
 realImageHintEdit: 'هياخد صورتك انت ويحط الحاجات جوّاها بنفس الترتيب المحسوب.',
+fillingPhoto: 'بحط الحاجات في صورتك... ثانية واحدة.',
+needKeyForPhoto: 'عشان أحط الحاجات في صورتك، محتاج مفتاح Gemini مجاني — حطّيه من الإعدادات ⚙️ مرة واحدة.',
 aiImageEdited: 'دي صورتك انت والحاجات متحطّة فيها بالترتيب اللي فوق. الأرقام والمخطط هما الدقيق.',
 img_sending: 'بجهّز الوصف...',
 img_drawing: 'بيرسم الصورة... (نص دقيقة تقريباً)',
@@ -1034,6 +1037,8 @@ askBtn: 'Ask', thinking: 'Thinking...',
 realImage: '📸 Show me how it would look',
 realImageHint: 'A realistic photo of this arrangement — generated on your own account, 2 credits.',
 realImageHintEdit: 'It takes your own photo and puts the things inside it, in the arrangement above.',
+fillingPhoto: 'Putting the things into your photo... one moment.',
+needKeyForPhoto: 'To put the things into your photo I need a free Gemini key — add it once in Settings ⚙️.',
 aiImageEdited: 'This is your own photo with the things placed in it. The numbers and the plan are the exact part.',
 img_sending: 'Writing the description...',
 img_drawing: 'Painting it... (about half a minute)',
@@ -3736,7 +3741,7 @@ showScreen('review');
 });
 $('#btnDismissSkip').addEventListener('click', () => $('#autoSkipBar').classList.add('hidden'));
 $('#optAutoSkip').addEventListener('change', () => store.setPrefs({ autoSkip: $('#optAutoSkip').checked }));
-$('#btnRealImage').addEventListener('click', onRealImage);
+$('#btnRealImage').addEventListener('click', () => onRealImage());
 $('#btnSave').addEventListener('click', onSave);
 $('#photoOverlay').addEventListener('click', onOverlayTap);
 setupCornerDrag();
@@ -4121,6 +4126,8 @@ function noteText(n) {
 return n.text?.key ? tr(n.text) : tx(n.text);
 }
 async function onPlan() {
+state.afterDone = false;
+$('#afterImageWrap').classList.add('hidden');
 const valid = state.items.filter((i) => i.widthCm > 0 && i.depthCm > 0 && i.heightCm > 0);
 if (!valid.length) return toast(t('t_needItems'));
 if (!isBag()) {
@@ -4180,7 +4187,7 @@ ${p.offDesk.length ? `<div class="off-desk"><h3>${escHtml(t('removeThese'))}</h3
 p.offDesk.map((i) => `<li><b>${escHtml(i.nameAr)}</b> — ${escHtml(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
 syncRealImageBtn();
 const canPhoto = !!state.image;
-$('#editHint').textContent = canPhoto ? t('editHint') : '';
+$('#editHint').textContent = '';
 setView();
 $('#fitPanel').classList.remove('hidden');
 $('#spacesPanel').classList.remove('hidden');
@@ -4197,7 +4204,7 @@ $('#statsRow').innerHTML = `
 <div class="stat"><b>${p.stats.fillPercent}%</b><span>${escHtml(t('statFill'))}</span></div>
 ${p.stats.requestedWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${escHtml(t('statKg'))}</span></div>` : ''}`;
 $('#editBar').classList.add('hidden');
-$('#editHint').textContent = state.image ? t('photoDragHint') : '';
+$('#editHint').textContent = '';
 $('#fitPanel').classList.add('hidden');
 $('#spacesPanel').classList.add('hidden');
 $('#planView').innerHTML = renderBagPlan(state.bin, p.placed);
@@ -4231,7 +4238,7 @@ $('#aiNote').classList.remove('hidden');
 }
 } catch { /* الشرح رفاهية — المخطط هو الأساس */ }
 }
-async function onRealImage() {
+async function onRealImage(opts = {}) {
 if (!state.plan) return toast(t('t_calcFirst'));
 const placed = isBag() ? footprints() : shownPlaced();
 if (!placed.length) return toast(t('t_needItems'));
@@ -4251,10 +4258,13 @@ spaceNote,
 });
 $('#afterImage').src = url;
 $('#afterImageWrap').classList.remove('hidden');
+$('#photoView').classList.add('hidden');
 $('#afterNote').textContent = t('aiImageEdited');
-$('#afterImage').scrollIntoView({ behavior: 'smooth', block: 'center' });
+state.afterDone = true;
+if (!opts.quiet) $('#afterImage').scrollIntoView({ behavior: 'smooth', block: 'center' });
 } catch (err) {
-toast(err.message || t('img_failed'), 6000);
+if (!opts.quiet) toast(err.message || t('img_failed'), 6000);
+else $('#realImageHint').textContent = err.message || t('img_failed');
 } finally {
 loading(false);
 $('#btnRealImage').disabled = false;
@@ -4293,7 +4303,17 @@ const btn = $('#btnRealImage');
 const hint = $('#realImageHint');
 if (CAN_RENDER_IMAGE) {
 btn.classList.remove('hidden');
-hint.textContent = t('realImageHintEdit');
+if (state.image && !state.afterDone) {
+const caller = await aiReady();
+if (caller) {
+hint.textContent = t('fillingPhoto');
+onRealImage({ quiet: true });
+return;
+}
+hint.textContent = t('needKeyForPhoto');
+return;
+}
+hint.textContent = state.afterDone ? '' : t('realImageHintEdit');
 return;
 }
 const mcp = await imageGenReady();
@@ -4371,9 +4391,9 @@ const hasPhoto = !!state.image;
 state.view = hasPhoto ? 'photo' : 'plan';
 $('#planView').classList.toggle('hidden', hasPhoto);
 $('#photoView').classList.toggle('hidden', !hasPhoto);
-$('#editTools').classList.toggle('hidden', !hasPhoto);
-$('#removedList').classList.toggle('hidden', !hasPhoto || !state.edit?.removed?.length);
-if (hasPhoto) { renderOverlay(); renderRemoved(); }
+$('#editTools').classList.add('hidden');
+$('#removedList').classList.add('hidden');
+if (hasPhoto) renderOverlay();
 }
 const shownPlaced = () => (state.edit ? state.edit.placed : state.plan?.placed) || [];
 function footprints() {
@@ -4398,11 +4418,9 @@ return [
 }
 function renderOverlay() {
 const box = $('#photoOverlay');
-if (!state.image || !state.plan) {
 box.innerHTML = '';
-$('#photoNote').textContent = t('photoNoImage');
-return;
-}
+$('#photoNote').textContent = '';
+if (!state.image || !state.plan) return;
 if (!state.corners) {
 state.corners = defaultCorners();
 state.cornersManual = true;
@@ -4410,22 +4428,11 @@ state.cornersManual = true;
 $('#photoBase').src = state.image.dataUrl;
 const imgW = 1000;
 const imgH = Math.round(1000 * (state.image.height / state.image.width));
-const out = renderPhotoOverlay(planePlane(), footprints(), state.corners, {
-imgW, imgH,
-approx: state.cornersApprox,
-selectedId: state.edit?.selectedId,
-movedIds: state.edit ? [...state.edit.movedIds] : [],
-});
-if (!out) { box.innerHTML = ''; $('#photoNote').textContent = t('photoNoImage'); return; }
-const handles = state.corners.map((c, i) =>
-`<circle cx="${(c.x * imgW).toFixed(1)}" cy="${(c.y * imgH).toFixed(1)}" r="${imgW * 0.022}"
-class="corner-handle" data-corner="${i}" fill="var(--accent)" fill-opacity="0.85"
-stroke="#fff" stroke-width="${imgW * 0.006}"/>`).join('');
-box.innerHTML = out.svg.replace('</svg>', handles + '</svg>');
+const out = renderPhotoOverlay(planePlane(), footprints(), state.corners, { imgW, imgH });
+if (out) {
 state.projected = out.projected;
 state.homography = out.homography;
-$('#photoNote').textContent = t(state.cornersManual ? 'photoDrag'
-: state.cornersApprox ? 'photoApprox' : 'photoExact');
+}
 }
 function setupCornerDrag() {
 const box = $('#photoOverlay');

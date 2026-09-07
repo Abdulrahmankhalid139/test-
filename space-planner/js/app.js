@@ -242,7 +242,7 @@ function init() {
   });
   $('#btnDismissSkip').addEventListener('click', () => $('#autoSkipBar').classList.add('hidden'));
   $('#optAutoSkip').addEventListener('change', () => store.setPrefs({ autoSkip: $('#optAutoSkip').checked }));
-  $('#btnRealImage').addEventListener('click', onRealImage);
+  $('#btnRealImage').addEventListener('click', () => onRealImage());
   $('#btnSave').addEventListener('click', onSave);
 
   $('#photoOverlay').addEventListener('click', onOverlayTap);
@@ -741,6 +741,9 @@ function noteText(n) {
 
 /* ═══════════ الحساب ═══════════ */
 async function onPlan() {
+  // كل حساب جديد = صورة مليانة جديدة، مش القديمة
+  state.afterDone = false;
+  $('#afterImageWrap').classList.add('hidden');
   const valid = state.items.filter((i) => i.widthCm > 0 && i.depthCm > 0 && i.heightCm > 0);
   if (!valid.length) return toast(t('t_needItems'));
 
@@ -809,7 +812,7 @@ function renderDeskResult() {
 
   // الصورة هي العرض لو موجودة، وإلا المخطط
   const canPhoto = !!state.image;
-  $('#editHint').textContent = canPhoto ? t('editHint') : '';
+  $('#editHint').textContent = '';
   setView();
   $('#fitPanel').classList.remove('hidden');
   $('#spacesPanel').classList.remove('hidden');
@@ -827,7 +830,7 @@ function renderBagResult() {
     <div class="stat"><b>${p.stats.fillPercent}%</b><span>${esc(t('statFill'))}</span></div>
     ${p.stats.requestedWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${esc(t('statKg'))}</span></div>` : ''}`;
   $('#editBar').classList.add('hidden');
-  $('#editHint').textContent = state.image ? t('photoDragHint') : '';
+  $('#editHint').textContent = '';
   $('#fitPanel').classList.add('hidden');
   $('#spacesPanel').classList.add('hidden');
   $('#planView').innerHTML = renderBagPlan(state.bin, p.placed);
@@ -874,7 +877,7 @@ async function maybeExplain() {
  * اللي الخوارزمية طلعتها، مش من كلام جديد، عشان الصورة تعبّر عن الترتيب
  * المحسوب مش عن خيال تاني.
  */
-async function onRealImage() {
+async function onRealImage(opts = {}) {
   if (!state.plan) return toast(t('t_calcFirst'));
   const placed = isBag() ? footprints() : shownPlaced();
   if (!placed.length) return toast(t('t_needItems'));
@@ -898,10 +901,13 @@ async function onRealImage() {
       });
       $('#afterImage').src = url;
       $('#afterImageWrap').classList.remove('hidden');
+      $('#photoView').classList.add('hidden');
       $('#afterNote').textContent = t('aiImageEdited');
-      $('#afterImage').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      state.afterDone = true;
+      if (!opts.quiet) $('#afterImage').scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch (err) {
-      toast(err.message || t('img_failed'), 6000);
+      if (!opts.quiet) toast(err.message || t('img_failed'), 6000);
+      else $('#realImageHint').textContent = err.message || t('img_failed');
     } finally {
       loading(false);
       $('#btnRealImage').disabled = false;
@@ -943,10 +949,23 @@ async function onRealImage() {
 async function syncRealImageBtn() {
   const btn = $('#btnRealImage');
   const hint = $('#realImageHint');
-  // النسخة اللي بتعدّل صورتك مش محتاجة كونيكتور — بتكلّم الموديل مباشرة
+
+  // النسخة اللي بتعدّل صورتك مش محتاجة كونيكتور — بتكلّم الموديل مباشرة.
+  // وبتشتغل لوحدها: اللي المستخدم عايز يشوفه هو صورته مليانة، مش زرار
+  // يدوّر عليه عشان يشوفها.
   if (CAN_RENDER_IMAGE) {
     btn.classList.remove('hidden');
-    hint.textContent = t('realImageHintEdit');
+    if (state.image && !state.afterDone) {
+      const caller = await aiReady();
+      if (caller) {
+        hint.textContent = t('fillingPhoto');
+        onRealImage({ quiet: true });
+        return;
+      }
+      hint.textContent = t('needKeyForPhoto');
+      return;
+    }
+    hint.textContent = state.afterDone ? '' : t('realImageHintEdit');
     return;
   }
   const mcp = await imageGenReady();
@@ -1053,9 +1072,11 @@ function setView(view) {
   state.view = hasPhoto ? 'photo' : 'plan';
   $('#planView').classList.toggle('hidden', hasPhoto);
   $('#photoView').classList.toggle('hidden', !hasPhoto);
-  $('#editTools').classList.toggle('hidden', !hasPhoto);
-  $('#removedList').classList.toggle('hidden', !hasPhoto || !state.edit?.removed?.length);
-  if (hasPhoto) { renderOverlay(); renderRemoved(); }
+  // أدوات المسك والتحريك كانت بتتعامل مع الأشكال المرسومة على الصورة.
+  // الأشكال اتشالت، فالأدوات مالهاش سطح تشتغل عليه دلوقتي.
+  $('#editTools').classList.add('hidden');
+  $('#removedList').classList.add('hidden');
+  if (hasPhoto) renderOverlay();
 }
 
 /** الحاجات المعروضة دلوقتي: المعدّلة لو المستخدم حرّك، وإلا اللي الخوارزمية طلعته. */
@@ -1096,42 +1117,38 @@ function defaultCorners() {
   ];
 }
 
+/**
+ * الصورة بتتعرض زي ما هي.
+ *
+ * كان هنا رسم: مستطيلات ملوّنة وأشكال ونقط خضرا على أركان المساحة.
+ * ده كان بيوري الحساب صح — وبرضه مش ده اللي حد عايز يشوفه. اللي المستخدم
+ * عايزه إن الحاجات تبقى **جوه صورته**، مش إطار متحوّط عليها.
+ *
+ * فالرسم اتشال. الأركان لسه بتتحسب في الخلفية لأن الحساب محتاجها،
+ * بس محدش بيشوفها.
+ */
 function renderOverlay() {
   const box = $('#photoOverlay');
-  if (!state.image || !state.plan) {
-    box.innerHTML = '';
-    $('#photoNote').textContent = t('photoNoImage');
-    return;
-  }
-  // مانعرفش المساحة فين في الصورة؟ نحط رباعي مبدئي والمستخدم يظبطه.
-  // ده أحسن بكتير من إننا نقول «مش قادرين» — هو شايف صورته وعارف حدودها.
+  box.innerHTML = '';
+  $('#photoNote').textContent = '';
+
+  if (!state.image || !state.plan) return;
+
   if (!state.corners) {
     state.corners = defaultCorners();
     state.cornersManual = true;
   }
 
   $('#photoBase').src = state.image.dataUrl;
+
+  // بنحسب التحويل من غير ما نرسم حاجة — الحساب محتاجه، العين لأ
   const imgW = 1000;
   const imgH = Math.round(1000 * (state.image.height / state.image.width));
-  const out = renderPhotoOverlay(planePlane(), footprints(), state.corners, {
-    imgW, imgH,
-    approx: state.cornersApprox,
-    selectedId: state.edit?.selectedId,
-    movedIds: state.edit ? [...state.edit.movedIds] : [],
-  });
-  if (!out) { box.innerHTML = ''; $('#photoNote').textContent = t('photoNoImage'); return; }
-
-  // مقابض الأركان — بتتحط فوق الرسمة عشان تتسحب
-  const handles = state.corners.map((c, i) =>
-    `<circle cx="${(c.x * imgW).toFixed(1)}" cy="${(c.y * imgH).toFixed(1)}" r="${imgW * 0.022}"
-       class="corner-handle" data-corner="${i}" fill="var(--accent)" fill-opacity="0.85"
-       stroke="#fff" stroke-width="${imgW * 0.006}"/>`).join('');
-  box.innerHTML = out.svg.replace('</svg>', handles + '</svg>');
-
-  state.projected = out.projected;
-  state.homography = out.homography;
-  $('#photoNote').textContent = t(state.cornersManual ? 'photoDrag'
-    : state.cornersApprox ? 'photoApprox' : 'photoExact');
+  const out = renderPhotoOverlay(planePlane(), footprints(), state.corners, { imgW, imgH });
+  if (out) {
+    state.projected = out.projected;
+    state.homography = out.homography;
+  }
 }
 
 /**
