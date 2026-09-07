@@ -574,7 +574,7 @@ font:inherit;font-size:11.5px;font-weight:700;padding:4px 10px;cursor:pointer;
     <p class="hint" id="realImageHint"></p>
     <div id="afterImageWrap" class="hidden">
       <img id="afterImage" alt="">
-      <p class="hint" data-i18n="aiImageWarn"></p>
+      <p class="hint" id="afterNote"></p>
     </div>
   </section>
 
@@ -776,6 +776,8 @@ askPlaceholder: 'ليه رقبتي بتوجعني؟ / إزاي أخليها أه
 askBtn: 'اسأل', thinking: 'بفكر...',
 realImage: '📸 ورّيني الشكل النهائي',
 realImageHint: 'صورة واقعية للترتيب ده — بتتولّد بحسابك وبتكلّف ٢ كريدت.',
+realImageHintEdit: 'هياخد صورتك انت ويحط الحاجات جوّاها بنفس الترتيب المحسوب.',
+aiImageEdited: 'دي صورتك انت والحاجات متحطّة فيها بالترتيب اللي فوق. الأرقام والمخطط هما الدقيق.',
 img_sending: 'بجهّز الوصف...',
 img_drawing: 'بيرسم الصورة... (نص دقيقة تقريباً)',
 img_notGranted: 'محتاج موافقتك على استخدام الكونيكتور عشان أولّد الصورة.',
@@ -1031,6 +1033,8 @@ askPlaceholder: 'Why does my neck hurt? / How do I make it calmer?',
 askBtn: 'Ask', thinking: 'Thinking...',
 realImage: '📸 Show me how it would look',
 realImageHint: 'A realistic photo of this arrangement — generated on your own account, 2 credits.',
+realImageHintEdit: 'It takes your own photo and puts the things inside it, in the arrangement above.',
+aiImageEdited: 'This is your own photo with the things placed in it. The numbers and the plan are the exact part.',
 img_sending: 'Writing the description...',
 img_drawing: 'Painting it... (about half a minute)',
 img_notGranted: 'We need your permission to use the connector before generating.',
@@ -3449,26 +3453,127 @@ const res = await caller(prompt, { modelTier: 'default', onText, cache: false })
 return res.text || '';
 }
 
-/* js/ai.js */
-async function aiReady() {
-try {
-return (await window.claude?.use?.('sample')) || null;
-} catch {
-return null;
+/* js/ai-gemini.js */
+const MODELS = {
+vision: 'gemini-2.5-flash',
+image: 'gemini-2.5-flash-image',
+};
+const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+function coded(code, message) {
+const e = new Error(message);
+e.code = code;
+return e;
 }
+async function callGemini(model, body, apiKey) {
+if (!apiKey) throw coded('no_key', 'محتاج تحط مفتاح Gemini الأول (مجاني من Google AI Studio)');
+let res;
+try {
+res = await fetch(`${API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(body),
+});
+} catch {
+throw new Error('مفيش اتصال بالإنترنت — أو الشبكة رفضت الطلب');
+}
+if (!res.ok) {
+let detail = '';
+try {
+const err = await res.json();
+detail = err?.error?.message || '';
+} catch { /* الرد مش JSON */ }
+if (res.status === 400 && /API key/i.test(detail)) throw coded('no_key', 'مفتاح الـAPI غلط — راجعه');
+if (res.status === 403) throw coded('no_key', 'المفتاح مرفوض. اتأكد إنه مفعّل لـ Generative Language API');
+if (res.status === 404) throw new Error(`الموديل "${model}" مش متاح لمفتاحك. غيّر الاسم من MODELS`);
+if (res.status === 429) throw coded('rate_limited', 'خلصت حصتك المجانية دلوقتي. استنى شوية وجرب تاني');
+if (res.status >= 500) throw new Error('سيرفر جوجل مضغوط دلوقتي — جرب كمان شوية');
+throw new Error(detail || `الطلب فشل (${res.status})`);
+}
+return res.json();
+}
+function textOf(response) {
+const parts = response?.candidates?.[0]?.content?.parts || [];
+return parts.map((p) => p.text).filter(Boolean).join('');
+}
+function extractJson(response) {
+const text = textOf(response);
+if (!text.trim()) {
+const reason = response?.candidates?.[0]?.finishReason;
+throw reason === 'SAFETY'
+? coded('image_rejected', 'الموديل رفض يحلل الصورة دي')
+: coded('invalid_json', 'الموديل رجّع رد فاضي — جرب صورة أوضح');
+}
+try {
+return JSON.parse(text);
+} catch {
+const m = text.match(/\{[\s\S]*\}/);
+if (m) {
+try { return JSON.parse(m[0]); } catch { /* برضو بايظ */ }
+}
+throw coded('invalid_json', 'مقدرناش نقرا رد الموديل');
+}
+}
+function partsFor(prompt, images) {
+const parts = [{ text: prompt }];
+const list = Array.isArray(images) ? images : images ? [images] : [];
+for (const im of list) {
+const data = typeof im === 'string' ? im : im?.base64;
+if (data) parts.push({ inlineData: { mimeType: 'image/jpeg', data } });
+}
+return parts;
+}
+async function aiReady() {
+const apiKey = store.getPrefs().geminiKey;
+if (!apiKey) return null;
+const caller = async (prompt, opts = {}) => {
+const body = { contents: [{ role: 'user', parts: partsFor(prompt, opts.images) }] };
+const res = await callGemini(MODELS.vision, body, apiKey);
+const text = textOf(res);
+if (typeof opts.onText === 'function' && text) opts.onText(text);
+return { text };
+};
+caller.json = async (prompt, opts = {}) => {
+const body = {
+contents: [{ role: 'user', parts: partsFor(prompt, opts.images) }],
+generationConfig: { responseMimeType: 'application/json' },
+};
+return extractJson(await callGemini(MODELS.vision, body, apiKey));
+};
+caller.limits = async () => ({ images: true });
+caller.apiKey = apiKey;
+return caller;
 }
 async function canSendImages(caller) {
-try {
-const limits = await caller.limits();
-return !!limits?.images;
-} catch {
-return false;
+return !!caller?.apiKey;
 }
-}
-const NEEDS_KEY = false;
-const CAN_RENDER_IMAGE = false;
-async function renderAfterImage() {
-throw friendlyError(new Error('توليد الصور مش متاح في النسخة دي — المخطط المرسوم هو الدقيق أصلاً'));
+const NEEDS_KEY = true;
+const CAN_RENDER_IMAGE = true;
+async function renderAfterImage({ image, plan, caller, isContainer, spaceNote }) {
+const base64 = typeof image === 'string' ? image : image?.base64;
+if (!base64) throw new Error('محتاجين الصورة الأصلية');
+const items = (plan.placed || []).slice(0, 14).map((p) => {
+const w = Math.round(p.w ?? p.widthCm ?? 0);
+const d = Math.round(p.d ?? p.depthCm ?? 0);
+const h = Math.round(p.h ?? p.heightCm ?? 0);
+return `- ${p.nameAr} (${w}×${d}×${h} سم)`;
+}).join('\n');
+const prompt = `دي صورة ${spaceNote || 'مساحة'} فاضية. عدّل الصورة دي نفسها.
+**خلي كل حاجة زي ما هي بالظبط**: نفس ${isContainer ? 'الحاجة' : 'السطح'}، نفس لونها وخاماتها
+وتفاصيلها، نفس الخلفية، نفس الإضاءة، نفس زاوية التصوير، ونفس الإطار.
+متغيّرش المكان ومتحركش الكاميرا ومتعيدش رسم الصورة من الأول.
+اللي هيتغير حاجة واحدة بس: حط الحاجات دي ${isContainer ? 'جوّاها' : 'عليه'}، مرتبة:
+${items}
+خليها واقعية بمقاساتها دي بالنسبة للمساحة، وبظلال وإضاءة تطابق الصورة الأصلية،
+كأنها كانت موجودة وقت التصوير. من غير أي كتابة ولا أسهم ولا علامات.`;
+const body = {
+contents: [{ role: 'user', parts: partsFor(prompt, base64) }],
+generationConfig: { responseModalities: ['IMAGE'] },
+};
+const res = await callGemini(MODELS.image, body, caller?.apiKey || store.getPrefs().geminiKey);
+const parts = res?.candidates?.[0]?.content?.parts || [];
+const img = parts.find((p) => p.inlineData?.data);
+if (!img) throw new Error('الموديل مرجعش صورة — جرب تاني');
+return `data:${img.inlineData.mimeType || 'image/png'};base64,${img.inlineData.data}`;
 }
 
 /* js/app.js */
@@ -4127,17 +4232,43 @@ $('#aiNote').classList.remove('hidden');
 } catch { /* الشرح رفاهية — المخطط هو الأساس */ }
 }
 async function onRealImage() {
-const mcp = await imageGenReady();
-if (!mcp) return toast(t('img_noConnector'), 6000);
 if (!state.plan) return toast(t('t_calcFirst'));
 const placed = isBag() ? footprints() : shownPlaced();
 if (!placed.length) return toast(t('t_needItems'));
+const spaceNote = $('#whatInput')?.value.trim() || tx(state.profile?.spaceTypeAr) || '';
+if (CAN_RENDER_IMAGE && state.image) {
+const caller = await aiReady();
+if (!caller) return toast(t('t_noAI'));
+$('#btnRealImage').disabled = true;
+loading(true, t('img_drawing'));
+try {
+const url = await renderAfterImage({
+image: state.image,
+plan: { ...state.plan, placed },
+caller,
+isContainer: isBag(),
+spaceNote,
+});
+$('#afterImage').src = url;
+$('#afterImageWrap').classList.remove('hidden');
+$('#afterNote').textContent = t('aiImageEdited');
+$('#afterImage').scrollIntoView({ behavior: 'smooth', block: 'center' });
+} catch (err) {
+toast(err.message || t('img_failed'), 6000);
+} finally {
+loading(false);
+$('#btnRealImage').disabled = false;
+}
+return;
+}
+const mcp = await imageGenReady();
+if (!mcp) return toast(t('img_noConnector'), 6000);
 const prompt = buildPrompt({
 profile: state.profile,
 surface: isBag() ? { ...planePlane(), heightCm: state.surface.heightCm } : state.surface,
 placed,
 isContainer: isBag(),
-spaceNote: $('#whatInput')?.value.trim() || tx(state.profile?.spaceTypeAr) || '',
+spaceNote,
 });
 $('#btnRealImage').disabled = true;
 loading(true, t('img_sending'));
@@ -4148,6 +4279,7 @@ onStage: (stage) => loading(true, t(stage === 'sending' ? 'img_sending' : 'img_d
 });
 $('#afterImage').src = url;
 $('#afterImageWrap').classList.remove('hidden');
+$('#afterNote').textContent = t('aiImageWarn');
 $('#afterImage').scrollIntoView({ behavior: 'smooth', block: 'center' });
 } catch (err) {
 toast(imageError(err, t), 6000);
@@ -4159,6 +4291,11 @@ $('#btnRealImage').disabled = false;
 async function syncRealImageBtn() {
 const btn = $('#btnRealImage');
 const hint = $('#realImageHint');
+if (CAN_RENDER_IMAGE) {
+btn.classList.remove('hidden');
+hint.textContent = t('realImageHintEdit');
+return;
+}
 const mcp = await imageGenReady();
 btn.classList.toggle('hidden', !mcp);
 hint.textContent = mcp ? t('realImageHint') : '';

@@ -155,30 +155,40 @@ export const CAN_RENDER_IMAGE = true;
  * الميزة الوحيدة اللي موجودة هنا ومش موجودة في نسخة الآرتيفاكت.
  * الصورة دي للتخيّل بس — المخطط المرسوم من الأرقام هو الدقيق.
  */
-export async function renderAfterImage({ image, plan, caller }) {
+export async function renderAfterImage({ image, plan, caller, isContainer, spaceNote }) {
   const base64 = typeof image === 'string' ? image : image?.base64;
   if (!base64) throw new Error('محتاجين الصورة الأصلية');
 
-  const moves = plan.placed.slice(0, 12).map((p) => `- ${p.nameAr}`).join('\n');
-  const removed = (plan.offDesk || []).map((p) => p.nameAr).join('، ');
+  const items = (plan.placed || []).slice(0, 14).map((p) => {
+    const w = Math.round(p.w ?? p.widthCm ?? 0);
+    const d = Math.round(p.d ?? p.depthCm ?? 0);
+    const h = Math.round(p.h ?? p.heightCm ?? 0);
+    return `- ${p.nameAr} (${w}×${d}×${h} سم)`;
+  }).join('\n');
 
-  const prompt = `عدّل الصورة دي عشان تورّي نفس المكان بالظبط بعد الترتيب.
+  // ده تعديل على صورته هو، مش صورة جديدة. الجملة الأولى هي كل الفرق:
+  // اللي المستخدم عايزه إنه يشوف **مساحته** مليانة، مش مساحة شبهها.
+  const prompt = `دي صورة ${spaceNote || 'مساحة'} فاضية. عدّل الصورة دي نفسها.
 
-مهم جداً: خلي نفس الأوضة، نفس الأثاث، نفس الحيطة، نفس الإضاءة، ونفس زاوية التصوير.
-متخترعش حاجات جديدة ومتغيرش المكان. حرّك الحاجات الموجودة بس.
+**خلي كل حاجة زي ما هي بالظبط**: نفس ${isContainer ? 'الحاجة' : 'السطح'}، نفس لونها وخاماتها
+وتفاصيلها، نفس الخلفية، نفس الإضاءة، نفس زاوية التصوير، ونفس الإطار.
+متغيّرش المكان ومتحركش الكاميرا ومتعيدش رسم الصورة من الأول.
 
-الحاجات اللي على السطح:
-${moves}${removed ? `\n\nشيل من على السطح: ${removed}` : ''}
+اللي هيتغير حاجة واحدة بس: حط الحاجات دي ${isContainer ? 'جوّاها' : 'عليه'}، مرتبة:
+${items}
 
-النتيجة: نفس الصورة بالظبط بس الحاجات اتحركت لأماكنها الجديدة، والمساحة مرتبة ونضيفة.`;
+خليها واقعية بمقاساتها دي بالنسبة للمساحة، وبظلال وإضاءة تطابق الصورة الأصلية،
+كأنها كانت موجودة وقت التصوير. من غير أي كتابة ولا أسهم ولا علامات.`;
 
   const body = {
     contents: [{ role: 'user', parts: partsFor(prompt, base64) }],
+    // من غير السطر ده الموديل بيرد بكلام بدل ما يرجّع صورة
+    generationConfig: { responseModalities: ['IMAGE'] },
   };
 
   const res = await callGemini(MODELS.image, body, caller?.apiKey || store.getPrefs().geminiKey);
   const parts = res?.candidates?.[0]?.content?.parts || [];
   const img = parts.find((p) => p.inlineData?.data);
-  if (!img) throw new Error('الموديل مرجعش صورة — جرب تاني أو اكتفي بالمخطط');
+  if (!img) throw new Error('الموديل مرجعش صورة — جرب تاني');
   return `data:${img.inlineData.mimeType || 'image/png'};base64,${img.inlineData.data}`;
 }

@@ -10,7 +10,7 @@ import { startEditing, select as selectItem, moveTo, swap, removeItem, restoreIt
 import { planSpaces, moveSummary, COMPANION_SUGGESTIONS } from './multispace.js';
 import { imageGenReady, buildPrompt, makeRealImage, imageError } from './realimage.js';
 import { renderDeskPlan, renderBagPlan, renderLegend } from './render.js';
-import { aiReady, canSendImages, analyzeScene, describeSpace, adaptProfile, explainPlan, askAboutSpace, fileToBase64Resized, NEEDS_KEY } from './ai.js';
+import { aiReady, canSendImages, analyzeScene, describeSpace, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized, CAN_RENDER_IMAGE, NEEDS_KEY } from './ai.js';
 import { BUILT_IN_PROFILES, GENERIC_PROFILE, GENERIC_CONTAINER, normalizeProfile, profileOptions, getProfile, isContainer, ZONES } from './profiles.js';
 import { CABIN_BAGS, BAG_CATEGORIES } from '../data/bags.js';
 import { store } from './store.js';
@@ -875,19 +875,49 @@ async function maybeExplain() {
  * المحسوب مش عن خيال تاني.
  */
 async function onRealImage() {
-  const mcp = await imageGenReady();
-  if (!mcp) return toast(t('img_noConnector'), 6000);
   if (!state.plan) return toast(t('t_calcFirst'));
-
   const placed = isBag() ? footprints() : shownPlaced();
   if (!placed.length) return toast(t('t_needItems'));
+
+  const spaceNote = $('#whatInput')?.value.trim() || tx(state.profile?.spaceTypeAr) || '';
+
+  // النسخة اللي بتقدر توصل للموديل مباشرة بتعدّل **صورتك انت**.
+  // اللي جوه claude.ai ممنوعة تبعت ملفات، فبتولّد صورة من الوصف.
+  if (CAN_RENDER_IMAGE && state.image) {
+    const caller = await aiReady();
+    if (!caller) return toast(t('t_noAI'));
+    $('#btnRealImage').disabled = true;
+    loading(true, t('img_drawing'));
+    try {
+      const url = await renderAfterImage({
+        image: state.image,
+        plan: { ...state.plan, placed },
+        caller,
+        isContainer: isBag(),
+        spaceNote,
+      });
+      $('#afterImage').src = url;
+      $('#afterImageWrap').classList.remove('hidden');
+      $('#afterNote').textContent = t('aiImageEdited');
+      $('#afterImage').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (err) {
+      toast(err.message || t('img_failed'), 6000);
+    } finally {
+      loading(false);
+      $('#btnRealImage').disabled = false;
+    }
+    return;
+  }
+
+  const mcp = await imageGenReady();
+  if (!mcp) return toast(t('img_noConnector'), 6000);
 
   const prompt = buildPrompt({
     profile: state.profile,
     surface: isBag() ? { ...planePlane(), heightCm: state.surface.heightCm } : state.surface,
     placed,
     isContainer: isBag(),
-    spaceNote: $('#whatInput')?.value.trim() || tx(state.profile?.spaceTypeAr) || '',
+    spaceNote,
   });
 
   $('#btnRealImage').disabled = true;
@@ -899,6 +929,7 @@ async function onRealImage() {
     });
     $('#afterImage').src = url;
     $('#afterImageWrap').classList.remove('hidden');
+    $('#afterNote').textContent = t('aiImageWarn');
     $('#afterImage').scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (err) {
     toast(imageError(err, t), 6000);
@@ -912,6 +943,12 @@ async function onRealImage() {
 async function syncRealImageBtn() {
   const btn = $('#btnRealImage');
   const hint = $('#realImageHint');
+  // النسخة اللي بتعدّل صورتك مش محتاجة كونيكتور — بتكلّم الموديل مباشرة
+  if (CAN_RENDER_IMAGE) {
+    btn.classList.remove('hidden');
+    hint.textContent = t('realImageHintEdit');
+    return;
+  }
   const mcp = await imageGenReady();
   btn.classList.toggle('hidden', !mcp);
   hint.textContent = mcp ? t('realImageHint') : '';
