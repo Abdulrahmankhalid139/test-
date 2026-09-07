@@ -326,11 +326,6 @@ font:inherit;font-size:14.5px;font-weight:700;cursor:pointer;transition:.16s;
 #app{padding-inline:12px}
 .item-dims input{width:52px}
 }
-.viewtabs{display:flex;gap:4px;margin:10px 0 6px;background:var(--paper);
-border:1px solid var(--line);border-radius:9px;padding:3px}
-.vtab{flex:1;padding:7px 8px;border:0;border-radius:7px;background:none;
-color:var(--dim);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
-.vtab.active{background:var(--card);color:var(--accent);box-shadow:var(--shadow)}
 .photo-plan{position:relative;margin-top:6px}
 .photo-plan img{width:100%;display:block;border-radius:10px}
 #photoOverlay{position:absolute;inset:0;cursor:pointer}
@@ -494,11 +489,6 @@ font:inherit;font-size:11.5px;font-weight:700;padding:4px 10px;cursor:pointer;
       <button id="btnDismissSkip" class="link-btn" type="button" data-i18n="dismissBar"></button>
     </div>
     <div id="statsRow" class="stats"></div>
-
-    <div id="viewTabs" class="viewtabs hidden">
-      <button class="vtab active" data-view="plan" type="button" data-i18n="viewPlan"></button>
-      <button class="vtab" data-view="photo" type="button" data-i18n="viewPhoto"></button>
-    </div>
 
     <div id="planView" class="plan"></div>
 
@@ -688,7 +678,6 @@ wishBtn: '🤖 هاتهم',
 wishNeed: 'اكتب اللي عايز تحطه الأول',
 wishNone: 'مفهمناش اللي كتبته — جرب تكتبهم مفصولين بفاصلة',
 wishAdded: 'ضفنا {n} حاجة — عدّل أي مقاس قبل الحساب',
-viewPlan: 'المخطط', viewPhoto: 'على صورتي',
 photoExact: 'المخطط مرسوم على صورتك بأركان السطح اللي التطبيق شافها.',
 photoApprox: '⚠️ الأركان تقريبية — التطبيق شاف حدود السطح بس مش أركانه، فالرسم على الصورة تقديري.',
 photoNoImage: 'محتاج صورة عشان نرسم عليها.',
@@ -934,7 +923,6 @@ wishBtn: '🤖 Add them',
 wishNeed: 'Type what you want to put in first',
 wishNone: 'We could not read that — try separating them with commas',
 wishAdded: 'Added {n} item(s) — correct any size before calculating',
-viewPlan: 'Plan', viewPhoto: 'On my photo',
 photoExact: 'The plan is drawn onto your photo using the surface corners the app found.',
 photoApprox: '⚠️ The corners are approximate — the app saw the edges of the surface but not its corners, so this drawing is an estimate.',
 photoNoImage: 'A photo is needed to draw on.',
@@ -2508,6 +2496,163 @@ return `<ul class="legend">${[...seen.entries()].map(([cat, name]) =>
 `<li><span class="dot" style="background:${colorFor(cat)}"></span>${esc(name)}</li>`).join('')}</ul>`;
 }
 
+/* js/icons.js */
+const SHAPES = {
+stapler: {
+d: 'M.06.62h.88a.05.05 0 0 1 .05.05v.12a.05.05 0 0 1-.05.05H.06a.05.05 0 0 1-.05-.05V.67a.05.05 0 0 1 .05-.05z'
++ 'M.1.36h.66c.05 0 .09.04.09.09v.13H.1a.05.05 0 0 1-.05-.05V.41c0-.03.02-.05.05-.05z'
++ 'M.14.24h.5v.12h-.5z',
+stroke: true,
+},
+pen: {
+d: 'M.4.06h.2v.62H.4z M.4.68h.2L.5.94z M.42.1h.16v.08H.42z',
+stroke: true,
+},
+pens: {
+d: 'M.16.2h.14v.74H.16z M.36.1h.14v.84H.36z M.56.26h.14v.68H.56z M.76.16h.12v.78H.76z',
+stroke: true,
+},
+scissors: {
+d: 'M.3.06 .62.62 M.7.06 .38.62',
+circles: [[0.3, 0.8, 0.13], [0.7, 0.8, 0.13]],
+strokeOnly: true,
+},
+ruler: {
+d: 'M.02.38h.96v.24H.02z M.14.38v.1 M.26.38v.14 M.38.38v.1 M.5.38v.16 M.62.38v.1 M.74.38v.14 M.86.38v.1',
+strokeOnly: true,
+},
+glue: {
+d: 'M.34.3h.32v.64H.34z M.4.14h.2v.16H.4z M.44.04h.12v.1H.44z',
+stroke: true,
+},
+bottle: {
+d: 'M.34.34c0-.1.08-.1.08-.18V.16h.16v.16c0 .08.08.08.08.18v.6H.34z M.44.04h.12v.12H.44z',
+stroke: true,
+},
+mug: {
+d: 'M.18.28h.5v.62c0 .03-.02.04-.04.04H.22c-.02 0-.04-.01-.04-.04z',
+circles: [[0.79, 0.5, 0.13]],
+stroke: true,
+},
+book: {
+d: 'M.08.1h.84v.8H.08z M.22.1v.8 M.3.26h.5 M.3.4h.5 M.3.54h.36',
+strokeOnly: true,
+},
+books: {
+d: 'M.08.1h.2v.8h-.2z M.3.1h.18v.8H.3z M.5.16h.2v.74H.5z M.72.1h.2v.8h-.2z',
+strokeOnly: true,
+},
+phone: {
+d: 'M.28.06h.44a.06.06 0 0 1 .06.06v.76a.06.06 0 0 1-.06.06H.28a.06.06 0 0 1-.06-.06V.12a.06.06 0 0 1 .06-.06z M.42.12h.16',
+strokeOnly: true,
+},
+laptop: {
+d: 'M.16.14h.68v.5H.16z M.06.7h.88l-.06.16H.12z',
+strokeOnly: true,
+},
+monitor: {
+d: 'M.06.1h.88v.56H.06z M.44.66h.12v.16H.44z M.3.86h.4',
+strokeOnly: true,
+},
+keyboard: {
+d: 'M.03.34h.94v.32H.03z M.12.42h.06 M.24.42h.06 M.36.42h.06 M.48.42h.06 M.6.42h.06 M.72.42h.06 M.84.42h.06 M.3.56h.4',
+strokeOnly: true,
+},
+mouse: {
+d: 'M.5.06c.22 0 .32.16.32.4S.72.94.5.94.18.7.18.46.28.06.5.06z M.5.06v.3',
+strokeOnly: true,
+},
+plant: {
+d: 'M.3.6h.4l-.06.34H.36z M.5.6C.5.4.36.3.24.28.28.44.36.56.5.6z M.5.6C.5.38.64.28.76.26.72.44.64.56.5.6z M.5.6V.34',
+strokeOnly: true,
+},
+clothes: {
+d: 'M.34.12 .5.2.66.12l.2.14-.1.16-.1-.06v.5H.34v-.5l-.1.06-.1-.16z',
+stroke: true,
+},
+shoes: {
+d: 'M.08.5h.34c.1 0 .16.1.28.14.14.05.28.06.28.16v.1H.08z',
+stroke: true,
+},
+box: {
+d: 'M.1.28h.8v.62H.1z M.1.28 .5.1.9.28 M.5.1v.8',
+strokeOnly: true,
+},
+headphones: {
+d: 'M.2.6V.5a.3.3 0 0 1 .6 0v.1 M.12.6h.16v.3H.12z M.72.6h.16v.3H.72z',
+strokeOnly: true,
+},
+charger: {
+d: 'M.3.16h.4v.34H.3z M.4.06v.1 M.6.06v.1 M.5.5v.2 M.5.7c-.2 0-.2.24 0 .24',
+strokeOnly: true,
+},
+generic: {
+d: 'M.14.14h.72v.72H.14z',
+strokeOnly: true,
+},
+};
+const BY_NAME = [
+[/دباس|stapl/i, 'stapler'],
+[/مقص|scissor/i, 'scissors'],
+[/مسطر|ruler/i, 'ruler'],
+[/صمغ|غرا|glue/i, 'glue'],
+[/أقلام|اقلام|قلم|هايلا|ماركر|pen|pencil|highlight|marker/i, 'pens'],
+[/ازاز|زجاج|مي(ه|ة)|bottle|water/i, 'bottle'],
+[/كوب|مج|فنجان|قهو|شاي|mug|cup|coffee/i, 'mug'],
+[/كتاب|كتب|نوت|دفتر|book|notebook/i, 'books'],
+[/موبايل|تليفون|هاتف|phone/i, 'phone'],
+[/لابتوب|laptop/i, 'laptop'],
+[/شاش|مونيتور|monitor|screen/i, 'monitor'],
+[/كيبورد|لوحة مفاتيح|keyboard/i, 'keyboard'],
+[/ماوس|فار|mouse/i, 'mouse'],
+[/نبت|زرع|plant/i, 'plant'],
+[/هدوم|ملابس|تيشيرت|قميص|cloth|shirt/i, 'clothes'],
+[/جزم|حذاء|شوز|shoe/i, 'shoes'],
+[/سماع|هيدفون|headphone/i, 'headphones'],
+[/شاحن|شاحنة|charger|cable/i, 'charger'],
+[/كرتون|علب|صندوق|box/i, 'box'],
+];
+const BY_CATEGORY = {
+pens: 'pens', stationery: 'pens', tools: 'scissors',
+drink: 'mug', bottle: 'bottle',
+books: 'books', book: 'books', notebook: 'books',
+phone: 'phone', laptop: 'laptop', monitor: 'monitor',
+keyboard: 'keyboard', mouse: 'mouse',
+plant: 'plant', clothes: 'clothes', shoes: 'shoes',
+headphones: 'headphones', electronics: 'charger',
+storage: 'box', decor: 'plant',
+};
+function shapeFor(item) {
+const name = String(item?.nameAr ?? '');
+for (const [re, key] of BY_NAME) {
+if (re.test(name)) return SHAPES[key];
+}
+const byCat = BY_CATEGORY[item?.category];
+return SHAPES[byCat] || SHAPES.generic;
+}
+function iconSvg(item, quad, color, opts = {}) {
+if (!quad || quad.length !== 4) return '';
+const shape = shapeFor(item);
+const o = quad[3], px = quad[2], py = quad[0];
+const a = px.x - o.x, b = px.y - o.y;
+const c = py.x - o.x, d = py.y - o.y;
+if (!Number.isFinite(a + b + c + d)) return '';
+const scale = Math.sqrt(Math.abs(a * d - b * c)) || 1;
+const sw = Math.max(0.012, 2.2 / scale);
+const parts = [];
+if (shape.d) {
+parts.push(`<path d="${shape.d}" fill="${shape.strokeOnly ? 'none' : color}"
+fill-opacity="${shape.strokeOnly ? 0 : 0.55}" stroke="${opts.ink || '#14181d'}"
+stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round" vector-effect="none"/>`);
+}
+for (const [cx, cy, r] of shape.circles || []) {
+parts.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+stroke="${opts.ink || '#14181d'}" stroke-width="${sw}"/>`);
+}
+return `<g transform="matrix(${a.toFixed(4)} ${b.toFixed(4)} ${c.toFixed(4)} ${d.toFixed(4)} ${o.x.toFixed(2)} ${o.y.toFixed(2)})"
+pointer-events="none">${parts.join('')}</g>`;
+}
+
 /* js/overlay.js */
 const escSvg = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function centroid(quad) {
@@ -2552,14 +2697,15 @@ const side = shortestSide(pts);
 const fill = colorFor(it.category);
 const isSel = it.id === selected;
 const isMoved = moved.has(it.id);
-shapes.push(`<polygon points="${poly}" fill="${fill}" fill-opacity="${isSel ? 0.72 : 0.5}"
-stroke="${isSel ? '#ffffff' : isMoved ? '#c2571a' : '#14181d'}"
+shapes.push(`<polygon points="${poly}" fill="${fill}" fill-opacity="${isSel ? 0.34 : 0.18}"
+stroke="${isSel ? '#ffffff' : isMoved ? '#c2571a' : fill}"
 stroke-width="${isSel ? 4 : isMoved ? 3 : 1.5}"
 stroke-dasharray="${isMoved && !isSel ? '7 4' : ''}"
 data-id="${escSvg(it.id)}" class="ov-item${isSel ? ' sel' : ''}"/>`);
-if (side > 26) {
-const fs = Math.max(11, Math.min(18, side * 0.3));
-shapes.push(`<text x="${c.x.toFixed(1)}" y="${(c.y + fs * 0.35).toFixed(1)}"
+shapes.push(iconSvg(it, pts, fill, { ink: isSel ? '#ffffff' : '#14181d' }));
+if (side > 30) {
+const fs = Math.max(10, Math.min(15, side * 0.24));
+shapes.push(`<text x="${c.x.toFixed(1)}" y="${(c.y + side * 0.52).toFixed(1)}"
 text-anchor="middle" font-size="${fs.toFixed(0)}" font-weight="700"
 fill="#ffffff" stroke="#14181d" stroke-width="3" paint-order="stroke"
 pointer-events="none">${escSvg(it.nameAr)}</text>`);
@@ -3375,7 +3521,6 @@ $('#btnDismissSkip').addEventListener('click', () => $('#autoSkipBar').classList
 $('#optAutoSkip').addEventListener('change', () => store.setPrefs({ autoSkip: $('#optAutoSkip').checked }));
 $('#btnAfterImage').addEventListener('click', onAfterImage);
 $('#btnSave').addEventListener('click', onSave);
-$$('#viewTabs .vtab').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 $('#photoOverlay').addEventListener('click', onOverlayTap);
 setupCornerDrag();
 $('#btnMoveMode').addEventListener('click', toggleMoveMode);
@@ -3818,14 +3963,12 @@ ${p.offDesk.length ? `<div class="off-desk"><h3>${escHtml(t('removeThese'))}</h3
 p.offDesk.map((i) => `<li><b>${escHtml(i.nameAr)}</b> — ${escHtml(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
 $('#btnAfterImage').classList.toggle('hidden', !CAN_RENDER_IMAGE);
 const canPhoto = !!state.image;
-$('#viewTabs').classList.toggle('hidden', !canPhoto);
-if (!canPhoto && state.view === 'photo') setView('plan');
 $('#editHint').textContent = canPhoto ? t('editHint') : '';
+setView();
 $('#fitPanel').classList.remove('hidden');
 $('#spacesPanel').classList.remove('hidden');
 renderSpaces();
 runSpaces();
-if (state.view === 'photo') renderOverlay();
 }
 function renderBagResult() {
 const p = state.plan;
@@ -3836,15 +3979,12 @@ $('#statsRow').innerHTML = `
 <div class="stat"><b>${p.stats.unplacedCount}</b><span>${escHtml(t('statNoFit'))}</span></div>
 <div class="stat"><b>${p.stats.fillPercent}%</b><span>${escHtml(t('statFill'))}</span></div>
 ${p.stats.requestedWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${escHtml(t('statKg'))}</span></div>` : ''}`;
-const canPhotoBag = !!state.image;
-$('#viewTabs').classList.toggle('hidden', !canPhotoBag);
-if (!canPhotoBag && state.view === 'photo') setView('plan');
 $('#editBar').classList.add('hidden');
-$('#editHint').textContent = canPhotoBag ? t('photoDragHint') : '';
+$('#editHint').textContent = state.image ? t('photoDragHint') : '';
 $('#fitPanel').classList.add('hidden');
 $('#spacesPanel').classList.add('hidden');
 $('#planView').innerHTML = renderBagPlan(state.bin, p.placed);
-if (state.view === 'photo') renderOverlay();
+setView();
 $('#legendView').innerHTML = renderLegend(p.placed);
 $('#notesView').innerHTML = p.stats.overWeight
 ? `<div class="note warn"><span>⚠️</span><span>${escHtml(t('n_overweight', {
@@ -3956,13 +4096,13 @@ handNote.classList.toggle('hidden', !state.handDetected);
 if (state.handDetected) handNote.textContent = t('handDetected', { hand: t(state.handDetected) });
 }
 function setView(view) {
-state.view = view;
-$$('#viewTabs .vtab').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
-$('#planView').classList.toggle('hidden', view !== 'plan');
-$('#photoView').classList.toggle('hidden', view !== 'photo');
-$('#editTools').classList.toggle('hidden', view !== 'photo');
-$('#removedList').classList.toggle('hidden', view !== 'photo' || !state.edit?.removed?.length);
-if (view === 'photo') { renderOverlay(); renderRemoved(); }
+const hasPhoto = !!state.image;
+state.view = hasPhoto ? 'photo' : 'plan';
+$('#planView').classList.toggle('hidden', hasPhoto);
+$('#photoView').classList.toggle('hidden', !hasPhoto);
+$('#editTools').classList.toggle('hidden', !hasPhoto);
+$('#removedList').classList.toggle('hidden', !hasPhoto || !state.edit?.removed?.length);
+if (hasPhoto) { renderOverlay(); renderRemoved(); }
 }
 const shownPlaced = () => (state.edit ? state.edit.placed : state.plan?.placed) || [];
 function footprints() {

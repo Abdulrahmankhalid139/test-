@@ -14,7 +14,7 @@ const AI_MODULE = process.argv.includes('--gemini') ? 'js/ai-gemini.js' : 'js/ai
 
 const ORDER = [
   'js/i18n.js', 'js/geometry.js', 'js/profiles.js', 'js/packing.js', 'js/surface.js',
-  'js/homography.js', 'js/render.js', 'js/overlay.js', 'js/edit.js', 'js/multispace.js',
+  'js/homography.js', 'js/render.js', 'js/icons.js', 'js/overlay.js', 'js/edit.js', 'js/multispace.js',
   'js/store.js', 'data/bags.js', 'js/ai-core.js', AI_MODULE, 'js/app.js',
 ];
 

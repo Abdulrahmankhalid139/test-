@@ -10,6 +10,7 @@
 
 import { surfaceHomography, projectRect, applyH } from './homography.js';
 import { colorFor } from './render.js';
+import { iconSvg } from './icons.js';
 
 const escSvg = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -78,16 +79,20 @@ export function renderPhotoOverlay(surface, placed, corners, opts = {}) {
     const isSel = it.id === selected;
     const isMoved = moved.has(it.id);
 
-    shapes.push(`<polygon points="${poly}" fill="${fill}" fill-opacity="${isSel ? 0.72 : 0.5}"
-      stroke="${isSel ? '#ffffff' : isMoved ? '#c2571a' : '#14181d'}"
+    // المساحة اللي الحاجة واخداها — خفيفة عشان الشكل نفسه هو اللي يبان
+    shapes.push(`<polygon points="${poly}" fill="${fill}" fill-opacity="${isSel ? 0.34 : 0.18}"
+      stroke="${isSel ? '#ffffff' : isMoved ? '#c2571a' : fill}"
       stroke-width="${isSel ? 4 : isMoved ? 3 : 1.5}"
       stroke-dasharray="${isMoved && !isSel ? '7 4' : ''}"
       data-id="${escSvg(it.id)}" class="ov-item${isSel ? ' sel' : ''}"/>`);
 
-    // الاسم بيتكتب بس لو الشكل واسع كفاية يشيله
-    if (side > 26) {
-      const fs = Math.max(11, Math.min(18, side * 0.3));
-      shapes.push(`<text x="${c.x.toFixed(1)}" y="${(c.y + fs * 0.35).toFixed(1)}"
+    // شكل الحاجة نفسها — دباسة شكلها دباسة، عشان تتخيّل مش تقرا
+    shapes.push(iconSvg(it, pts, fill, { ink: isSel ? '#ffffff' : '#14181d' }));
+
+    // الاسم تحت الشكل، بس لو فيه مكان يشيله
+    if (side > 30) {
+      const fs = Math.max(10, Math.min(15, side * 0.24));
+      shapes.push(`<text x="${c.x.toFixed(1)}" y="${(c.y + side * 0.52).toFixed(1)}"
         text-anchor="middle" font-size="${fs.toFixed(0)}" font-weight="700"
         fill="#ffffff" stroke="#14181d" stroke-width="3" paint-order="stroke"
         pointer-events="none">${escSvg(it.nameAr)}</text>`);

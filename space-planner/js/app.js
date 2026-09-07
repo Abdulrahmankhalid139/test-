@@ -244,7 +244,6 @@ function init() {
   $('#btnAfterImage').addEventListener('click', onAfterImage);
   $('#btnSave').addEventListener('click', onSave);
 
-  $$('#viewTabs .vtab').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
   $('#photoOverlay').addEventListener('click', onOverlayTap);
   setupCornerDrag();
   $('#btnMoveMode').addEventListener('click', toggleMoveMode);
@@ -807,17 +806,14 @@ function renderDeskResult() {
       p.offDesk.map((i) => `<li><b>${esc(i.nameAr)}</b> — ${esc(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
   $('#btnAfterImage').classList.toggle('hidden', !CAN_RENDER_IMAGE);
 
-  // المخطط على الصورة متاح لأي مساحة فيها صورة — لو مانعرفش حدودها،
-  // المستخدم بيسحب الأركان بنفسه
+  // الصورة هي العرض لو موجودة، وإلا المخطط
   const canPhoto = !!state.image;
-  $('#viewTabs').classList.toggle('hidden', !canPhoto);
-  if (!canPhoto && state.view === 'photo') setView('plan');
   $('#editHint').textContent = canPhoto ? t('editHint') : '';
+  setView();
   $('#fitPanel').classList.remove('hidden');
   $('#spacesPanel').classList.remove('hidden');
   renderSpaces();
   runSpaces();
-  if (state.view === 'photo') renderOverlay();
 }
 
 function renderBagResult() {
@@ -829,17 +825,12 @@ function renderBagResult() {
     <div class="stat"><b>${p.stats.unplacedCount}</b><span>${esc(t('statNoFit'))}</span></div>
     <div class="stat"><b>${p.stats.fillPercent}%</b><span>${esc(t('statFill'))}</span></div>
     ${p.stats.requestedWeightKg ? `<div class="stat"><b>${p.stats.totalWeightKg}${weightWarn}</b><span>${esc(t('statKg'))}</span></div>` : ''}`;
-  // الحاوية كمان ليها «على صورتي»: بنرسم قاعها على الصورة.
-  // اللي مالهاش هنا هو التحريك بالإيد — الرص ثلاثي الأبعاد مش بيتعدّل بلمسة.
-  const canPhotoBag = !!state.image;
-  $('#viewTabs').classList.toggle('hidden', !canPhotoBag);
-  if (!canPhotoBag && state.view === 'photo') setView('plan');
   $('#editBar').classList.add('hidden');
-  $('#editHint').textContent = canPhotoBag ? t('photoDragHint') : '';
+  $('#editHint').textContent = state.image ? t('photoDragHint') : '';
   $('#fitPanel').classList.add('hidden');
   $('#spacesPanel').classList.add('hidden');
   $('#planView').innerHTML = renderBagPlan(state.bin, p.placed);
-  if (state.view === 'photo') renderOverlay();
+  setView();
   $('#legendView').innerHTML = renderLegend(p.placed);
   $('#notesView').innerHTML = p.stats.overWeight
     ? `<div class="note warn"><span>⚠️</span><span>${esc(t('n_overweight', {
@@ -976,14 +967,22 @@ function renderDetectedSpace() {
  * تبديل بين المخطط من فوق والمخطط مرسوم على الصورة.
  * الأرقام واحدة في الاتنين — اللي بيتغير نقطة النظر بس.
  */
+/**
+ * مفيش تبويبات.
+ *
+ * الصورة هي العرض. المخطط من فوق كان بديل وقت ما الرسم على الصورة
+ * مكانش موجود — دلوقتي موجود، والاتنين مع بعض كانوا بيخلّوا المستخدم
+ * يختار بين حاجة عايزها وحاجة مش عايزها. المخطط بيفضل للحالة الوحيدة
+ * اللي مفيهاش صورة أصلاً.
+ */
 function setView(view) {
-  state.view = view;
-  $$('#viewTabs .vtab').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
-  $('#planView').classList.toggle('hidden', view !== 'plan');
-  $('#photoView').classList.toggle('hidden', view !== 'photo');
-  $('#editTools').classList.toggle('hidden', view !== 'photo');
-  $('#removedList').classList.toggle('hidden', view !== 'photo' || !state.edit?.removed?.length);
-  if (view === 'photo') { renderOverlay(); renderRemoved(); }
+  const hasPhoto = !!state.image;
+  state.view = hasPhoto ? 'photo' : 'plan';
+  $('#planView').classList.toggle('hidden', hasPhoto);
+  $('#photoView').classList.toggle('hidden', !hasPhoto);
+  $('#editTools').classList.toggle('hidden', !hasPhoto);
+  $('#removedList').classList.toggle('hidden', !hasPhoto || !state.edit?.removed?.length);
+  if (hasPhoto) { renderOverlay(); renderRemoved(); }
 }
 
 /** الحاجات المعروضة دلوقتي: المعدّلة لو المستخدم حرّك، وإلا اللي الخوارزمية طلعته. */
