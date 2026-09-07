@@ -1,6 +1,6 @@
 /* خدمة العامل — بتخلي التطبيق يفتح من غير نت.
    استدعاءات Gemini بتعدي على الشبكة عادي (مش بتتخزن). */
-const CACHE = 'space-planner-v8';
+const CACHE = 'space-planner-v9';
 const SHELL = [
   './', './index.html', './css/app.css', './icon.svg', './manifest.json',
   './js/app.js', './js/i18n.js', './js/geometry.js', './js/packing.js',
@@ -25,6 +25,24 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   // أي حاجة برة الموقع (زي Gemini والخطوط) تعدي للشبكة على طول
   if (url.origin !== self.location.origin || e.request.method !== 'GET') return;
+
+  // الصفحة نفسها: الشبكة الأول عشان أي تحديث يوصل مع أول ريفريش،
+  // والكاش احتياطي لو النت قاطع. باقي الملفات من الكاش على طول.
+  const isPage = e.request.mode === 'navigate'
+    || url.pathname.endsWith('/') || url.pathname.endsWith('index.html');
+  if (isPage) {
+    e.respondWith(
+      fetch(e.request).then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put('./index.html', copy));
+        }
+        return res;
+      }).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
   e.respondWith(
     caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
       if (res.ok) {
