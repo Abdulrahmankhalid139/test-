@@ -144,11 +144,17 @@
       <p class="hint" id="photoNote"></p>
     </div>
 
+    <div id="editTools" class="edit-tools hidden">
+      <button id="btnMoveMode" class="tool" type="button"><span>✋</span><span data-i18n="moveMode"></span></button>
+      <button id="btnRemoveItem" class="tool" type="button" disabled><span>🗑</span><span data-i18n="removeItem"></span></button>
+      <button id="btnUndo" class="tool" type="button"><span>↩</span><span data-i18n="undoMove"></span></button>
+      <button id="btnResetLayout" class="tool" type="button"><span>⟲</span><span data-i18n="resetLayout"></span></button>
+      <button id="btnSaveEdit" class="tool primary" type="button"><span>💾</span><span data-i18n="saveEdit"></span></button>
+    </div>
     <div id="editBar" class="editbar hidden">
       <span id="editVerdict" class="verdict"></span>
-      <button id="btnUndo" class="link-btn" type="button" data-i18n="undoMove"></button>
-      <button id="btnResetLayout" class="link-btn" type="button" data-i18n="resetLayout"></button>
     </div>
+    <div id="removedList" class="removed-list hidden"></div>
     <p class="hint" id="editHint"></p>
 
     <div id="legendView"></div>

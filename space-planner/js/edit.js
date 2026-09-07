@@ -184,3 +184,47 @@ export function verdict(st) {
 // أسماء مميزة عن surface.js — الباندل بيدمج كل الموديولات في نطاق واحد
 const snapHalfCm = (n) => Math.round(n * 2) / 2;
 const clampCm2 = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/**
+ * بيشيل حاجة من الترتيب.
+ *
+ * الحاجة مش بتتمسح — بترجع في `removed` عشان ترجّعها لو غيّرت رأيك،
+ * ولأن «شيلتها من هنا» مش نفس «الحاجة دي مالهاش لازمة».
+ */
+export function removeItem(st, id) {
+  const item = st.placed.find((p) => p.id === id);
+  if (!item) return { st, ok: false, reason: 'notFound' };
+  const next = st.placed.filter((p) => p.id !== id);
+  const out = commit(st, next, [], { removedItem: item });
+  out.st = {
+    ...out.st,
+    removed: [...(st.removed || []), item],
+    selectedId: null,
+  };
+  return out;
+}
+
+/** بيرجّع حاجة اتشالت لمكانها الأصلي، لو المكان لسه فاضي. */
+export function restoreItem(st, id) {
+  const item = (st.removed || []).find((p) => p.id === id);
+  if (!item) return { st, ok: false, reason: 'notFound' };
+  const next = [...st.placed, item];
+  const out = commit(st, next, [id], { restoredItem: item });
+  out.st = { ...out.st, removed: (st.removed || []).filter((p) => p.id !== id) };
+  return out;
+}
+
+/**
+ * قواعد مبسّطة للحاويات.
+ *
+ * جوه شنطة أو سلة مفيش «منطقة وصول» ولا «ناحية إيدك» — السؤال الوحيد
+ * هو: الحاجة جوه الحدود ومش راكبة على حاجة تانية؟ فبنستخدم بروفايل
+ * بفئة واحدة محايدة عشان دالة التكلفة تشتغل من غير ما تحكم بمعايير
+ * مالهاش معنى هنا.
+ */
+export const CONTAINER_EDIT_PROFILE = {
+  spaceTypeAr: { ar: 'حاوية', en: 'Container' },
+  spaceKind: 'container',
+  categories: { other: { labelAr: { ar: 'حاجة', en: 'Item' }, zone: 'secondary', side: 'any' } },
+  tipsAr: [],
+};

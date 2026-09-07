@@ -379,6 +379,28 @@ overflow:hidden;background:var(--card)}
 .corner-handle{cursor:grab;touch-action:none}
 .corner-handle:active{cursor:grabbing}
 #photoOverlay{touch-action:none}
+.edit-tools{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.tool{
+flex:1;min-width:64px;display:flex;flex-direction:column;align-items:center;gap:2px;
+padding:8px 4px;border:1px solid var(--line);border-radius:9px;background:var(--card);
+color:var(--dim);font:inherit;font-size:11px;font-weight:700;cursor:pointer;transition:.15s;
+}
+.tool span:first-child{font-size:15px;line-height:1}
+.tool:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.tool:disabled{opacity:.4;cursor:not-allowed}
+.tool.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tool.primary{border-color:var(--accent-line);color:var(--accent)}
+#photoOverlay.moving{cursor:crosshair}
+.removed-list{
+display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;
+padding:9px 11px;border:1px dashed var(--mark);border-radius:9px;background:var(--mark-soft);
+}
+.removed-list strong{font-size:12px;color:var(--mark);margin-inline-end:4px}
+.chip{
+border:1px solid var(--mark);border-radius:20px;background:var(--card);color:var(--mark);
+font:inherit;font-size:11.5px;font-weight:700;padding:4px 10px;cursor:pointer;
+}
+.chip:hover{background:var(--mark);color:#fff}
 </style>
 </head>
 <body>
@@ -505,11 +527,17 @@ overflow:hidden;background:var(--card)}
       <p class="hint" id="photoNote"></p>
     </div>
 
+    <div id="editTools" class="edit-tools hidden">
+      <button id="btnMoveMode" class="tool" type="button"><span>✋</span><span data-i18n="moveMode"></span></button>
+      <button id="btnRemoveItem" class="tool" type="button" disabled><span>🗑</span><span data-i18n="removeItem"></span></button>
+      <button id="btnUndo" class="tool" type="button"><span>↩</span><span data-i18n="undoMove"></span></button>
+      <button id="btnResetLayout" class="tool" type="button"><span>⟲</span><span data-i18n="resetLayout"></span></button>
+      <button id="btnSaveEdit" class="tool primary" type="button"><span>💾</span><span data-i18n="saveEdit"></span></button>
+    </div>
     <div id="editBar" class="editbar hidden">
       <span id="editVerdict" class="verdict"></span>
-      <button id="btnUndo" class="link-btn" type="button" data-i18n="undoMove"></button>
-      <button id="btnResetLayout" class="link-btn" type="button" data-i18n="resetLayout"></button>
     </div>
+    <div id="removedList" class="removed-list hidden"></div>
     <p class="hint" id="editHint"></p>
 
     <div id="legendView"></div>
@@ -696,7 +724,17 @@ e_overlaps: 'متراكبة على {what}',
 e_edge: 'قريبة أوي من حرف السطح',
 e_blocks: 'حاجبة {what}',
 e_noRoom: 'مفيش مكان هنا',
-undoMove: 'رجّع خطوة', resetLayout: 'رجّع ترتيب التطبيق',
+undoMove: 'رجّع', resetLayout: 'ترتيب التطبيق',
+moveMode: 'حرّك', removeItem: 'شيل', saveEdit: 'احفظ',
+moveModeOn: '✋ وضع التحريك شغال — دوس على حاجة تمسكها.',
+moveModeOff: 'وضع التحريك اتقفل.',
+pickFirst: 'دوس على حاجة الأول',
+removedOne: 'شيلنا {what}. دوس عليها تحت عشان ترجّعها.',
+restoredOne: 'رجّعنا {what}.',
+removedTitle: 'شيلتهم من المساحة',
+editSaved: 'تعديلاتك اتحفظت ✅',
+tooBigMsg: '⛔ {what} أكبر من المساحة — مش هتدخل مهما حركتها.',
+okHere: '✅ مظبوطة هنا',
 fitTitle: '📏 هيدخل ولا لأ؟',
 fitHint: 'حاجة لسه مشتريتهاش — اكتب مقاسها ونقولك هتدخل فين، ولا ناقصك كام سنتي.',
 fitName: 'إيه هي؟ (مثال: شاشة ٢٧ بوصة)',
@@ -932,7 +970,17 @@ e_overlaps: 'overlapping {what}',
 e_edge: 'too close to the edge',
 e_blocks: 'blocking {what}',
 e_noRoom: 'no room here',
-undoMove: 'Undo', resetLayout: "Back to the app's layout",
+undoMove: 'Undo', resetLayout: "App's layout",
+moveMode: 'Move', removeItem: 'Remove', saveEdit: 'Save',
+moveModeOn: '✋ Move mode is on — tap an item to pick it up.',
+moveModeOff: 'Move mode is off.',
+pickFirst: 'Tap an item first',
+removedOne: 'Removed {what}. Tap it below to put it back.',
+restoredOne: '{what} is back.',
+removedTitle: 'Taken out of the space',
+editSaved: 'Your changes are saved ✅',
+tooBigMsg: '⛔ {what} is bigger than the space — it will not fit wherever you move it.',
+okHere: '✅ Fine here',
 fitTitle: '📏 Will it fit?',
 fitHint: "Something you don't own yet — type its size and we'll tell you where it would go, or how much you're short by.",
 fitName: 'What is it? (e.g. 27-inch monitor)',
@@ -2692,6 +2740,32 @@ score,
 }
 const snapHalfCm = (n) => Math.round(n * 2) / 2;
 const clampCm2 = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+function removeItem(st, id) {
+const item = st.placed.find((p) => p.id === id);
+if (!item) return { st, ok: false, reason: 'notFound' };
+const next = st.placed.filter((p) => p.id !== id);
+const out = commit(st, next, [], { removedItem: item });
+out.st = {
+...out.st,
+removed: [...(st.removed || []), item],
+selectedId: null,
+};
+return out;
+}
+function restoreItem(st, id) {
+const item = (st.removed || []).find((p) => p.id === id);
+if (!item) return { st, ok: false, reason: 'notFound' };
+const next = [...st.placed, item];
+const out = commit(st, next, [id], { restoredItem: item });
+out.st = { ...out.st, removed: (st.removed || []).filter((p) => p.id !== id) };
+return out;
+}
+const CONTAINER_EDIT_PROFILE = {
+spaceTypeAr: { ar: 'حاوية', en: 'Container' },
+spaceKind: 'container',
+categories: { other: { labelAr: { ar: 'حاجة', en: 'Item' }, zone: 'secondary', side: 'any' } },
+tipsAr: [],
+};
 
 /* js/multispace.js */
 function planSpaces(spaces, items, globalOpts = {}) {
@@ -3175,6 +3249,7 @@ bin: null,
 corners: null,
 cornersApprox: false,
 cornersManual: false,
+moveMode: false,
 edit: null,
 view: 'plan',
 extraSpaces: [],
@@ -3323,6 +3398,9 @@ $('#btnSave').addEventListener('click', onSave);
 $$('#viewTabs .vtab').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 $('#photoOverlay').addEventListener('click', onOverlayTap);
 setupCornerDrag();
+$('#btnMoveMode').addEventListener('click', toggleMoveMode);
+$('#btnRemoveItem').addEventListener('click', onRemoveSelected);
+$('#btnSaveEdit').addEventListener('click', onSaveEdit);
 $('#btnUndo').addEventListener('click', onUndoMove);
 $('#btnResetLayout').addEventListener('click', onResetLayout);
 $('#btnFitAsk').addEventListener('click', onFitAsk);
@@ -3729,6 +3807,10 @@ return { ...i, keepUpright: !!meta.keepUpright, fragile: i.fragile || !!meta.fra
 });
 const res = pack3D(bin, items);
 state.plan = { ...res, steps: packingOrder(res.placed) };
+const tooBig = (res.unplaced || []).filter((u) => u.reason?.[0]?.key === 'p_tooBig');
+if (tooBig.length) {
+toast(t('tooBigMsg', { what: tooBig.map((u) => u.nameAr).join('، ') }), 6000);
+}
 renderBagResult();
 }
 $('#askAnswer').classList.add('hidden');
@@ -3898,11 +3980,14 @@ state.view = view;
 $$('#viewTabs .vtab').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
 $('#planView').classList.toggle('hidden', view !== 'plan');
 $('#photoView').classList.toggle('hidden', view !== 'photo');
-if (view === 'photo') renderOverlay();
+$('#editTools').classList.toggle('hidden', view !== 'photo');
+$('#removedList').classList.toggle('hidden', view !== 'photo' || !state.edit?.removed?.length);
+if (view === 'photo') { renderOverlay(); renderRemoved(); }
 }
 const shownPlaced = () => (state.edit ? state.edit.placed : state.plan?.placed) || [];
 function footprints() {
 if (!isBag()) return shownPlaced();
+if (state.edit) return state.edit.placed;
 return (state.plan?.placed || [])
 .filter((p) => p.box)
 .map((p) => ({
@@ -3988,7 +4073,15 @@ window.addEventListener('touchmove', move, { passive: false });
 window.addEventListener('touchend', end);
 }
 function ensureEditing() {
-if (!state.edit && state.plan && !isBag()) {
+if (state.edit || !state.plan) return state.edit;
+if (isBag()) {
+state.edit = startEditing(
+{ placed: footprints() },
+planePlane(),
+CONTAINER_EDIT_PROFILE,
+{},
+);
+} else {
 state.edit = startEditing(state.plan, state.surface, state.profile || GENERIC_PROFILE, planOpts());
 }
 return state.edit;
@@ -3998,7 +4091,7 @@ const prefs = store.getPrefs();
 return { dominantHand: $('#dominantHand').value, windowSide: prefs.windowSide || 'none' };
 }
 function onOverlayTap(ev) {
-if (isBag() || !state.projected || !ensureEditing()) return;
+if (!state.moveMode || !state.projected || !ensureEditing()) return;
 const svg = $('#photoOverlay svg');
 if (!svg) return;
 const r = svg.getBoundingClientRect();
@@ -4012,7 +4105,7 @@ if (!hitId) return;
 state.edit = selectItem(state.edit, hitId);
 const it = state.edit.placed.find((i) => i.id === hitId);
 showVerdict({ picked: it?.nameAr });
-renderOverlay();
+afterEdit();
 return;
 }
 let res;
@@ -4021,7 +4114,7 @@ res = swap(state.edit, picked, hitId);
 } else if (hitId === picked) {
 state.edit = selectItem(state.edit, hitId);   // إلغاء الاختيار
 showVerdict({});
-renderOverlay();
+afterEdit();
 return;
 } else {
 const plan = imageToPlan(state.homography, x / vb.width, y / vb.height);
@@ -4033,9 +4126,67 @@ if (res?.ok) {
 state.edit = selectItem(res.st, null);
 state.edit.selectedId = null;
 showVerdict(res);
+afterEdit();
+}
+}
+function afterEdit() {
 renderOverlay();
+renderRemoved();
+$('#btnRemoveItem').disabled = !state.edit?.selectedId;
+if (!isBag() && state.plan) {
 $('#planView').innerHTML = renderDeskPlan({ ...state.plan, placed: state.edit.placed });
 }
+}
+function toggleMoveMode() {
+state.moveMode = !state.moveMode;
+$('#btnMoveMode').classList.toggle('on', state.moveMode);
+$('#photoOverlay').classList.toggle('moving', state.moveMode);
+if (state.moveMode) ensureEditing();
+toast(t(state.moveMode ? 'moveModeOn' : 'moveModeOff'), 3000);
+afterEdit();
+}
+function onRemoveSelected() {
+if (!state.edit?.selectedId) return toast(t('pickFirst'));
+const it = state.edit.placed.find((p) => p.id === state.edit.selectedId);
+const res = removeItem(state.edit, state.edit.selectedId);
+if (!res.ok) return;
+state.edit = res.st;
+toast(t('removedOne', { what: it?.nameAr || '' }), 4000);
+showVerdict({});
+afterEdit();
+}
+function renderRemoved() {
+const box = $('#removedList');
+const list = state.edit?.removed || [];
+box.classList.toggle('hidden', !list.length);
+if (!list.length) return;
+box.innerHTML = `<strong>${escHtml(t('removedTitle'))}</strong>` + list.map((p) =>
+`<button class="chip" type="button" data-restore="${escHtml(p.id)}">${escHtml(p.nameAr)} ↩</button>`).join('');
+box.onclick = (e) => {
+const id = e.target.dataset.restore;
+if (!id) return;
+const it = list.find((p) => p.id === id);
+const res = restoreItem(state.edit, id);
+if (!res.ok) return;
+state.edit = res.st;
+toast(t('restoredOne', { what: it?.nameAr || '' }));
+showVerdict(res);
+afterEdit();
+};
+}
+function onSaveEdit() {
+if (!state.edit) return toast(t('pickFirst'));
+const ok = store.saveScan({
+title: `${tx(state.profile?.spaceTypeAr) || t('appName')} ✋`,
+items: state.items,
+surface: state.surface,
+profile: state.profile,
+bin: state.bin,
+editedPlaced: state.edit.placed,
+removed: state.edit.removed || [],
+});
+toast(t(ok ? 'editSaved' : 't_savedFull'));
+renderSaved();
 }
 function showVerdict(res) {
 const bar = $('#editBar');
@@ -4053,6 +4204,11 @@ out.className = 'verdict bad';
 out.textContent = t('vIllegal', { why: tr([res.problems[0].why]) });
 return;
 }
+if (isBag()) {
+out.className = 'verdict good';
+out.textContent = t('okHere');
+return;
+}
 const v = verdict(state.edit);
 out.className = `verdict ${v.direction === 'better' ? 'good' : v.direction === 'worse' ? 'bad' : ''}`;
 out.textContent = v.direction === 'better'
@@ -4064,15 +4220,15 @@ function onUndoMove() {
 if (!state.edit) return;
 state.edit = undoEdit(state.edit);
 showVerdict({});
-renderOverlay();
-$('#planView').innerHTML = renderDeskPlan({ ...state.plan, placed: state.edit.placed });
+afterEdit();
 }
 function onResetLayout() {
 if (!state.edit) return;
 state.edit = resetLayout(state.edit);
+state.edit.removed = [];
 showVerdict({});
-renderOverlay();
-$('#planView').innerHTML = renderDeskPlan(state.plan);
+afterEdit();
+if (!isBag() && state.plan) $('#planView').innerHTML = renderDeskPlan(state.plan);
 }
 function applyDescribed(r, text) {
 const chosen = $('#spaceType').value;

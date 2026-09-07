@@ -429,3 +429,27 @@ h3{font-size:13.5px;margin:18px 0 7px}
 .corner-handle{cursor:grab;touch-action:none}
 .corner-handle:active{cursor:grabbing}
 #photoOverlay{touch-action:none}
+
+/* أدوات التعديل على الصورة */
+.edit-tools{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.tool{
+  flex:1;min-width:64px;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:8px 4px;border:1px solid var(--line);border-radius:9px;background:var(--card);
+  color:var(--dim);font:inherit;font-size:11px;font-weight:700;cursor:pointer;transition:.15s;
+}
+.tool span:first-child{font-size:15px;line-height:1}
+.tool:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.tool:disabled{opacity:.4;cursor:not-allowed}
+.tool.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tool.primary{border-color:var(--accent-line);color:var(--accent)}
+#photoOverlay.moving{cursor:crosshair}
+.removed-list{
+  display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;
+  padding:9px 11px;border:1px dashed var(--mark);border-radius:9px;background:var(--mark-soft);
+}
+.removed-list strong{font-size:12px;color:var(--mark);margin-inline-end:4px}
+.chip{
+  border:1px solid var(--mark);border-radius:20px;background:var(--card);color:var(--mark);
+  font:inherit;font-size:11.5px;font-weight:700;padding:4px 10px;cursor:pointer;
+}
+.chip:hover{background:var(--mark);color:#fff}

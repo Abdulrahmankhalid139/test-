@@ -6,7 +6,7 @@ import { pack3D, packingOrder } from './packing.js';
 import { layoutSurface, tryFit } from './surface.js';
 import { renderPhotoOverlay, imageToPlan, hitTest } from './overlay.js';
 import { validCorners, cornersFromBox } from './homography.js';
-import { startEditing, select as selectItem, moveTo, swap, undo as undoEdit, reset as resetLayout, verdict } from './edit.js';
+import { startEditing, select as selectItem, moveTo, swap, removeItem, restoreItem, undo as undoEdit, reset as resetLayout, verdict, CONTAINER_EDIT_PROFILE } from './edit.js';
 import { planSpaces, moveSummary, COMPANION_SUGGESTIONS } from './multispace.js';
 import { renderDeskPlan, renderBagPlan, renderLegend } from './render.js';
 import { aiReady, canSendImages, analyzeScene, describeSpace, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized, CAN_RENDER_IMAGE, NEEDS_KEY } from './ai.js';
@@ -37,6 +37,8 @@ const state = {
   cornersApprox: false,
   // الأركان دي المستخدم حطها بإيده؟ الرسالة تحت الصورة بتتغير على أساسها
   cornersManual: false,
+  // وضع التحريك: اللمس على الصورة مايعملش حاجة غير لما المستخدم يفتحه
+  moveMode: false,
   // حالة التعديل اليدوي، وبتتعمل أول ما المستخدم يفتح وضع التعديل
   edit: null,
   view: 'plan',
@@ -245,6 +247,9 @@ function init() {
   $$('#viewTabs .vtab').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
   $('#photoOverlay').addEventListener('click', onOverlayTap);
   setupCornerDrag();
+  $('#btnMoveMode').addEventListener('click', toggleMoveMode);
+  $('#btnRemoveItem').addEventListener('click', onRemoveSelected);
+  $('#btnSaveEdit').addEventListener('click', onSaveEdit);
   $('#btnUndo').addEventListener('click', onUndoMove);
   $('#btnResetLayout').addEventListener('click', onResetLayout);
   $('#btnFitAsk').addEventListener('click', onFitAsk);
@@ -767,6 +772,11 @@ async function onPlan() {
     });
     const res = pack3D(bin, items);
     state.plan = { ...res, steps: packingOrder(res.placed) };
+    // الحاجة اللي مستحيل تدخل: رسالة صريحة وقت الحساب، مش سطر في ليستة تحت
+    const tooBig = (res.unplaced || []).filter((u) => u.reason?.[0]?.key === 'p_tooBig');
+    if (tooBig.length) {
+      toast(t('tooBigMsg', { what: tooBig.map((u) => u.nameAr).join('، ') }), 6000);
+    }
     renderBagResult();
   }
 
@@ -971,7 +981,9 @@ function setView(view) {
   $$('#viewTabs .vtab').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
   $('#planView').classList.toggle('hidden', view !== 'plan');
   $('#photoView').classList.toggle('hidden', view !== 'photo');
-  if (view === 'photo') renderOverlay();
+  $('#editTools').classList.toggle('hidden', view !== 'photo');
+  $('#removedList').classList.toggle('hidden', view !== 'photo' || !state.edit?.removed?.length);
+  if (view === 'photo') { renderOverlay(); renderRemoved(); }
 }
 
 /** الحاجات المعروضة دلوقتي: المعدّلة لو المستخدم حرّك، وإلا اللي الخوارزمية طلعته. */
@@ -986,6 +998,7 @@ const shownPlaced = () => (state.edit ? state.edit.placed : state.plan?.placed) 
  */
 function footprints() {
   if (!isBag()) return shownPlaced();
+  if (state.edit) return state.edit.placed;
   return (state.plan?.placed || [])
     .filter((p) => p.box)
     .map((p) => ({
@@ -1096,9 +1109,22 @@ function setupCornerDrag() {
   window.addEventListener('touchend', end);
 }
 
-/** بيبدأ التعديل عند أول لمسة — قبل كده مفيش داعي نحسب حاجة. */
+/**
+ * بيبدأ التعديل عند أول لمسة.
+ *
+ * الحاوية بتتعدّل زي السطح بالظبط، بس على قاعها وبقواعد مبسّطة: جوه سلة
+ * مفيش «منطقة وصول» ولا «ناحية إيدك»، فيه بس «داخلة ولا متراكبة».
+ */
 function ensureEditing() {
-  if (!state.edit && state.plan && !isBag()) {
+  if (state.edit || !state.plan) return state.edit;
+  if (isBag()) {
+    state.edit = startEditing(
+      { placed: footprints() },
+      planePlane(),
+      CONTAINER_EDIT_PROFILE,
+      {},
+    );
+  } else {
     state.edit = startEditing(state.plan, state.surface, state.profile || GENERIC_PROFILE, planOpts());
   }
   return state.edit;
@@ -1114,7 +1140,7 @@ function planOpts() {
  * ده أبسط من السحب على تليفون، وبيشتغل باللمس والماوس من غير كود منفصل.
  */
 function onOverlayTap(ev) {
-  if (isBag() || !state.projected || !ensureEditing()) return;
+  if (!state.moveMode || !state.projected || !ensureEditing()) return;
   const svg = $('#photoOverlay svg');
   if (!svg) return;
   const r = svg.getBoundingClientRect();
@@ -1130,7 +1156,7 @@ function onOverlayTap(ev) {
     state.edit = selectItem(state.edit, hitId);
     const it = state.edit.placed.find((i) => i.id === hitId);
     showVerdict({ picked: it?.nameAr });
-    renderOverlay();
+    afterEdit();
     return;
   }
 
@@ -1140,7 +1166,7 @@ function onOverlayTap(ev) {
   } else if (hitId === picked) {
     state.edit = selectItem(state.edit, hitId);   // إلغاء الاختيار
     showVerdict({});
-    renderOverlay();
+    afterEdit();
     return;
   } else {
     // مكان فاضي: بنحوّل نقطة الصورة لسنتيمترات على السطح، وبنحط المركز هناك
@@ -1154,9 +1180,77 @@ function onOverlayTap(ev) {
     state.edit = selectItem(res.st, null);
     state.edit.selectedId = null;
     showVerdict(res);
-    renderOverlay();
+    afterEdit();
+  }
+}
+
+/** بعد أي تعديل: الرسمة، الأزرار، وليستة اللي اتشال. */
+function afterEdit() {
+  renderOverlay();
+  renderRemoved();
+  $('#btnRemoveItem').disabled = !state.edit?.selectedId;
+  if (!isBag() && state.plan) {
     $('#planView').innerHTML = renderDeskPlan({ ...state.plan, placed: state.edit.placed });
   }
+}
+
+/** وضع التحريك — زرار صريح بدل ما اللمس يشتغل من غير ما حد يطلبه. */
+function toggleMoveMode() {
+  state.moveMode = !state.moveMode;
+  $('#btnMoveMode').classList.toggle('on', state.moveMode);
+  $('#photoOverlay').classList.toggle('moving', state.moveMode);
+  if (state.moveMode) ensureEditing();
+  toast(t(state.moveMode ? 'moveModeOn' : 'moveModeOff'), 3000);
+  afterEdit();
+}
+
+/** شيل الحاجة المختارة. */
+function onRemoveSelected() {
+  if (!state.edit?.selectedId) return toast(t('pickFirst'));
+  const it = state.edit.placed.find((p) => p.id === state.edit.selectedId);
+  const res = removeItem(state.edit, state.edit.selectedId);
+  if (!res.ok) return;
+  state.edit = res.st;
+  toast(t('removedOne', { what: it?.nameAr || '' }), 4000);
+  showVerdict({});
+  afterEdit();
+}
+
+/** اللي اتشال بيفضل معروض عشان ترجّعه بلمسة. */
+function renderRemoved() {
+  const box = $('#removedList');
+  const list = state.edit?.removed || [];
+  box.classList.toggle('hidden', !list.length);
+  if (!list.length) return;
+  box.innerHTML = `<strong>${esc(t('removedTitle'))}</strong>` + list.map((p) =>
+    `<button class="chip" type="button" data-restore="${esc(p.id)}">${esc(p.nameAr)} ↩</button>`).join('');
+  box.onclick = (e) => {
+    const id = e.target.dataset.restore;
+    if (!id) return;
+    const it = list.find((p) => p.id === id);
+    const res = restoreItem(state.edit, id);
+    if (!res.ok) return;
+    state.edit = res.st;
+    toast(t('restoredOne', { what: it?.nameAr || '' }));
+    showVerdict(res);
+    afterEdit();
+  };
+}
+
+/** حفظ الترتيب اللي المستخدم عدّله بإيده. */
+function onSaveEdit() {
+  if (!state.edit) return toast(t('pickFirst'));
+  const ok = store.saveScan({
+    title: `${tx(state.profile?.spaceTypeAr) || t('appName')} ✋`,
+    items: state.items,
+    surface: state.surface,
+    profile: state.profile,
+    bin: state.bin,
+    editedPlaced: state.edit.placed,
+    removed: state.edit.removed || [],
+  });
+  toast(t(ok ? 'editSaved' : 't_savedFull'));
+  renderSaved();
 }
 
 /** الحكم على التعديل — بنفس دالة تكلفة الخوارزمية، مش برأي تاني. */
@@ -1177,6 +1271,13 @@ function showVerdict(res) {
     out.textContent = t('vIllegal', { why: tr([res.problems[0].why]) });
     return;
   }
+  // جوه حاوية مفيش «أحسن ولا أوحش» — مفيش منطقة وصول أصلاً.
+  // السؤال الوحيد اللي ليه معنى: داخلة ومش راكبة على حاجة؟
+  if (isBag()) {
+    out.className = 'verdict good';
+    out.textContent = t('okHere');
+    return;
+  }
   const v = verdict(state.edit);
   out.className = `verdict ${v.direction === 'better' ? 'good' : v.direction === 'worse' ? 'bad' : ''}`;
   out.textContent = v.direction === 'better'
@@ -1189,16 +1290,16 @@ function onUndoMove() {
   if (!state.edit) return;
   state.edit = undoEdit(state.edit);
   showVerdict({});
-  renderOverlay();
-  $('#planView').innerHTML = renderDeskPlan({ ...state.plan, placed: state.edit.placed });
+  afterEdit();
 }
 
 function onResetLayout() {
   if (!state.edit) return;
   state.edit = resetLayout(state.edit);
+  state.edit.removed = [];
   showVerdict({});
-  renderOverlay();
-  $('#planView').innerHTML = renderDeskPlan(state.plan);
+  afterEdit();
+  if (!isBag() && state.plan) $('#planView').innerHTML = renderDeskPlan(state.plan);
 }
 
 /* ═══════════ الوصف بالكلام — بديل كامل للصورة ═══════════ */
