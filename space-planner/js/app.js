@@ -8,8 +8,9 @@ import { renderPhotoOverlay, imageToPlan, hitTest } from './overlay.js';
 import { validCorners, cornersFromBox } from './homography.js';
 import { startEditing, select as selectItem, moveTo, swap, removeItem, restoreItem, undo as undoEdit, reset as resetLayout, verdict, CONTAINER_EDIT_PROFILE } from './edit.js';
 import { planSpaces, moveSummary, COMPANION_SUGGESTIONS } from './multispace.js';
+import { imageGenReady, buildPrompt, makeRealImage, imageError } from './realimage.js';
 import { renderDeskPlan, renderBagPlan, renderLegend } from './render.js';
-import { aiReady, canSendImages, analyzeScene, describeSpace, adaptProfile, explainPlan, askAboutSpace, renderAfterImage, fileToBase64Resized, CAN_RENDER_IMAGE, NEEDS_KEY } from './ai.js';
+import { aiReady, canSendImages, analyzeScene, describeSpace, adaptProfile, explainPlan, askAboutSpace, fileToBase64Resized, NEEDS_KEY } from './ai.js';
 import { BUILT_IN_PROFILES, GENERIC_PROFILE, GENERIC_CONTAINER, normalizeProfile, profileOptions, getProfile, isContainer, ZONES } from './profiles.js';
 import { CABIN_BAGS, BAG_CATEGORIES } from '../data/bags.js';
 import { store } from './store.js';
@@ -241,7 +242,7 @@ function init() {
   });
   $('#btnDismissSkip').addEventListener('click', () => $('#autoSkipBar').classList.add('hidden'));
   $('#optAutoSkip').addEventListener('change', () => store.setPrefs({ autoSkip: $('#optAutoSkip').checked }));
-  $('#btnAfterImage').addEventListener('click', onAfterImage);
+  $('#btnRealImage').addEventListener('click', onRealImage);
   $('#btnSave').addEventListener('click', onSave);
 
   $('#photoOverlay').addEventListener('click', onOverlayTap);
@@ -804,7 +805,7 @@ function renderDeskResult() {
     <ol>${p.placed.map((i) => `<li><b>${esc(i.nameAr)}</b><br><span class="pos">${esc(tr(i.reason))}</span></li>`).join('')}</ol>
     ${p.offDesk.length ? `<div class="off-desk"><h3>${esc(t('removeThese'))}</h3><ul>${
       p.offDesk.map((i) => `<li><b>${esc(i.nameAr)}</b> — ${esc(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
-  $('#btnAfterImage').classList.toggle('hidden', !CAN_RENDER_IMAGE);
+  syncRealImageBtn();
 
   // الصورة هي العرض لو موجودة، وإلا المخطط
   const canPhoto = !!state.image;
@@ -842,7 +843,7 @@ function renderBagResult() {
     ${p.unplaced.length ? `<div class="off-desk"><h3>${esc(t('wontFit'))}</h3><ul>${
       p.unplaced.map((i) => `<li><b>${esc(i.nameAr)}</b> — ${esc(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
   // صورة "بعد" ليها معنى في المكتب بس
-  $('#btnAfterImage').classList.add('hidden');
+  syncRealImageBtn();
 }
 
 /* ═══════════ إضافات الـAI ═══════════ */
@@ -865,20 +866,55 @@ async function maybeExplain() {
   } catch { /* الشرح رفاهية — المخطط هو الأساس */ }
 }
 
-async function onAfterImage() {
-  const caller = await aiReady();
-  if (!state.image) return toast(t('t_noOriginal'));
-  loading(true, t('t_drawing'));
+/**
+ * الصورة الواقعية للترتيب.
+ *
+ * الزرار مبيظهرش غير لما الكونيكتور يبقى موجود فعلاً — مفيش فايدة من
+ * زرار بيقول «مش متاح» لما تدوسي عليه. والوصف بيتبني من نفس الأرقام
+ * اللي الخوارزمية طلعتها، مش من كلام جديد، عشان الصورة تعبّر عن الترتيب
+ * المحسوب مش عن خيال تاني.
+ */
+async function onRealImage() {
+  const mcp = await imageGenReady();
+  if (!mcp) return toast(t('img_noConnector'), 6000);
+  if (!state.plan) return toast(t('t_calcFirst'));
+
+  const placed = isBag() ? footprints() : shownPlaced();
+  if (!placed.length) return toast(t('t_needItems'));
+
+  const prompt = buildPrompt({
+    profile: state.profile,
+    surface: isBag() ? { ...planePlane(), heightCm: state.surface.heightCm } : state.surface,
+    placed,
+    isContainer: isBag(),
+    spaceNote: $('#whatInput')?.value.trim() || tx(state.profile?.spaceTypeAr) || '',
+  });
+
+  $('#btnRealImage').disabled = true;
+  loading(true, t('img_sending'));
   try {
-    const url = await renderAfterImage({ image: state.image, plan: state.plan, caller });
+    const url = await makeRealImage({
+      mcp, prompt,
+      onStage: (stage) => loading(true, t(stage === 'sending' ? 'img_sending' : 'img_drawing')),
+    });
     $('#afterImage').src = url;
     $('#afterImageWrap').classList.remove('hidden');
-    $('#afterImageWrap').scrollIntoView({ behavior: 'smooth' });
+    $('#afterImage').scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (err) {
-    toast(err.message);
+    toast(imageError(err, t), 6000);
   } finally {
     loading(false);
+    $('#btnRealImage').disabled = false;
   }
+}
+
+/** الزرار بيظهر بس لو الكونيكتور موصّل — بنسأل مرة عند أول نتيجة. */
+async function syncRealImageBtn() {
+  const btn = $('#btnRealImage');
+  const hint = $('#realImageHint');
+  const mcp = await imageGenReady();
+  btn.classList.toggle('hidden', !mcp);
+  hint.textContent = mcp ? t('realImageHint') : '';
 }
 
 /* ═══════════ الحفظ ═══════════ */

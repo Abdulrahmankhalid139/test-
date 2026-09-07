@@ -549,12 +549,13 @@ font:inherit;font-size:11.5px;font-weight:700;padding:4px 10px;cursor:pointer;
       <div id="askAnswer" class="ai-note hidden"></div>
     </div>
     <div class="actions">
-      <button id="btnAfterImage" class="btn ghost" data-i18n="afterImage"></button>
+      <button id="btnRealImage" class="btn primary hidden" data-i18n="realImage"></button>
       <button id="btnSave" class="btn ghost" data-i18n="save"></button>
     </div>
+    <p class="hint" id="realImageHint"></p>
     <div id="afterImageWrap" class="hidden">
-      <p class="hint" data-i18n="aiImageWarn"></p>
       <img id="afterImage" alt="">
+      <p class="hint" data-i18n="aiImageWarn"></p>
     </div>
   </section>
 
@@ -753,9 +754,19 @@ wontFit: 'دول مش هيدخلوا',
 askTitle: 'اسأل عن مساحتك',
 askPlaceholder: 'ليه رقبتي بتوجعني؟ / إزاي أخليها أهدى؟',
 askBtn: 'اسأل', thinking: 'بفكر...',
-afterImage: 'ورّيني صورة «بعد الترتيب»',
+realImage: '📸 ورّيني الشكل النهائي',
+realImageHint: 'صورة واقعية للترتيب ده — بتتولّد بحسابك وبتكلّف ٢ كريدت.',
+img_sending: 'بجهّز الوصف...',
+img_drawing: 'بيرسم الصورة... (نص دقيقة تقريباً)',
+img_notGranted: 'محتاج موافقتك على استخدام الكونيكتور عشان أولّد الصورة.',
+img_noConnector: 'مفيش كونيكتور توليد صور موصّل بحسابك. ضيفه من إعدادات Claude وارجع.',
+img_reauth: 'صلاحية الكونيكتور خلصت — جدّدها من إعدادات Claude.',
+img_blocked: 'الكونيكتور مرفوض بسياسة الحساب.',
+img_busy: 'في ضغط دلوقتي — استنى شوية وجرب تاني.',
+img_timeout: 'الرسم أخد وقت أطول من المتوقع. جرب تاني.',
+img_failed: 'الصورة مطلعتش — جرب تاني.',
 save: 'احفظ', saved: 'محفوظات', open: 'افتح', erase: 'مسح',
-aiImageWarn: '⚠️ دي صورة تخيلية من الـAI — المخطط اللي فوق هو الدقيق.',
+aiImageWarn: '⚠️ دي صورة متولّدة للتخيّل — مش صورتك متعدّلة. الأرقام والمخطط فوق هما الدقيق.',
 rotate: '(لفّها)',
 about: 'عن التطبيق',
 aboutBody: '<b>الذكاء بيشوف بس.</b> الموديل بيتعرّف على الحاجات ونوع المساحة ويكتب قواعدها ويشرح — لكن <b>المقاسات بتتحسب بالرياضة</b> من مرجع القياس، و<b>الترتيب بتقرره خوارزمية</b>، والمخطط مرسوم من الأرقام دي. عشان كده المخطط مستحيل يهلوس.',
@@ -998,9 +1009,19 @@ wontFit: 'These will not fit',
 askTitle: 'Ask about your space',
 askPlaceholder: 'Why does my neck hurt? / How do I make it calmer?',
 askBtn: 'Ask', thinking: 'Thinking...',
-afterImage: 'Show me an after image',
+realImage: '📸 Show me how it would look',
+realImageHint: 'A realistic photo of this arrangement — generated on your own account, 2 credits.',
+img_sending: 'Writing the description...',
+img_drawing: 'Painting it... (about half a minute)',
+img_notGranted: 'We need your permission to use the connector before generating.',
+img_noConnector: 'No image connector is linked to your account. Add one in Claude settings and come back.',
+img_reauth: 'The connector needs signing in again — do it in Claude settings.',
+img_blocked: 'Your account policy blocks this connector.',
+img_busy: 'Busy right now — wait a moment and try again.',
+img_timeout: 'It took longer than expected. Try again.',
+img_failed: 'The image did not come out — try again.',
 save: 'Save', saved: 'Saved', open: 'Open', erase: 'Delete',
-aiImageWarn: '⚠️ This is an AI impression — the plan above is the accurate one.',
+aiImageWarn: '⚠️ A generated impression, not your photo retouched. The numbers above are the accurate part.',
 rotate: '(turn it)',
 about: 'About',
 aboutBody: '<b>The AI only looks.</b> It recognises the items, identifies the space, writes its rules and explains — but <b>the measurements are arithmetic</b> from the scale reference, <b>the layout is decided by an algorithm</b>, and the plan is drawn from those numbers. That is why the plan cannot hallucinate.',
@@ -3047,6 +3068,77 @@ food:       { labelAr:'أكل',               keepUpright:true,  fragile:false }
 other:      { labelAr:'حاجة تانية',        keepUpright:false, fragile:false },
 };
 
+/* js/realimage.js */
+const SERVER = 'higgsfield';
+const MODEL = 'nano_banana_pro';
+async function imageGenReady() {
+try {
+return (await window.claude?.use?.('mcp')) || null;
+} catch {
+return null;
+}
+}
+function whereOf(p, W, D) {
+const cx = (p.x + (p.w || 0) / 2) / (W || 1);
+const cy = (p.y + (p.d || 0) / 2) / (D || 1);
+const side = cx < 0.34 ? 'on the left' : cx > 0.66 ? 'on the right' : 'in the middle';
+const depth = cy < 0.34 ? 'at the front' : cy > 0.66 ? 'at the back' : '';
+return [side, depth].filter(Boolean).join(', ');
+}
+function buildPrompt({ profile, surface, placed, isContainer, spaceNote = '' }) {
+const W = surface?.widthCm || 0;
+const D = surface?.depthCm || 0;
+const H = surface?.heightCm || 0;
+const items = (placed || []).slice(0, 14).map((p) => {
+const w = Math.round(p.w ?? p.widthCm ?? 0);
+const d = Math.round(p.d ?? p.depthCm ?? 0);
+const h = Math.round(p.h ?? p.heightCm ?? 0);
+return `${p.nameAr} (about ${w}x${d}x${h} cm) ${whereOf(p, W, D)}`;
+});
+const what = spaceNote || 'a storage space';
+const kind = isContainer
+? `Looking down into ${what}, about ${Math.round(W)} cm wide, ${Math.round(D)} cm deep and ${Math.round(H)} cm tall,`
+: `${what}, about ${Math.round(W)} cm wide and ${Math.round(D)} cm deep, seen from a natural angle,`;
+return `A realistic photograph. ${kind} neatly arranged and tidy.
+${isContainer ? 'Inside it' : 'On it'}, exactly these things and nothing else:
+${items.map((s) => `- ${s}`).join('\n')}
+Everyday real objects, true to those sizes and those positions relative to each other.
+Natural indoor lighting, sharp focus, clean uncluttered background, no text, no labels,
+no people, no hands. Photographic, not an illustration or a diagram.`;
+}
+async function makeRealImage({ mcp, prompt, onStage, maxWaitMs = 180000 }) {
+onStage?.('sending');
+const started = await mcp.callTool(SERVER, 'generate_image', {
+params: { model: MODEL, prompt, count: 1, use_unlim: false },
+});
+const job = started?.payload?.results?.[0];
+if (!job?.id) throw new Error('no_job');
+if (job.status === 'completed' && job.result_url) return job.result_url;
+onStage?.('drawing');
+const until = Date.now() + maxWaitMs;
+while (Date.now() < until) {
+const waited = await mcp.callTool(SERVER, 'jobs_wait', {
+jobs: [{ index: 0, job_id: job.id }],
+timeout_seconds: 15,
+});
+const row = waited?.payload?.jobs?.[0];
+if (row?.status === 'completed' && row.result_url) return row.result_url;
+if (row?.status === 'failed' || waited?.payload?.summary?.failed) throw new Error('failed');
+if (waited?.payload?.all_terminal && !row?.result_url) throw new Error('failed');
+}
+throw new Error('timeout');
+}
+function imageError(err, t) {
+const code = err?.code || err?.message;
+if (code === 'not_granted') return t('img_notGranted');
+if (code === 'server_not_connected') return t('img_noConnector');
+if (code === 'needs_reauth') return t('img_reauth');
+if (code === 'blocked_by_policy' || code === 'approval_required') return t('img_blocked');
+if (code === 'rate_limited') return t('img_busy');
+if (code === 'timeout') return t('img_timeout');
+return t('img_failed');
+}
+
 /* js/ai-core.js */
 const LANG_NOTE = {
 ar: '',
@@ -3519,7 +3611,7 @@ showScreen('review');
 });
 $('#btnDismissSkip').addEventListener('click', () => $('#autoSkipBar').classList.add('hidden'));
 $('#optAutoSkip').addEventListener('change', () => store.setPrefs({ autoSkip: $('#optAutoSkip').checked }));
-$('#btnAfterImage').addEventListener('click', onAfterImage);
+$('#btnRealImage').addEventListener('click', onRealImage);
 $('#btnSave').addEventListener('click', onSave);
 $('#photoOverlay').addEventListener('click', onOverlayTap);
 setupCornerDrag();
@@ -3961,7 +4053,7 @@ $('#stepsView').innerHTML = `
 <ol>${p.placed.map((i) => `<li><b>${escHtml(i.nameAr)}</b><br><span class="pos">${escHtml(tr(i.reason))}</span></li>`).join('')}</ol>
 ${p.offDesk.length ? `<div class="off-desk"><h3>${escHtml(t('removeThese'))}</h3><ul>${
 p.offDesk.map((i) => `<li><b>${escHtml(i.nameAr)}</b> — ${escHtml(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
-$('#btnAfterImage').classList.toggle('hidden', !CAN_RENDER_IMAGE);
+syncRealImageBtn();
 const canPhoto = !!state.image;
 $('#editHint').textContent = canPhoto ? t('editHint') : '';
 setView();
@@ -3995,7 +4087,7 @@ $('#stepsView').innerHTML = `
 <ol>${p.steps.map((st) => `<li><b>${escHtml(st.nameAr)}</b>${st.rotated ? ` <span class="pos">${escHtml(t('rotate'))}</span>` : ''}${st.fragile ? ' ⚠️' : ''}<br><span class="pos">${escHtml(tr(st.position))}</span></li>`).join('')}</ol>
 ${p.unplaced.length ? `<div class="off-desk"><h3>${escHtml(t('wontFit'))}</h3><ul>${
 p.unplaced.map((i) => `<li><b>${escHtml(i.nameAr)}</b> — ${escHtml(tr(i.reason))}</li>`).join('')}</ul></div>` : ''}`;
-$('#btnAfterImage').classList.add('hidden');
+syncRealImageBtn();
 }
 async function maybeExplain() {
 $('#aiNote').classList.add('hidden');
@@ -4014,20 +4106,42 @@ $('#aiNote').classList.remove('hidden');
 }
 } catch { /* الشرح رفاهية — المخطط هو الأساس */ }
 }
-async function onAfterImage() {
-const caller = await aiReady();
-if (!state.image) return toast(t('t_noOriginal'));
-loading(true, t('t_drawing'));
+async function onRealImage() {
+const mcp = await imageGenReady();
+if (!mcp) return toast(t('img_noConnector'), 6000);
+if (!state.plan) return toast(t('t_calcFirst'));
+const placed = isBag() ? footprints() : shownPlaced();
+if (!placed.length) return toast(t('t_needItems'));
+const prompt = buildPrompt({
+profile: state.profile,
+surface: isBag() ? { ...planePlane(), heightCm: state.surface.heightCm } : state.surface,
+placed,
+isContainer: isBag(),
+spaceNote: $('#whatInput')?.value.trim() || tx(state.profile?.spaceTypeAr) || '',
+});
+$('#btnRealImage').disabled = true;
+loading(true, t('img_sending'));
 try {
-const url = await renderAfterImage({ image: state.image, plan: state.plan, caller });
+const url = await makeRealImage({
+mcp, prompt,
+onStage: (stage) => loading(true, t(stage === 'sending' ? 'img_sending' : 'img_drawing')),
+});
 $('#afterImage').src = url;
 $('#afterImageWrap').classList.remove('hidden');
-$('#afterImageWrap').scrollIntoView({ behavior: 'smooth' });
+$('#afterImage').scrollIntoView({ behavior: 'smooth', block: 'center' });
 } catch (err) {
-toast(err.message);
+toast(imageError(err, t), 6000);
 } finally {
 loading(false);
+$('#btnRealImage').disabled = false;
 }
+}
+async function syncRealImageBtn() {
+const btn = $('#btnRealImage');
+const hint = $('#realImageHint');
+const mcp = await imageGenReady();
+btn.classList.toggle('hidden', !mcp);
+hint.textContent = mcp ? t('realImageHint') : '';
 }
 function onSave() {
 const ok = store.saveScan({
